@@ -9,11 +9,11 @@
 <title>The Race App</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=0.2.0">
+<link rel="stylesheet" href="style.css?v=0.3.0">
 </head>
 <body class="theme-day">
 
-<div id="version" class="version">v0.2.0</div>
+<div id="version" class="version">v0.3.0</div>
 <div id="update" class="update hidden">Nova verzija je spremna, dodirni za osvežavanje</div>
 <div id="toast" class="toast hidden"></div>
 
@@ -84,7 +84,11 @@
         <div class="lbl">HEADING <span class="unit">°</span></div>
         <div class="big" id="hdg">–––</div>
       </div>
-      <div class="lift" id="lift">lift/header: uskoro</div>
+      <div class="lift-block" id="liftBox" role="button" aria-label="Dodirni za referentni kurs">
+        <div class="lift-top"><span class="lbl">LIFT / HEADER</span><button id="legChip" class="leg-chip">▲ UZ VETAR</button></div>
+        <div id="liftVal" class="lift-val">––</div>
+        <div id="liftSub" class="lift-sub">čekam kurs…</div>
+      </div>
       <div class="gps-note" id="gpsNote">čekam GPS…</div>
     </div>
 
@@ -131,6 +135,28 @@
     </div>
 
     <div class="card">
+      <h3>Lift / header</h3>
+      <p>Dodir na lift/header polje uvek postavlja trenutni kurs kao referencu, do sledećeg manevra.</p>
+      <div class="row">
+        <button class="btn" data-lmode="manual">Manual</button>
+        <button class="btn" data-lmode="smart">Smart <span class="pro">PRO</span></button>
+      </div>
+      <p class="small" id="lmodeInfo"></p>
+      <div class="small" style="margin-top:8px">Trka počinje: <select id="startLeg"><option value="up">uz vetar</option><option value="down">niz vetar</option></select></div>
+      <div class="row" style="margin-top:10px"><button id="simBtn" class="btn">Test: simuliraj okret (~2 min)</button></div>
+    </div>
+
+    <div class="card">
+      <h3>Snimanje (za podešavanje na vodi)</h3>
+      <p>Beleži GPS, nagib i lift/header svake sekunde. Posle izlaska preuzmi fajl i pošalji ga u razgovor.</p>
+      <div class="row">
+        <button id="logBtn" class="btn primary">Počni snimanje</button>
+        <button id="logExport" class="btn">Preuzmi CSV</button>
+      </div>
+      <p class="small" id="logInfo"></p>
+    </div>
+
+    <div class="card">
       <h3>Libela</h3>
       <label class="check"><input type="checkbox" id="heelInvert"> Obrni stranu (ako svetli pogrešna strana)</label>
       <div class="small">Jedna dioda = <select id="heelStep"><option>2</option><option>3</option><option>5</option></select>°</div>
@@ -157,6 +183,6 @@
   </div>
 </section>
 
-<script src="app.js?v=0.2.0"></script>
+<script src="app.js?v=0.3.0"></script>
 </body>
 </html>

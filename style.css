@@ -113,3 +113,16 @@ select{font:inherit;padding:4px}
 #p-timer.lined .timer-sub{margin-top:0;font-size:15px}
 #p-timer.lined .sync{width:min(38vw,19vh);height:min(38vw,19vh);font-size:28px}
 #p-timer.lined .preset-row.locked .preset:not(.reset){display:none}
+
+/* LIFT / HEADER (v0.3) */
+.lift-block{width:100%;border:2px solid var(--line);border-radius:16px;padding:8px 12px;text-align:center;background:var(--card);cursor:pointer}
+.lift-block:active{transform:scale(.99)}
+.lift-top{display:flex;justify-content:space-between;align-items:center}
+.leg-chip{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:6px 12px;font-weight:800;font-size:14px}
+.lift-val{font-size:min(20vw,12vh);font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums}
+.lift-val.good{color:var(--good)} .lift-val.bad{color:var(--bad)} .lift-val.wait{color:var(--muted);font-size:min(9vw,5vh);padding:10px 0}
+.lift-sub{font-size:13px;color:var(--muted)}
+.pro{font-size:10px;background:var(--warn);color:#000;border-radius:4px;padding:1px 4px;margin-left:4px;vertical-align:middle}
+.btn.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.sim-badge{position:fixed;left:8px;bottom:6px;font-size:11px;font-weight:800;color:#fff;background:var(--bad);border-radius:4px;padding:1px 6px;z-index:50}
+#p-sog .big{font-size:min(26vw,14vh)}
