@@ -1,7 +1,7 @@
-/* The Race App — v0.1.0 */
+/* The Race App — v0.1.1 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.1.0';
+  var APP_VERSION = '0.1.1';
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -172,7 +172,9 @@
       signal('minute');
     } else if (T.state === 'count') {
       var rem = T.end - now();
-      var m = Math.round(rem / 60000);
+      // sync nadole na pun minut prema prikazanoj vrednosti: 4:46 -> 4:00, 4:00 -> 4:00, 3:59 -> 3:00
+      var shownSec = Math.ceil(rem / 1000);
+      var m = Math.floor(shownSec / 60);
       T.end = now() + m * 60000; T.lastSec = null;
       signal('sec');
     }
