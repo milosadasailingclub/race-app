@@ -176,6 +176,18 @@
       $('norPaste').value = ''; manage = false; render(); toast('Summary saved');
     } catch (err) { $('norInfo').textContent = 'Could not read the answer: ' + err.message + '. Copy Claude\'s whole reply and try again.'; }
   });
-  setTimeout(render, 0);
+  function seedSample() {
+    var S = window.RA_SAMPLE_EVENT; if (!S || sget('norSampleSeeded', false)) return Promise.resolve();
+    sset('norSampleSeeded', true);
+    var e = events(); if (e.some(function (x) { return x.id === S.id; })) return Promise.resolve();
+    e.unshift({ id: S.id, name: S.name, summary: S.summary, summaryAt: Date.now(), docNames: S.docNames, sample: true }); saveEvents(e);
+    if (!sget('norCur', null)) sset('norCur', S.id);
+    return Promise.all((S.docs || []).map(function (d) {
+      return fetch(d.url).then(function (r) { return r.blob(); }).then(function (b) {
+        return tx('readwrite', function (s) { s.put({ id: 'd' + uid(), eventId: S.id, name: d.name, size: b.size, added: Date.now(), blob: b }); });
+      }).catch(function () {});
+    }));
+  }
+  setTimeout(function () { seedSample().then(render, render); }, 0);
   window.NorSI = { render: render, _parse: parseAnswer, _prompt: buildPrompt };
 })();
