@@ -10,11 +10,11 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/saira-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=0.7.3">
+<link rel="stylesheet" href="style.css?v=0.8.0">
 </head>
 <body class="theme-night">
 
-<div id="version" class="version">v0.7.3</div>
+<div id="version" class="version">v0.8.0</div>
 <div id="update" class="update hidden">New version available. Tap to update</div>
 <div id="toast" class="toast hidden"></div>
 
@@ -100,9 +100,33 @@
     </div>
 
     <!-- 5. NoR / SI -->
-    <div class="page soon-page" id="p-nor">
-      <h2>NoR / SI</h2>
-      <p>Coming soon</p>
+    <div class="page nor-page" id="p-nor">
+      <div class="nor-head">
+        <select id="norEvent" aria-label="Event"></select>
+        <button class="icon-btn" id="norManageBtn" aria-label="Manage">✎</button>
+      </div>
+      <div id="norSummary" class="nor-summary"></div>
+      <div id="norManage" class="nor-manage hidden">
+        <div class="card">
+          <h3>Event</h3>
+          <div class="cl-new"><input id="norNewName" type="text" maxlength="40" placeholder="New event name (e.g. Ada Cup 2026)"><button class="btn primary" id="norNewBtn">+ New event</button></div>
+          <div class="row" style="margin-top:8px"><button class="btn danger" id="norDelEvent">Delete this event</button></div>
+        </div>
+        <div class="card">
+          <h3>Documents</h3>
+          <p>Add NoR, SI and amendments (PDF). They are stored on this phone and open without internet.</p>
+          <div id="norDocs"></div>
+          <label class="btn primary nor-file">+ Add PDF<input type="file" id="norFile" accept="application/pdf" multiple hidden></label>
+        </div>
+        <div class="card">
+          <h3>AI summary</h3>
+          <p><b>1.</b> Tap <b>Copy prompt</b> (the text of your PDFs is included). <b>2.</b> Open Claude, paste, send. <b>3.</b> Copy Claude's whole answer and paste it below.</p>
+          <div class="row"><button class="btn primary" id="norCopy">Copy prompt</button><a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener">Open Claude</a></div>
+          <textarea id="norPaste" rows="5" placeholder="Paste Claude's answer here"></textarea>
+          <div class="row"><button class="btn primary" id="norSave">Save summary</button></div>
+          <p class="small" id="norInfo"></p>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -226,9 +250,10 @@
   </div>
 </section>
 
-<script src="wxmap.js?v=0.7.3"></script>
-<script src="public-lists.js?v=0.7.3"></script>
-<script src="checklist.js?v=0.7.3"></script>
-<script src="app.js?v=0.7.3"></script>
+<script src="wxmap.js?v=0.8.0"></script>
+<script src="public-lists.js?v=0.8.0"></script>
+<script src="checklist.js?v=0.8.0"></script>
+<script src="nor.js?v=0.8.0"></script>
+<script src="app.js?v=0.8.0"></script>
 </body>
 </html>
