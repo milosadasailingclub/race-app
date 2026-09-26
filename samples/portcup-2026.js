@@ -3,6 +3,7 @@ window.RA_SAMPLE_EVENT = {
   id: 'sample-portcup26',
   name: 'Port Cup 2026 · Portorož (sample)',
   docNames: 'NoR v2, SI v1',
+  diagramUrls: ['samples/portcup-2026-courses.png'],
   docs: [{ name: 'NoR Port Cup 2026 v2.pdf', url: 'samples/NoR-PortCup-2026.pdf' }],
   summary: {
     event: 'Open Slovenian Championship 470 · 420 · Fireball · First 18SE / Seascape 18',
@@ -16,7 +17,7 @@ window.RA_SAMPLE_EVENT = {
     courses: [
       { name: 'Numeral pennant 1', sequence: ['Start', '1', '4 (gate)', '1', '4 (gate)', 'Finish'], notes: '' },
       { name: 'Numeral pennant 2', sequence: ['Start', '1', '4 (gate)', '1', '2', '3 (gate)', 'Finish'], notes: '' },
-      { name: 'Numeral pennant 3', sequence: ['Start', '1', '2', '3 (gate)', '2', '3 (gate)', 'Finish'], notes: 'Trapezoid or windward-leeward. Course shown on RC signal vessel no later than the warning. Single gate mark: leave to port.' }
+      { name: 'Numeral pennant 3', sequence: ['Start', '1', '2', '3 (gate)', '2', '3 (gate)', 'Finish'], notes: 'Course shown on RC signal vessel no later than the warning. Single gate mark: leave to port.' }
     ],
     marks: [
       { name: '1, 2', description: 'yellow inflatable cylinder' },

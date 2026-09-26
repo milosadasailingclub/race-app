@@ -289,3 +289,12 @@ body:not([data-view="menu"]):not([data-view="settings"]) .version{display:none}
 .nor-cname .pennant{flex:0 0 auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
 .nor-dia{background:#05070a;border:1px solid var(--line);border-radius:8px;margin:8px 0 4px;padding:4px}
 .nor-dia svg{display:block;width:100%;height:auto;max-height:300px}
+.nor-dia{background:#05070a;border:1px solid var(--line);border-radius:8px;margin:4px 0 8px;padding:8px;text-align:center}
+.nor-dia img{display:block;width:100%;height:auto;filter:invert(1) hue-rotate(180deg) brightness(.95) contrast(1.1);mix-blend-mode:screen}
+.nor-dia span{display:block;font-size:11px;color:var(--muted);margin-top:4px}
+.theme-day .nor-dia{background:#fff} .theme-day .nor-dia img{filter:none;mix-blend-mode:normal}
+.nor-thumb{width:48px;height:40px;object-fit:contain;background:#fff;border-radius:4px}
+.nor-crop{display:block;width:100%;height:auto;background:#fff;border-radius:6px;margin:8px 0}
+.crop-sl{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:12px;color:var(--muted);margin-bottom:8px}
+.crop-sl input{width:100%}
+#norDiaPage{min-height:44px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg);font:inherit;padding:0 8px}

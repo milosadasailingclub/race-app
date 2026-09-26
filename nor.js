@@ -21,7 +21,7 @@
     return dbP;
   }
   function tx(mode, fn) { return db().then(function (d) { return new Promise(function (res, rej) { var t = d.transaction('docs', mode), s = t.objectStore('docs'), out = fn(s); t.oncomplete = function () { res(out && out.result !== undefined ? out.result : out); }; t.onerror = function () { rej(t.error); }; }); }); }
-  function docsFor(evId) { return tx('readonly', function (s) { return s.getAll(); }).then(function (all) { return (all || []).filter(function (d) { return d.eventId === evId; }).sort(function (a, b) { return a.added - b.added; }); }); }
+  function docsFor(evId) { return tx('readonly', function (s) { return s.getAll(); }).then(function (all) { return (all || []).filter(function (d) { return d.eventId === evId && d.kind !== 'diagram'; }).sort(function (a, b) { return a.added - b.added; }); }); }
 
   /* ---- events ---- */
   function events() { return sget('norEvents', []); }
@@ -87,15 +87,19 @@
     if (!c) { box.innerHTML = '<div class="nor-empty"><h2>NoR / SI</h2><p>No event yet. Tap ✎ to create an event, add the NoR/SI PDFs and make the AI summary.</p></div>'; return; }
     var S = c.summary;
     if (!S) { box.innerHTML = '<div class="nor-empty"><h2>' + esc(c.name) + '</h2><p>No summary yet. Tap ✎ to add PDFs and create the AI summary.</p></div>'; return; }
+    var SMP = window.RA_SAMPLE_EVENT, diagrams = (c.diagramUrls || (SMP && c.id === SMP.id ? SMP.diagramUrls : null) || []).map(function (u) { return { src: u, caption: 'From the SI (Addendum B)' }; }).concat(diaCache[c.id] || []);
     var k = S.key || {}, h = '';
     h += '<div class="nor-title"><b>' + esc(S.event || c.name) + '</b><span>' + esc([S.venue, S.dates].filter(Boolean).join(' · ')) + '</span></div>';
     var tiles = [['First warning', k.first_warning], ['VHF', k.vhf], ['Time limit', k.time_limit], ['Penalty', k.penalty]].filter(function (x) { return x[1]; });
     if (tiles.length) h += '<div class="nor-tiles">' + tiles.map(function (x) { return '<div class="nor-tile"><span>' + x[0] + '</span><b>' + esc(x[1]) + '</b></div>'; }).join('') + '</div>';
     if (S.changes && S.changes.filter(Boolean).length) h += '<div class="nor-changes"><h3>Amendments</h3>' + list(S.changes) + '</div>';
-    if (S.courses && S.courses.length) h += sec('Courses', S.courses.map(function (co) {
-      var C = window.Courses, pn = C && C.pennantFromName(co.name), dia = C ? C.svg(co.sequence) : '';
-      return '<div class="nor-course"><div class="nor-cname">' + (pn ? C.pennant(pn) : '') + '<b>' + esc(co.name) + '</b></div>' + (dia ? '<div class="nor-dia">' + dia + '</div>' : '') + '<div class="nor-seq">' + (co.sequence || []).map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('<i>›</i>') + '</div>' + (co.notes ? '<p>' + esc(co.notes) + '</p>' : '') + '</div>';
-    }).join(''));
+    if ((S.courses && S.courses.length) || diagrams.length) {
+      var C = window.Courses, dh = diagrams.map(function (d) { return '<div class="nor-dia"><img src="' + d.src + '" alt="Course diagram"><span>' + esc(d.caption || 'From the SI / NoR') + '</span></div>'; }).join('');
+      h += sec('Courses', dh + (S.courses || []).map(function (co) {
+        var pn = C && C.pennantFromName(co.name);
+        return '<div class="nor-course"><div class="nor-cname">' + (pn ? C.pennant(pn) : '') + '<b>' + esc(co.name) + '</b></div><div class="nor-seq">' + (co.sequence || []).map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('<i>›</i>') + '</div>' + (co.notes ? '<p>' + esc(co.notes) + '</p>' : '') + '</div>';
+      }).join(''));
+    }
     if (S.marks && S.marks.length) h += sec('Marks', '<ul>' + S.marks.map(function (m) { return '<li><b>' + esc(m.name) + '</b> ' + esc(m.description) + '</li>'; }).join('') + '</ul>');
     h += sec('Start', txt(S.start)) + sec('Finish', txt(S.finish));
     if (S.schedule && S.schedule.length) h += sec('Schedule', S.schedule.map(function (d) { return '<p class="nor-day">' + esc(d.day) + '</p>' + list(d.items); }).join(''));
@@ -103,6 +107,13 @@
       sec('Scoring', txt(S.scoring)) + sec('Safety / check-in', list(S.safety)) + sec('Equipment', list(S.equipment)) + sec('Other', list(S.other));
     h += '<p class="small nor-foot">AI summary from ' + esc(c.docNames || 'your documents') + ' · ' + new Date(c.summaryAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) + '. Always check the official documents.</p>';
     box.innerHTML = h;
+  }
+  var diaCache = {};
+  function loadDiagrams(evId) {
+    return tx('readonly', function (st) { return st.getAll(); }).then(function (all) {
+      (diaCache[evId] || []).forEach(function (d) { URL.revokeObjectURL(d.src); });
+      diaCache[evId] = (all || []).filter(function (d) { return d.eventId === evId && d.kind === 'diagram'; }).map(function (d) { return { id: d.id, src: URL.createObjectURL(d.blob), caption: d.name }; });
+    });
   }
   function renderDocs() {
     var c = cur(), box = $('norDocs');
@@ -115,14 +126,59 @@
   }
   function render() {
     renderEvents(); renderSummary();
+    var cc = cur(); if (cc) loadDiagrams(cc.id).then(function () { renderSummary(); if (manage) renderDiaList(); });
     $('norSummary').classList.toggle('hidden', manage);
     $('norManage').classList.toggle('hidden', !manage);
     $('norManageBtn').classList.toggle('on', manage);
-    if (manage) renderDocs();
+    if (manage) { renderDocs(); renderDiaList(); }
+  }
+
+  /* ---- course diagram: copy from PDF page (crop) or image ---- */
+  var crop = { doc: null, page: 1, pages: 1, canvas: null };
+  function renderDiaList() {
+    var c = cur(), box = $('norDiaList'); if (!box || !c) return;
+    var list = diaCache[c.id] || [];
+    box.innerHTML = list.length ? list.map(function (d) { return '<div class="nor-doc"><img src="' + d.src + '" class="nor-thumb" alt=""><span>' + esc(d.caption) + '</span><button class="cl-del" data-del-dia="' + d.id + '">✕</button></div>'; }).join('') : '<p class="small">No course diagram yet.</p>';
+    docsFor(c.id).then(function (docs) {
+      $('norDiaDoc').innerHTML = docs.length ? docs.map(function (d) { return '<option value="' + d.id + '">' + esc(d.name) + '</option>'; }).join('') : '<option value="">Add a PDF first</option>';
+    });
+  }
+  function drawCrop() {
+    var cv = crop.canvas, out = $('norCropView'); if (!cv) return;
+    var l = +$('cropL').value, r = +$('cropR').value, t = +$('cropT').value, b = +$('cropB').value;
+    var x = cv.width * l / 100, y = cv.height * t / 100, w = Math.max(10, cv.width * (100 - r - l) / 100), h = Math.max(10, cv.height * (100 - b - t) / 100);
+    out.width = w; out.height = h; out.getContext('2d').drawImage(cv, x, y, w, h, 0, 0, w, h);
+  }
+  function loadPage() {
+    var id = $('norDiaDoc').value; if (!id) { toast('Add the SI / NoR PDF first.'); return; }
+    tx('readonly', function (st) { return st.get(id); }).then(function (d) {
+      return loadPdfJs().then(function () { return d.blob.arrayBuffer(); }).then(function (buf) { return pdfjsLib.getDocument({ data: buf }).promise; });
+    }).then(function (pdf) {
+      crop.pages = pdf.numPages; var n = Math.min(Math.max(1, +$('norDiaPage').value || pdf.numPages), pdf.numPages); $('norDiaPage').value = n; $('norDiaPage').max = pdf.numPages;
+      return pdf.getPage(n).then(function (pg) {
+        var vp = pg.getViewport({ scale: 2 }), cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height;
+        return pg.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise.then(function () { crop.canvas = cv; $('norCropBox').classList.remove('hidden'); drawCrop(); });
+      });
+    }).catch(function (e) { toast('Could not open PDF: ' + e.message); });
+  }
+  function saveDiagramBlob(blob, name) {
+    var c = cur(); if (!c) return;
+    tx('readwrite', function (st) { st.put({ id: 'g' + uid(), eventId: c.id, kind: 'diagram', name: name, size: blob.size, added: Date.now(), blob: blob }); })
+      .then(function () { return loadDiagrams(c.id); }).then(function () { renderDiaList(); renderSummary(); toast('Course diagram saved'); });
   }
 
   /* ---- actions ---- */
   $('norManageBtn').addEventListener('click', function () { manage = !manage; render(); });
+  $('norDiaLoad').addEventListener('click', loadPage);
+  ['cropL', 'cropR', 'cropT', 'cropB'].forEach(function (id) { $(id).addEventListener('input', drawCrop); });
+  $('norDiaSave').addEventListener('click', function () {
+    var out = $('norCropView'); out.toBlob(function (b) { saveDiagramBlob(b, 'From ' + ($('norDiaDoc').selectedOptions[0] || {}).textContent + ', page ' + $('norDiaPage').value); $('norCropBox').classList.add('hidden'); }, 'image/png');
+  });
+  $('norDiaImg').addEventListener('change', function (e) { var f = e.target.files && e.target.files[0]; e.target.value = ''; if (f) saveDiagramBlob(f, f.name); });
+  document.addEventListener('click', function (e) {
+    var o = e.target.closest && e.target.closest('[data-del-dia]'); if (!o) return;
+    var id = o.dataset.delDia; toast('Delete this diagram?', 'Delete', function () { tx('readwrite', function (st) { st.delete(id); }).then(function () { return loadDiagrams(cur().id); }).then(function () { renderDiaList(); renderSummary(); }); }, 4000);
+  });
   $('norEvent').addEventListener('change', function (e) { sset('norCur', e.target.value); render(); });
   $('norNewBtn').addEventListener('click', function () {
     var n = $('norNewName').value.trim(); if (!n) { toast('Type the event name first.'); return; }

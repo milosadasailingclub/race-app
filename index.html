@@ -10,11 +10,11 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/saira-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=0.8.3">
+<link rel="stylesheet" href="style.css?v=0.8.4">
 </head>
 <body class="theme-night">
 
-<div id="version" class="version">v0.8.3</div>
+<div id="version" class="version">v0.8.4</div>
 <div id="update" class="update hidden">New version available. Tap to update</div>
 <div id="toast" class="toast hidden"></div>
 
@@ -117,6 +117,19 @@
           <p>Add NoR, SI and amendments (PDF). They are stored on this phone and open without internet.</p>
           <div id="norDocs"></div>
           <label class="btn primary nor-file">+ Add PDF<input type="file" id="norFile" accept="application/pdf" multiple hidden></label>
+        </div>
+        <div class="card">
+          <h3>Course diagram</h3>
+          <p>Copy the course drawing from the SI / NoR: pick the PDF and page, crop to the drawing, save. Or add a photo / screenshot.</p>
+          <div id="norDiaList"></div>
+          <div class="row" style="margin-top:8px"><select id="norDiaDoc" style="flex:1"></select><input id="norDiaPage" type="number" min="1" value="" placeholder="page" style="width:70px"><button class="btn" id="norDiaLoad">Load page</button></div>
+          <div id="norCropBox" class="hidden">
+            <canvas id="norCropView" class="nor-crop"></canvas>
+            <div class="crop-sl"><label>Left <input type="range" id="cropL" min="0" max="90" value="0"></label><label>Right <input type="range" id="cropR" min="0" max="90" value="0"></label>
+            <label>Top <input type="range" id="cropT" min="0" max="90" value="0"></label><label>Bottom <input type="range" id="cropB" min="0" max="90" value="0"></label></div>
+            <button class="btn primary" id="norDiaSave">Save diagram</button>
+          </div>
+          <label class="btn nor-file">+ Add image<input type="file" id="norDiaImg" accept="image/*" hidden></label>
         </div>
         <div class="card">
           <h3>AI summary</h3>
@@ -250,12 +263,12 @@
   </div>
 </section>
 
-<script src="wxmap.js?v=0.8.3"></script>
-<script src="public-lists.js?v=0.8.3"></script>
-<script src="checklist.js?v=0.8.3"></script>
-<script src="samples/portcup-2026.js?v=0.8.3"></script>
-<script src="courses.js?v=0.8.3"></script>
-<script src="nor.js?v=0.8.3"></script>
-<script src="app.js?v=0.8.3"></script>
+<script src="wxmap.js?v=0.8.4"></script>
+<script src="public-lists.js?v=0.8.4"></script>
+<script src="checklist.js?v=0.8.4"></script>
+<script src="samples/portcup-2026.js?v=0.8.4"></script>
+<script src="courses.js?v=0.8.4"></script>
+<script src="nor.js?v=0.8.4"></script>
+<script src="app.js?v=0.8.4"></script>
 </body>
 </html>
