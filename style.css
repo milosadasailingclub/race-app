@@ -298,3 +298,7 @@ body:not([data-view="menu"]):not([data-view="settings"]) .version{display:none}
 .crop-sl{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:12px;color:var(--muted);margin-bottom:8px}
 .crop-sl input{width:100%}
 #norDiaPage{min-height:44px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg);font:inherit;padding:0 8px}
+.nor-head{width:100%;min-width:0}
+.nor-head select{flex:1 1 0;min-width:0;width:0;text-overflow:ellipsis;white-space:nowrap;overflow:hidden}
+.nor-head .icon-btn{flex:0 0 48px}
+.wx-controls select{min-width:0;width:0;text-overflow:ellipsis}
