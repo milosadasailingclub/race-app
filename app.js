@@ -1,7 +1,7 @@
-/* The Race App — v0.3.0 */
+/* The Race App — v0.4.0 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.3.0';
+  var APP_VERSION = '0.4.0';
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -19,7 +19,7 @@
     heelStep: store.get('heelStep', 3),
     calOffset: store.get('calOffset', null),
     calTime: store.get('calTime', null),
-    theme: store.get('theme', 'day'),
+    theme: store.get('theme', 'night'),
     preset: store.get('preset', 5),
     liftMode: store.get('liftMode', 'manual'),
     startLeg: store.get('startLeg', 'up')
@@ -57,10 +57,10 @@
     b.addEventListener('click', function () { unlockAudio(); show(b.getAttribute('data-go')); });
   });
   document.querySelectorAll('.menu-item.soon').forEach(function (b) {
-    b.addEventListener('click', function () { toast('Ova celina stiže u sledećim verzijama.'); });
+    b.addEventListener('click', function () { toast('Coming in a later version.'); });
   });
   $('dndBtn').addEventListener('click', function () {
-    toast('Automatski DND stiže sa nativnom verzijom. Za sada uključi „Ne uznemiravaj“ ručno.', null, null, 4000);
+    toast('Automatic DND comes with the native app. For now, turn on Do Not Disturb manually.', null, null, 4000);
   });
 
   /* ---------- theme ---------- */
@@ -134,17 +134,16 @@
   }
   function renderTimer() {
     var el = $('timer'), sub = $('timerSub'), btn = $('sync');
-    $('presets').classList.toggle('locked', T.state !== 'idle');
     if (T.state === 'idle') {
       el.textContent = cfg.preset + ':00'; el.classList.remove('last', 'up');
-      sub.textContent = 'spreman'; btn.textContent = 'START';
+      sub.textContent = 'TTS'; btn.textContent = 'START';
     } else if (T.state === 'count') {
       var rem = T.end - now();
       el.textContent = fmt(rem); el.classList.toggle('last', rem <= 60000); el.classList.remove('up');
-      sub.textContent = 'do starta'; btn.textContent = 'SYNC';
+      sub.textContent = 'TTS'; btn.textContent = 'SYNC';
     } else {
       el.textContent = '+' + fmtUp(now() - T.end); el.classList.remove('last'); el.classList.add('up');
-      sub.textContent = 'od starta'; btn.textContent = 'TRKA';
+      sub.textContent = 'RACE TIME'; btn.textContent = 'RACE';
     }
   }
   function tick() {
@@ -168,7 +167,9 @@
   }
   setInterval(tick, 100);
 
+  var suppressClick = false;
   $('sync').addEventListener('click', function () {
+    if (suppressClick) { suppressClick = false; return; }
     unlockAudio();
     if (T.state === 'idle') {
       T.state = 'count'; T.end = now() + cfg.preset * 60000; T.lastSec = null; T.autoSwitched = false;
@@ -198,29 +199,34 @@
   document.querySelectorAll('.preset[data-min]').forEach(function (b) {
     b.addEventListener('click', function () { if (T.state === 'idle') { setPreset(+b.getAttribute('data-min')); tick(); } });
   });
-  $('reset').addEventListener('click', function () {
-    if (T.state === 'idle') return;
-    if (now() - resetArmed < 3000) {
-      T.state = 'idle'; T.lastSec = null; resetArmed = 0; tick(); toast('Tajmer resetovan');
-    } else {
-      resetArmed = now(); toast('Dodirni Reset još jednom za potvrdu');
-    }
-  });
+  // Reset: dug pritisak (1.2 s) na SYNC/RACE dugme
+  (function () {
+    var el = $('sync'), tmr = null;
+    el.addEventListener('pointerdown', function () {
+      if (T.state === 'idle') return;
+      tmr = setTimeout(function () {
+        tmr = null; suppressClick = true; buzz(60);
+        toast('Reset timer?', 'Reset', function () { T.state = 'idle'; T.lastSec = null; tick(); toast('Timer reset'); }, 4000);
+      }, 1200);
+    });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (n) { el.addEventListener(n, function () { if (tmr) { clearTimeout(tmr); tmr = null; } }); });
+    el.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  })();
   setPreset(cfg.preset);
 
   function renderElapsed() {
     var e = $('elapsed');
     if (T.state === 'race') e.textContent = '+' + fmtUp(now() - T.end);
-    else if (T.state === 'count') e.textContent = 'start za ' + fmt(T.end - now());
+    else if (T.state === 'count') e.textContent = 'TTS ' + fmt(T.end - now());
     else e.textContent = '—';
   }
 
   /* ---------- SENSORI: nagib ---------- */
   var S = {
-    started: false, motionPerm: 'nepoznato', motionEvents: 0, lastMotion: 0,
+    started: false, motionPerm: 'unknown', motionEvents: 0, lastMotion: 0,
     rawHeel: null, heel: null, lastT: 0, recent: [],
-    geoPerm: 'nepoznato', geoError: '', fixes: 0, lastFix: null, acc: null,
-    sog: null, hdg: null, prevFix: null, wake: 'nije traženo', fixBuf: []
+    geoPerm: 'unknown', geoError: '', fixes: 0, lastFix: null, acc: null,
+    sog: null, hdg: null, prevFix: null, wake: 'not requested', fixBuf: []
   };
 
   function heelFromGravity(gx, gy, gz) {
@@ -274,16 +280,16 @@
 
   /* ---------- kalibracija ---------- */
   function calibrate() {
-    if (!S.recent.length) { toast('Senzor još ne šalje podatke. Dodirni ekran pa pokušaj ponovo.'); return; }
+    if (!S.recent.length) { toast('No sensor data yet. Tap the screen and try again.'); return; }
     var prev = { off: cfg.calOffset, t: cfg.calTime };
     var sum = 0; S.recent.forEach(function (v) { sum += v; });
     cfg.calOffset = sum / S.recent.length; cfg.calTime = new Date().toISOString();
     store.set('calOffset', cfg.calOffset); store.set('calTime', cfg.calTime);
     S.heel = null; buzz(150);
-    toast('Nula postavljena', 'Poništi', function () {
+    toast('Zero set', 'Undo', function () {
       cfg.calOffset = prev.off; cfg.calTime = prev.t;
       store.set('calOffset', cfg.calOffset); store.set('calTime', cfg.calTime); S.heel = null;
-      toast('Vraćena prethodna nula');
+      toast('Previous zero restored');
     }, 5000);
     renderSettings();
   }
@@ -301,7 +307,7 @@
   $('calBtn').addEventListener('click', calibrate);
   $('calClear').addEventListener('click', function () {
     cfg.calOffset = null; cfg.calTime = null; store.set('calOffset', null); store.set('calTime', null);
-    S.heel = null; renderSettings(); toast('Kalibracija obrisana');
+    S.heel = null; renderSettings(); toast('Calibration cleared');
   });
 
   /* ---------- GPS ---------- */
@@ -362,9 +368,9 @@
     $('sog').textContent = S.sog === null ? '–.–' : S.sog.toFixed(1);
     $('hdg').textContent = S.hdg === null ? '–––' : ('00' + Math.round(S.hdg) % 360).slice(-3);
     var n = $('gpsNote');
-    if (S.geoError) n.textContent = 'GPS greška: ' + S.geoError;
-    else if (!S.fixes) n.textContent = 'čekam GPS…';
-    else n.textContent = 'GPS ±' + Math.round(S.acc) + ' m' + (S.sog !== null && S.sog <= 0.5 ? ' · heading se prikazuje iznad 0.5 kn' : '');
+    if (S.geoError) n.textContent = 'GPS error: ' + S.geoError;
+    else if (!S.fixes) n.textContent = 'Waiting for GPS…';
+    else n.textContent = 'GPS ±' + Math.round(S.acc) + ' m' + (S.sog !== null && S.sog <= 0.5 ? ' · heading shown above 0.5 kn' : '');
   }
 
   /* ---------- pokretanje senzora ---------- */
@@ -373,15 +379,15 @@
       DeviceMotionEvent.requestPermission().then(function (r) {
         S.motionPerm = r; if (r === 'granted') window.addEventListener('devicemotion', onMotion);
         updateSensorsBtn();
-      }).catch(function (e) { S.motionPerm = 'greška: ' + e.message; updateSensorsBtn(); });
+      }).catch(function (e) { S.motionPerm = 'error: ' + e.message; updateSensorsBtn(); });
     } else if ('DeviceMotionEvent' in window) {
-      S.motionPerm = 'nije potrebna';
+      S.motionPerm = 'not required';
       window.addEventListener('devicemotion', onMotion);
-    } else S.motionPerm = 'nije podržano';
+    } else S.motionPerm = 'not supported';
   }
   var geoWatch = null;
   function startGeo() {
-    if (!('geolocation' in navigator)) { S.geoError = 'geolocation nije podržan'; return; }
+    if (!('geolocation' in navigator)) { S.geoError = 'geolocation not supported'; return; }
     if (geoWatch !== null) return;
     geoWatch = navigator.geolocation.watchPosition(onFix, onGeoErr, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
   }
@@ -391,11 +397,11 @@
     setTimeout(updateSensorsBtn, 2500);
   }
   function updateSensorsBtn() {
-    var needMotion = S.motionEvents === 0 && S.motionPerm !== 'nije podržano';
+    var needMotion = S.motionEvents === 0 && S.motionPerm !== 'not supported';
     var needGeo = S.geoPerm === 'denied';
     $('sensorsBtn').classList.toggle('hidden', !(S.started && (needMotion || needGeo)));
-    if (needGeo) $('sensorsBtn').textContent = 'Lokacija je blokirana: Chrome ⋮ → Settings → Site settings → Location';
-    else $('sensorsBtn').textContent = 'Dodirni da uključiš senzore nagiba';
+    if (needGeo) $('sensorsBtn').textContent = 'Location blocked: Chrome ⋮ → Settings → Site settings → Location';
+    else $('sensorsBtn').textContent = 'Tap to enable heel sensors';
   }
   $('sensorsBtn').addEventListener('click', function () {
     S.started = false; startSensors();
@@ -409,12 +415,12 @@
   /* ---------- wake lock ---------- */
   var wakeLock = null;
   function requestWakeLock() {
-    if (!('wakeLock' in navigator)) { S.wake = 'nije podržano'; return; }
+    if (!('wakeLock' in navigator)) { S.wake = 'not supported'; return; }
     if (wakeLock) return;
     navigator.wakeLock.request('screen').then(function (wl) {
-      wakeLock = wl; S.wake = 'aktivno';
-      wl.addEventListener('release', function () { wakeLock = null; S.wake = 'otpušteno'; });
-    }).catch(function (e) { S.wake = 'greška: ' + e.message; });
+      wakeLock = wl; S.wake = 'active';
+      wl.addEventListener('release', function () { wakeLock = null; S.wake = 'released'; });
+    }).catch(function (e) { S.wake = 'error: ' + e.message; });
   }
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible') { if (currentView === 'race') requestWakeLock(); checkVersion(); }
@@ -459,17 +465,17 @@
     if (L.side && src === 'smart') { /* zapamti za poređenje posle sledećeg okreta na isti hals */ }
   }
   function finishManeuver(t) {
-    var ha = avg(win(t - 5000, t), 'heel'), hb = L.heelBefore, kind = L.leg === 'up' ? 'okret' : 'gybe';
+    var ha = avg(win(t - 5000, t), 'heel'), hb = L.heelBefore, kind = L.leg === 'up' ? 'Tack' : 'Gybe';
     var turnSide = L.leg === 'up' ? (L.turnDir < 0 ? 'stbd' : 'port') : (L.turnDir > 0 ? 'stbd' : 'port');
     if (L.leg === 'up') {
       if (heelOk() && strong(hb) && !strong(ha) && Math.abs(L.turnSum) >= 70) {
-        L.leg = 'down'; kind = 'oborio (niz vetar)';
-        toast('Prepoznato: niz vetar', 'Ne, uz vetar', function () { L.leg = 'up'; renderLift(); }, 6000);
+        L.leg = 'down'; kind = 'Bear-away (downwind)';
+        toast('Detected: downwind', 'No, upwind', function () { L.leg = 'up'; renderLift(); }, 6000);
       } else { L.side = turnSide; }
     } else {
       if (heelOk() && strong(ha) && !strong(hb)) {
-        L.leg = 'up'; L.side = sideFromHeel(ha) || turnSide; kind = 'orcao (uz vetar)';
-        toast('Prepoznato: uz vetar', 'Ne, niz vetar', function () { L.leg = 'down'; renderLift(); }, 6000);
+        L.leg = 'up'; L.side = sideFromHeel(ha) || turnSide; kind = 'Round-up (upwind)';
+        toast('Detected: upwind', 'No, downwind', function () { L.leg = 'down'; renderLift(); }, 6000);
       } else { L.side = turnSide; }
     }
     L.note = kind;
@@ -523,11 +529,11 @@
   function manualRef() {
     var t = now(), hh = hdgs(win(t - 3000, t));
     var v = hh.length ? cmean(hh) : S.hdg;
-    if (v === null || v === undefined) { toast('Još nema kursa (treba brzina iznad 1 čvora).'); return; }
+    if (v === null || v === undefined) { toast('No heading yet (needs speed above 1 kn).'); return; }
     if (L.phase === 'accel') finishManeuver(t);
     if (!L.side) L.side = sideFromHeel(S.heel);
     lockRef('manual', v); buzz(60);
-    toast('Referenca postavljena: ' + ('00' + Math.round(v) % 360).slice(-3) + '°');
+    toast('Reference set: ' + ('00' + Math.round(v) % 360).slice(-3) + '°');
     renderLift();
   }
   $('liftBox').addEventListener('click', function (e) { if (e.target.id === 'legChip') return; manualRef(); });
@@ -537,25 +543,25 @@
 
   function renderLift() {
     var chip = $('legChip'), val = $('liftVal'), sub = $('liftSub');
-    chip.textContent = L.leg === 'up' ? '▲ UZ VETAR' : '▼ NIZ VETAR';
-    var sideTxt = L.side === 'stbd' ? 'desne uzde' : (L.side === 'port' ? 'leve uzde' : 'strana ?');
+    chip.textContent = L.leg === 'up' ? '▲ UPWIND' : '▼ DOWNWIND';
+    var sideTxt = L.side === 'stbd' ? 'Starboard' : (L.side === 'port' ? 'Port' : 'Tack ?');
     var modeTxt = L.refSrc === 'manual' ? 'MANUAL' : (L.refSrc === 'smart' ? 'SMART' : (cfg.liftMode === 'smart' ? 'SMART' : 'MANUAL'));
     val.className = 'lift-val';
-    if (L.phase === 'accel') { val.textContent = 'ubrzavanje…'; val.classList.add('wait'); sub.textContent = 'čekam da brod ubrza i smiri kurs · dodir = ručna referenca'; return; }
-    if (L.phase === 'locking') { val.textContent = 'uzimam kurs…'; val.classList.add('wait'); sub.textContent = (L.note ? L.note + ' · ' : '') + sideTxt; return; }
+    if (L.phase === 'accel') { val.textContent = 'ACCELERATING…'; val.classList.add('wait'); sub.textContent = 'Waiting for speed and heading to settle · tap = manual reference'; return; }
+    if (L.phase === 'locking') { val.textContent = 'LOCKING…'; val.classList.add('wait'); sub.textContent = (L.note ? L.note + ' · ' : '') + sideTxt; return; }
     if (L.ref === null || S.hdg === null) {
-      val.textContent = 'dodirni'; val.classList.add('wait');
-      sub.textContent = (L.phase === 'wait' ? (L.note ? L.note + ' · ' : '') : '') + 'dodir ovde = referentni kurs · ' + modeTxt;
+      val.textContent = 'TAP'; val.classList.add('wait');
+      sub.textContent = (L.phase === 'wait' ? (L.note ? L.note + ' · ' : '') : '') + 'Tap to set reference · ' + modeTxt;
       return;
     }
     var tn = now(), rw = win(tn - 4000, tn).filter(function (e) { return e.hdg !== null; }), rs = 0;
     for (var ri = 1; ri < rw.length; ri++) rs += nrm(rw[ri].hdg - rw[ri - 1].hdg);
-    if (Math.abs(rs) > 15) { val.textContent = 'manevar…'; val.classList.add('wait'); sub.textContent = 'kurs se brzo menja'; return; }
+    if (Math.abs(rs) > 15) { val.textContent = 'MANEUVER…'; val.classList.add('wait'); sub.textContent = 'Heading changing fast'; return; }
     var d = nrm(S.hdg - L.ref);
     var refTxt = 'ref ' + ('00' + Math.round(L.ref) % 360).slice(-3) + '° · ' + sideTxt + ' · ' + modeTxt;
     if (!L.side) {
       val.textContent = (d >= 0 ? '► ' : '◄ ') + Math.abs(Math.round(d)) + '°';
-      sub.textContent = refTxt + ' · strana nepoznata';
+      sub.textContent = refTxt + ' · tack unknown';
       return;
     }
     var lift = L.side === 'stbd' ? d : -d, a = Math.abs(Math.round(lift));
@@ -568,7 +574,7 @@
     var prev = L.lastRef[L.side], extra = '';
     if (prev !== null && L.refSrc === 'smart') {
       var sh = nrm(L.ref - prev); sh = L.side === 'stbd' ? sh : -sh;
-      extra = ' · prošli put na ovom halsu ' + (sh >= 0 ? '+' : '') + Math.round(sh) + '°';
+      extra = ' · vs last time on this tack ' + (sh >= 0 ? '+' : '') + Math.round(sh) + '°';
     }
     sub.textContent = refTxt + extra;
   }
@@ -577,8 +583,8 @@
   function renderLmode() {
     document.querySelectorAll('[data-lmode]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-lmode') === cfg.liftMode); });
     $('lmodeInfo').textContent = cfg.liftMode === 'smart'
-      ? 'Smart: posle svakog manevra aplikacija sama uzima referencu kad brod ubrza i smiri kurs. (Pro funkcija, za sada otključana za test.)'
-      : 'Manual: posle svakog manevra dodirni lift/header polje kad se smiriš na kursu.';
+      ? 'Smart: after each maneuver the app sets the reference automatically once the boat is up to speed and the heading settles. (Pro feature, unlocked for testing.)'
+      : 'Manual: after each maneuver, tap the Lift/Header field once you are settled on course.';
   }
   document.querySelectorAll('[data-lmode]').forEach(function (b) {
     b.addEventListener('click', function () { cfg.liftMode = b.getAttribute('data-lmode'); store.set('liftMode', cfg.liftMode); renderLmode(); renderLift(); });
@@ -596,11 +602,11 @@
   function startSim() {
     if (simTimer) return;
     S.sim = true; L.leg = 'up'; L.side = null; L.phase = 'idle'; L.ref = null; L.lastT = 0; L.hist = [];
-    var badge = document.createElement('div'); badge.className = 'sim-badge'; badge.id = 'simBadge'; badge.textContent = 'SIMULACIJA'; document.body.appendChild(badge);
+    var badge = document.createElement('div'); badge.className = 'sim-badge'; badge.id = 'simBadge'; badge.textContent = 'SIMULATION'; document.body.appendChild(badge);
     var pos = S.lastFix ? { lat: S.lastFix.lat, lon: S.lastFix.lon } : { lat: 44.785, lon: 20.40 };
     var k = 0, h = 45, n = function (a) { return (Math.random() - 0.5) * 2 * a; };
     show('race'); setTimeout(function () { goPage(1); }, 100);
-    toast('Simulacija: leve uzde 045°, okret oko 35. s, zatim lift 8° oko 90. s', null, null, 5000);
+    toast('Simulation: port tack 045°, tack at ~35 s, then an 8° lift at ~90 s', null, null, 5000);
     simTimer = setInterval(function () {
       k++;
       var kn, heel;
@@ -621,7 +627,7 @@
   function stopSim() {
     clearInterval(simTimer); simTimer = null; S.sim = false;
     var b = $('simBadge'); if (b) b.remove();
-    toast('Simulacija završena');
+    toast('Simulation finished');
   }
   $('simBtn').addEventListener('click', function () { if (simTimer) stopSim(); else startSim(); });
 
@@ -638,25 +644,25 @@
     renderLog();
   }
   function renderLog() {
-    $('logBtn').textContent = LOG.on ? 'Zaustavi snimanje' : 'Počni snimanje';
-    $('logInfo').textContent = LOG.rows.length ? ('Snimljeno ' + LOG.rows.length + ' sekundi (~' + Math.round(LOG.rows.length / 60) + ' min).') : 'Nema snimka.';
+    $('logBtn').textContent = LOG.on ? 'Stop logging' : 'Start logging';
+    $('logInfo').textContent = LOG.rows.length ? ('Logged ' + LOG.rows.length + ' s (~' + Math.round(LOG.rows.length / 60) + ' min).') : 'No log yet.';
   }
   $('logBtn').addEventListener('click', function () {
     if (!LOG.on && LOG.rows.length) {
-      toast('Postoji stari snimak.', 'Obriši i počni nov', function () { LOG.rows = []; LOG.on = true; store.set('log', []); renderLog(); }, 5000);
+      toast('An old log exists.', 'Delete & start new', function () { LOG.rows = []; LOG.on = true; store.set('log', []); renderLog(); }, 5000);
       return;
     }
     LOG.on = !LOG.on; store.set('log', LOG.rows); renderLog();
   });
   $('logExport').addEventListener('click', function () {
-    if (!LOG.rows.length) { toast('Nema snimka.'); return; }
+    if (!LOG.rows.length) { toast('No log yet.'); return; }
     var head = 'time,lat,lon,acc_m,sog_raw_kn,cog_raw,sog_kn,hdg,heel,lift_phase,leg,side,ref,lift_deg,timer_state,tts_s,sim';
     var blob = new Blob([head + '\n' + LOG.rows.join('\n') + '\n'], { type: 'text/csv' });
     var a = document.createElement('a'), d = new Date();
     a.href = URL.createObjectURL(blob);
     a.download = 'race-log-' + d.toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.csv';
     document.body.appendChild(a); a.click(); a.remove();
-    toast('Fajl je u Downloads folderu telefona');
+    toast('Saved to the phone Downloads folder');
   });
   renderLog();
 
@@ -675,24 +681,24 @@
   }
   function setPoint(which) {
     var f = recentFix();
-    if (!f) { toast('Nema GPS signala, sačekaj pa pokušaj ponovo.'); return; }
+    if (!f) { toast('No GPS signal. Wait and try again.'); return; }
     line[which] = { lat: f.lat, lon: f.lon, acc: f.acc, t: new Date().toISOString() };
     store.set(which, line[which]); buzz(150);
-    var msg = (which === 'pin' ? 'PIN' : 'BOAT') + ' postavljen (±' + Math.round(f.acc) + ' m)';
-    if (f.acc > 15) msg += '. Slab GPS, ponovi kad se popravi.';
+    var msg = (which === 'pin' ? 'PIN' : 'BOAT') + ' set (±' + Math.round(f.acc) + ' m)';
+    if (f.acc > 15) msg += '. Weak GPS, redo when it improves.';
     toast(msg); renderLine();
   }
   function pointBtn(which, el) {
     el.addEventListener('click', function () {
       unlockAudio();
       if (!line[which]) setPoint(which);
-      else toast((which === 'pin' ? 'PIN' : 'BOAT') + ' je već postavljen.', 'Postavi ponovo', function () { setPoint(which); }, 4000);
+      else toast((which === 'pin' ? 'PIN' : 'BOAT') + ' is already set.', 'Set again', function () { setPoint(which); }, 4000);
     });
   }
   pointBtn('pin', $('pinBtn')); pointBtn('boat', $('boatBtn'));
   $('lineClear').addEventListener('click', function () {
-    toast('Obrisati liniju?', 'Obriši', function () {
-      line.pin = null; line.boat = null; store.set('pin', null); store.set('boat', null); renderLine(); toast('Linija obrisana');
+    toast('Clear the start line?', 'Clear', function () {
+      line.pin = null; line.boat = null; store.set('pin', null); store.set('boat', null); renderLine(); toast('Line cleared');
     }, 4000);
   });
 
@@ -721,10 +727,10 @@
     if (!show) return;
 
     var el = $('dtl'), info = $('lineInfo'), cls = 'none', txt = '––';
-    var lenTxt = 'linija ' + Math.round(lineCalc(line.boat).len) + ' m';
+    var lenTxt = 'line ' + Math.round(lineCalc(line.boat).len) + ' m';
     var last = S.fixBuf.length ? S.fixBuf[S.fixBuf.length - 1] : null;
     if (!last || now() - last.rt > 5000) {
-      info.textContent = lenTxt + ' · nema GPS signala';
+      info.textContent = lenTxt + ' · no GPS signal';
     } else {
       var r = lineCalc(last);
       var tts = T.state === 'count' ? (T.end - now()) / 1000 : cfg.preset * 60;
@@ -736,7 +742,7 @@
         var margin = ttl - tts;
         cls = margin > LINE_TOL ? 'late' : (margin < -LINE_TOL ? 'early' : 'ok');
       }
-      info.textContent = (r.over ? 'PREKO LINIJE · ' : '') + lenTxt + ' · GPS ±' + Math.round(last.acc) + ' m';
+      info.textContent = (r.over ? 'OCS · ' : '') + lenTxt + ' · GPS ±' + Math.round(last.acc) + ' m';
     }
     el.textContent = txt;
     el.className = 'dtl ' + cls;
@@ -751,36 +757,36 @@
   $('heelStep').value = String(cfg.heelStep);
   $('heelStep').addEventListener('change', function (e) { cfg.heelStep = +e.target.value; store.set('heelStep', cfg.heelStep); });
   function renderSettings() {
-    $('dampVal').textContent = cfg.damp + (cfg.damp === 0 ? ' (bez ublažavanja)' : ' (≈' + TAU[cfg.damp] + ' s)');
-    $('calInfo').textContent = cfg.calOffset === null ? 'Kalibracija nije postavljena.'
-      : 'Nula postavljena ' + new Date(cfg.calTime).toLocaleString('sr-RS') + ' (pomak ' + cfg.calOffset.toFixed(1) + '°).';
+    $('dampVal').textContent = cfg.damp + (cfg.damp === 0 ? ' (off)' : ' (≈' + TAU[cfg.damp] + ' s)');
+    $('calInfo').textContent = cfg.calOffset === null ? 'No calibration set.'
+      : 'Zero set ' + new Date(cfg.calTime).toLocaleString('en-GB') + ' (offset ' + cfg.calOffset.toFixed(1) + '°).';
   }
   function diagText() {
     return [
-      'verzija: ' + APP_VERSION,
-      'bezbedna veza (HTTPS): ' + (window.isSecureContext ? 'da' : 'NE'),
-      'uređaj: ' + navigator.userAgent,
+      'version: ' + APP_VERSION,
+      'secure context (HTTPS): ' + (window.isSecureContext ? 'yes' : 'NO'),
+      'device: ' + navigator.userAgent,
       '— GPS —',
-      'dozvola lokacije: ' + S.geoPerm,
-      'broj GPS očitavanja: ' + S.fixes,
-      'tačnost: ' + (S.acc === null ? '—' : Math.round(S.acc) + ' m'),
-      'greška: ' + (S.geoError || 'nema'),
-      '— senzori —',
-      'dozvola senzora: ' + S.motionPerm,
-      'broj očitavanja senzora: ' + S.motionEvents,
-      'sirovi nagib: ' + (S.rawHeel === null ? '—' : S.rawHeel.toFixed(1) + '°'),
-      'nagib posle kalibracije: ' + (S.heel === null ? '—' : S.heel.toFixed(1) + '°'),
-      '— ostalo —',
-      'ekran ostaje upaljen: ' + S.wake,
-      'dampening: ' + cfg.damp
+      'location permission: ' + S.geoPerm,
+      'GPS fixes: ' + S.fixes,
+      'accuracy: ' + (S.acc === null ? '—' : Math.round(S.acc) + ' m'),
+      'error: ' + (S.geoError || 'none'),
+      '— sensors —',
+      'motion permission: ' + S.motionPerm,
+      'motion events: ' + S.motionEvents,
+      'raw heel: ' + (S.rawHeel === null ? '—' : S.rawHeel.toFixed(1) + '°'),
+      'heel after calibration: ' + (S.heel === null ? '—' : S.heel.toFixed(1) + '°'),
+      '— other —',
+      'screen wake lock: ' + S.wake,
+      'damping: ' + cfg.damp
     ].join('\n');
   }
   function renderDiag() { $('diag').textContent = diagText(); }
   $('diagCopy').addEventListener('click', function () {
     var txt = diagText();
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(txt).then(function () { toast('Kopirano, nalepi mi u razgovor'); }, function () { toast('Kopiranje nije uspelo, označi tekst ručno'); });
-    } else toast('Označi tekst ručno i kopiraj');
+      navigator.clipboard.writeText(txt).then(function () { toast('Copied. Paste it in the chat'); }, function () { toast('Copy failed. Select the text manually'); });
+    } else toast('Select the text manually and copy');
   });
   renderSettings();
 
