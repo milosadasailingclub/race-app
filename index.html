@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b1a2b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>The Race App</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css?v=0.1.0">
+</head>
+<body class="theme-day">
+
+<div id="version" class="version">v0.1.0</div>
+<div id="update" class="update hidden">Nova verzija je spremna, dodirni za osvežavanje</div>
+<div id="toast" class="toast hidden"></div>
+
+<!-- GLAVNI MENI -->
+<section id="menu" class="view active">
+  <header class="menu-head">
+    <h1>The Race App</h1>
+    <p>Ada Sailing Club</p>
+  </header>
+  <nav class="menu-list">
+    <button class="menu-item primary" data-go="race">Racing Mode<span>tajmer, SOG, heading</span></button>
+    <button class="menu-item soon">Racing dnevnik<span>uskoro</span></button>
+    <button class="menu-item soon">Vremenska prognoza<span>uskoro</span></button>
+    <button class="menu-item soon">Tracking<span>uskoro</span></button>
+    <button class="menu-item soon">Coaching<span>Pro, uskoro</span></button>
+    <button class="menu-item soon">Checklist<span>uskoro</span></button>
+    <button class="menu-item" data-go="settings">Settings<span>kalibracija, dampening, dijagnostika</span></button>
+  </nav>
+</section>
+
+<!-- RACING MODE -->
+<section id="race" class="view">
+  <div class="race-top">
+    <button class="icon-btn" data-go="menu" aria-label="Meni">☰</button>
+    <div id="heel" class="heel" title="Dug pritisak = kalibracija"></div>
+    <button class="icon-btn" id="dndBtn" aria-label="Racing mode">DND</button>
+  </div>
+
+  <div id="pager" class="pager">
+    <!-- 1. START / TIMER -->
+    <div class="page" id="p-timer">
+      <div class="adj-row">
+        <button class="adj" id="minus">−1 min</button>
+        <button class="adj" id="plus">+1 min</button>
+      </div>
+      <div id="timer" class="timer">5:00</div>
+      <div id="timerSub" class="timer-sub">spreman</div>
+      <button id="sync" class="sync">START</button>
+      <div class="preset-row" id="presets">
+        <button data-min="5" class="preset on">5</button>
+        <button data-min="4" class="preset">4</button>
+        <button data-min="3" class="preset">3</button>
+        <button data-min="1" class="preset">1</button>
+        <button id="reset" class="preset reset">Reset</button>
+      </div>
+    </div>
+
+    <!-- 2. SOG / HEADING -->
+    <div class="page" id="p-sog">
+      <div class="elapsed" id="elapsed">—</div>
+      <div class="big-block">
+        <div class="lbl">SOG <span class="unit">kn</span></div>
+        <div class="big" id="sog">–.–</div>
+      </div>
+      <div class="big-block">
+        <div class="lbl">HEADING <span class="unit">°</span></div>
+        <div class="big" id="hdg">–––</div>
+      </div>
+      <div class="lift" id="lift">lift/header: uskoro</div>
+      <div class="gps-note" id="gpsNote">čekam GPS…</div>
+    </div>
+
+    <!-- 3. LIVE TRACKING -->
+    <div class="page soon-page" id="p-track">
+      <h2>Live tracking + taktika</h2>
+      <p>Uskoro.</p>
+    </div>
+
+    <!-- 4. NoR / SI -->
+    <div class="page soon-page" id="p-nor">
+      <h2>NoR / SI</h2>
+      <p>Uskoro.</p>
+    </div>
+  </div>
+
+  <div class="dots" id="dots"><i class="on"></i><i></i><i></i><i></i></div>
+  <button id="sensorsBtn" class="sensors-btn hidden">Dodirni da uključiš GPS i senzore</button>
+</section>
+
+<!-- SETTINGS -->
+<section id="settings" class="view">
+  <div class="set-head">
+    <button class="icon-btn" data-go="back" aria-label="Nazad">←</button>
+    <h2>Settings</h2>
+  </div>
+  <div class="set-body">
+    <div class="card">
+      <h3>Kalibracija na mountu</h3>
+      <p>Postavi telefon na mount, brod neka miruje i stoji ravno, pa pritisni dugme. Isto radi i dug pritisak na libelu u Racing Mode-u.</p>
+      <div id="heelSet" class="heel heel-set"></div>
+      <div class="row">
+        <button id="calBtn" class="btn primary">Postavi nulu</button>
+        <button id="calClear" class="btn">Obriši kalibraciju</button>
+      </div>
+      <p class="small" id="calInfo"></p>
+    </div>
+
+    <div class="card">
+      <h3>Dampening</h3>
+      <p>Jedan nivo za sve merene vrednosti (nagib, SOG, heading). Veći broj znači mirniji prikaz, ali sporiju reakciju.</p>
+      <input type="range" id="damp" min="0" max="5" step="1">
+      <div class="small">Nivo: <b id="dampVal"></b></div>
+    </div>
+
+    <div class="card">
+      <h3>Libela</h3>
+      <label class="check"><input type="checkbox" id="heelInvert"> Obrni stranu (ako svetli pogrešna strana)</label>
+      <div class="small">Jedna dioda = <select id="heelStep"><option>2</option><option>3</option><option>5</option></select>°</div>
+    </div>
+
+    <div class="card">
+      <h3>Prikaz</h3>
+      <div class="row">
+        <button class="btn" data-theme="day">Dan (svetlo)</button>
+        <button class="btn" data-theme="night">Noć (tamno)</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Racing mode (DND)</h3>
+      <p class="small">Automatsko uključivanje DND-a stiže sa nativnom verzijom aplikacije. Do tada uključi „Ne uznemiravaj“ ručno iz brzog menija telefona.</p>
+    </div>
+
+    <div class="card">
+      <h3>Dijagnostika</h3>
+      <pre id="diag" class="diag"></pre>
+      <button id="diagCopy" class="btn">Kopiraj dijagnostiku</button>
+    </div>
+  </div>
+</section>
+
+<script src="app.js?v=0.1.0"></script>
+</body>
+</html>
