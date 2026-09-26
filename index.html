@@ -10,11 +10,11 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/saira-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=0.5.1">
+<link rel="stylesheet" href="style.css?v=0.6.0">
 </head>
 <body class="theme-night">
 
-<div id="version" class="version">v0.5.1</div>
+<div id="version" class="version">v0.6.0</div>
 <div id="update" class="update hidden">New version available. Tap to update</div>
 <div id="toast" class="toast hidden"></div>
 
@@ -132,7 +132,7 @@
       <button id="wxSaveSpot" class="btn">Save spot</button>
       <button id="wxDelSpot" class="btn hidden">Delete spot</button>
     </div>
-    <p class="small wx-credit">Forecast data: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0). Wind in knots, direction = where the wind comes from.</p>
+    <p class="small wx-credit">Forecast data: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0). Map: <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> © OpenMapTiles © OpenStreetMap contributors, MapLibre. Wind in knots, direction = where the wind comes from.</p>
   </div>
 </section>
 
@@ -210,6 +210,7 @@
   </div>
 </section>
 
-<script src="app.js?v=0.5.1"></script>
+<script src="wxmap.js?v=0.6.0"></script>
+<script src="app.js?v=0.6.0"></script>
 </body>
 </html>

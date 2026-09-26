@@ -1,7 +1,7 @@
-/* The Race App — v0.5.1 */
+/* The Race App — v0.6.0 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.5.1';
+  var APP_VERSION = '0.6.0';
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -923,17 +923,14 @@
   }
   WX.view = store.get('wxView', 'table');
   function wxMap() {
-    var box = $('wxMap'), L = WX.last;
     if (WX.view !== 'map') return;
-    var loc = L ? L.loc : { lat: 44.7872, lon: 20.3985 };
-    var key = loc.lat.toFixed(3) + ',' + loc.lon.toFixed(3);
-    if (box.getAttribute('data-k') === key) return;
-    box.setAttribute('data-k', key);
-    var prod = { ecmwf_ifs025: 'ecmwf', icon_seamless: 'iconEu', gfs_seamless: 'gfs', meteofrance_seamless: 'arome' }[WX.model] || 'ecmwf';
-    var q = 'lat=' + loc.lat.toFixed(3) + '&lon=' + loc.lon.toFixed(3) + '&detailLat=' + loc.lat.toFixed(3) + '&detailLon=' + loc.lon.toFixed(3) +
-      '&zoom=11&level=surface&overlay=wind&product=' + prod + '&menu=&message=true&marker=true&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=kt&metricTemp=%C2%B0C&radarRange=-1';
-    box.innerHTML = navigator.onLine === false ? '<p class="small" style="padding:16px">Map needs internet.</p>' :
-      '<iframe title="Wind map" loading="lazy" src="https://embed.windy.com/embed2.html?' + q + '" allow="fullscreen"></iframe>';
+    var box = $('wxMap'), L = WX.last;
+    var loc = L ? L.loc : null;
+    if (!loc) { var sp = WX.spots[0]; loc = { lat: sp.lat, lon: sp.lon }; }
+    if (!window.WindMap) { box.innerHTML = '<p class="small" style="padding:16px">Map module not loaded.</p>'; return; }
+    WindMap.open(box, loc, WX.model, function (st, msg) {
+      if (st === 'error') toast('Map wind data failed: ' + (msg || '')); 
+    }).catch(function (e) { box.innerHTML = '<p class="small" style="padding:16px">Map needs internet (' + esc(e.message) + ').</p>'; });
   }
   function wxSetView(v) {
     WX.view = v; store.set('wxView', v);
