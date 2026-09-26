@@ -10,11 +10,11 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/saira-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=0.6.1">
+<link rel="stylesheet" href="style.css?v=0.7.0">
 </head>
 <body class="theme-night">
 
-<div id="version" class="version">v0.6.1</div>
+<div id="version" class="version">v0.7.0</div>
 <div id="update" class="update hidden">New version available. Tap to update</div>
 <div id="toast" class="toast hidden"></div>
 
@@ -31,7 +31,7 @@
     <button class="menu-item soon">Race Log<span>Coming soon</span></button>
     <button class="menu-item soon">Tracking<span>Coming soon</span></button>
     <button class="menu-item soon">Coaching<span>Pro · Coming soon</span></button>
-    <button class="menu-item soon">Checklist<span>Coming soon</span></button>
+    <button class="menu-item" data-go="checklist">Checklist<span>My lists · Public lists</span></button>
     <button class="menu-item" data-go="settings">Settings<span>Calibration · Damping · Diagnostics</span></button>
   </nav>
 </section>
@@ -136,6 +136,16 @@
   </div>
 </section>
 
+<!-- CHECKLIST -->
+<section id="checklist" class="view">
+  <div class="set-head">
+    <button class="icon-btn" id="clBack" aria-label="Back">←</button>
+    <h2 id="clTitle">CHECKLIST</h2>
+    <button class="icon-btn cl-act hidden" id="clEdit" aria-label="Edit">✎</button>
+  </div>
+  <div class="wx-body" id="clBody"></div>
+</section>
+
 <!-- SETTINGS -->
 <section id="settings" class="view">
   <div class="set-head">
@@ -210,7 +220,8 @@
   </div>
 </section>
 
-<script src="wxmap.js?v=0.6.1"></script>
-<script src="app.js?v=0.6.1"></script>
+<script src="wxmap.js?v=0.7.0"></script>
+<script src="checklist.js?v=0.7.0"></script>
+<script src="app.js?v=0.7.0"></script>
 </body>
 </html>

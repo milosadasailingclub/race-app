@@ -1,7 +1,7 @@
-/* The Race App — v0.6.1 */
+/* The Race App — v0.7.0 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.6.1';
+  var APP_VERSION = '0.7.0';
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -54,6 +54,7 @@
     if (v === 'race') { requestWakeLock(); }
     if (v === 'settings') { renderSettings(); }
     if (v === 'weather') { wxOpen(); }
+    if (v === 'checklist' && window.Checklist) { window.Checklist.open(); }
   }
   document.querySelectorAll('[data-go]').forEach(function (b) {
     b.addEventListener('click', function () { unlockAudio(); show(b.getAttribute('data-go')); });
@@ -967,5 +968,6 @@
     }, 4000);
   });
 
+  window.RA = { toast: toast, store: store, show: show };
   window.__ra = { S: S, T: T, cfg: cfg, calibrate: calibrate, show: show };
 })();
