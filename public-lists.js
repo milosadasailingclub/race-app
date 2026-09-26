@@ -60,13 +60,27 @@
         tools: cat(C.tools, C.rigTools), transport: C.kTrans, other: C.other, fnb: C.fnb, medical: C.medical
       } },
 
-    { id: 'pub-opti', name: 'Optimist', cls: 'Optimist', draft: true, source: DRAFT,
+    { id: 'pub-opti', name: 'Optimist', cls: 'Optimist', draft: false,
+      source: 'Based on a club Optimist coach\'s packing list and tool-box lists (translated from Serbian).',
       subs: {
-        clothing: cat(C.dinghy.slice(0, 2), C.hike, C.dinghy.slice(2)),
-        boat: ['# Hull', 'Buoyancy bags inflated and secured', 'Bailers (tied to boat)', 'Paddle (tied in)', 'Painter / tow line (class rules length)', 'Hiking straps secure',
-          '# Rig', 'Mast, sprit and boom', 'Mast tie-down / safety line fitted', 'Sprit adjuster works', 'Sail laced to spars (ties even)', 'Battens', 'Mainsheet + blocks', 'Vang',
-          'Sail numbers / national letters', '# Foils', 'Daggerboard + retaining line', 'Rudder + retaining clip', 'Tiller + extension'],
-        tools: C.tools, transport: C.dTrans, other: C.other, fnb: C.fnb, medical: C.medical
+        clothing: ['# Mandatory', 'Buoyancy aid (PFD) with whistle', 'Cap with lanyard', 'Long-sleeve shirt', 'Spray top', 'Wetsuit', 'Sailing boots', 'Hiking shorts',
+          'Trainers', 'Socks', 'Wool socks', 'Tracksuit', 'Wool beanie', 'Longer shorts', '# Extra', 'Sailing gloves', 'Knee pads', 'Shin guards', 'Shorts', 'Underwear (×3)',
+          'Wool sweater (×2)', 'Shoes', 'Plastic slippers / flip-flops'],
+        boat: ['# Hull and foils', 'Hull', 'Buoyancy compartment covers (×2)', 'Bungs (×2)', 'Screws (×2)', 'Daggerboard with line', 'Daggerboard rubber', 'Daggerboard bag',
+          'Rudder with line', 'Tiller', 'Tiller extension', '# Spars and sail', 'Mast', 'Mast bag', 'Boom with 2 blocks', 'Sprit', 'Sprit halyard / adjuster', 'Sprit hooks (×2)',
+          'Sail with bag', 'Battens (×3)', 'Sail ties', 'Wind indicator', '# Rigging', 'Mainsheet', 'Ratchet block', 'Block', 'Vang', 'Cunningham', 'Outhaul', 'Triangle line',
+          'Spring', 'Shackle', 'Safety pins (×2)', '# On board', 'Paddle with line', 'Bailer', 'Painter / tow line', 'Protest flag', '# Ashore', 'Cover', 'Launching trolley'],
+        tools: ['# Small box (every sailor, in the locker)', 'Pliers', 'Screwdrivers, flat + Phillips (or bit set)', 'Sailing knife on a neck cord', 'Needle + synthetic thread',
+          'Wide packing tape', 'Spare lines', 'Scissors', 'Wet sandpaper 120 / 240 / 400', 'Sandpaper', 'Shackles', 'Hammer',
+          '# Also bring', 'Sponge', '10 L bucket with rope', '# Regatta box (coach / van)', 'Small first-aid kit', 'Sail repair tape', 'Drill (battery or hand) + bit set',
+          'Pop-rivet gun + rivets (aluminium + stainless)', 'Spanners 4–22 + adjustable spanner', 'Locking pliers (vise-grip)', 'Hacksaw', 'Stainless screws, bolts, nuts, washers',
+          'Stainless wire + crimps + crimp pliers', 'Torch + spare batteries', 'Putty knives (×2)', 'WD-40', 'Small clamps', 'Extension cord'],
+        transport: C.dTrans,
+        other: ['Sunscreen', 'Sunglasses', 'Water bottle', 'Watch', 'Racing rules book', 'Phone + charger', 'NoR / SI', 'Measurement certificate / class membership', 'Entry confirmation / ID',
+          '# Accommodation / camp', 'Sleeping bag', 'Pillowcase', 'Sheets (×2)', 'Toiletries', 'Towel', 'Hair dryer', 'Alarm clock', 'Torch', 'Pen + notebook',
+          'Washing line + pegs (×10)', 'Large bin bags (×5)', 'Spoon, knife, bowl / small pot', 'Liquid soap', 'Heater', 'Candle + matches'],
+        fnb: C.fnb,
+        medical: cat(['Chafing ointment / petroleum jelly'], C.medical)
       } },
 
     { id: 'pub-420', name: '420', cls: '420', draft: true, source: DRAFT,
