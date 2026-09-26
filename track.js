@@ -165,7 +165,7 @@
         '<div class="heel trk-heel" id="rpHeel"></div>' +
         '<div class="trk-ctrl"><button class="icon-btn" id="rpPlay">▶</button><input type="range" id="rpSlider" min="0" max="' + (t.points.length - 1) + '" value="0"><button class="icon-btn" id="rpSpeed">×10</button></div>' +
         '<div class="wm-legend trk-legend"><i style="background:linear-gradient(90deg,#0a5566,#00b3a4 25%,#00e0c6 42%,#9b3bff 58%,#ff2e93 75%,#ff1fd2)"></i><span>0</span><span>3</span><span>5</span><span>7</span><span>9</span><span>12 kn</span></div>' +
-        '<div class="row"><button class="btn" id="rpRename">Rename</button><button class="btn" id="rpGpx">Export GPX</button><button class="btn danger" id="rpDel">Delete</button></div>';
+        '<div class="row"><button class="btn" id="rpRename">Rename</button><button class="btn" id="rpGpx">Export GPX</button><button class="btn" id="rpCsv">Export CSV</button><button class="btn danger" id="rpDel">Delete</button></div>';
       loadLib().then(function () {
         if (view.map) { view.map.remove(); view.map = null; }
         var p = t.points, b = new maplibregl.LngLatBounds();
@@ -186,6 +186,7 @@
       $('rpSpeed').addEventListener('click', function () { view.speed = view.speed === 10 ? 30 : view.speed === 30 ? 1 : 10; $('rpSpeed').textContent = '×' + view.speed; });
       $('rpRename').addEventListener('click', function () { var n = prompt('Track name', t.name); if (n && n.trim()) { t.name = n.trim(); putTrack(t).then(function () { openTrack(id); }); } });
       $('rpGpx').addEventListener('click', function () { gpx(t); });
+      $('rpCsv').addEventListener('click', function () { csv(t); });
       $('rpDel').addEventListener('click', function () { toast('Delete this track?', 'Delete', function () { delTrack(id).then(openList); }, 4000); });
     });
   }
@@ -220,6 +221,13 @@
     var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([x], { type: 'application/gpx+xml' }));
     a.download = t.name.replace(/[^\w\- ]+/g, '').replace(/\s+/g, '_') + '.gpx'; document.body.appendChild(a); a.click(); a.remove();
     toast('GPX saved to Downloads');
+  }
+  function csv(t) {
+    var x = 'time,lat,lon,sog_kn,cog,heel,acc_m\n';
+    t.points.forEach(function (q) { x += [new Date(q[0]).toISOString(), q[1], q[2], q[3] === null ? '' : q[3], q[4] === null ? '' : q[4], q[5] === null ? '' : q[5], q[6] === null ? '' : q[6]].join(',') + '\n'; });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([x], { type: 'text/csv' }));
+    a.download = t.name.replace(/[^\w\- ]+/g, '').replace(/\s+/g, '_') + '.csv'; document.body.appendChild(a); a.click(); a.remove();
+    toast('CSV saved to Downloads');
   }
   document.addEventListener('click', function (e) {
     if (!$('tracking') || !$('tracking').classList.contains('active')) return;
