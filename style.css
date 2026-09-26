@@ -302,3 +302,29 @@ body:not([data-view="menu"]):not([data-view="settings"]) .version{display:none}
 .nor-head select{flex:1 1 0;min-width:0;width:0;text-overflow:ellipsis;white-space:nowrap;overflow:hidden}
 .nor-head .icon-btn{flex:0 0 48px}
 .wx-controls select{min-width:0;width:0;text-overflow:ellipsis}
+
+/* v0.9 TRACKING */
+.page.track-page{padding:0 0 8px;justify-content:flex-start;position:relative}
+.trk-live-map{position:relative;flex:1 1 auto;width:100%;min-height:200px;background:var(--surface)}
+.trk-live-map .maplibregl-map,.trk-map .maplibregl-map{position:absolute!important;inset:0}
+.trk-live-ui{width:100%;padding:8px 12px 0;display:flex;flex-direction:column;gap:8px;flex-shrink:0}
+.trk-live-data{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.trk-live-data span,.trk-tele div{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 8px;text-align:center}
+.trk-live-data em,.trk-tele em{display:block;font-style:normal;font-size:10px;letter-spacing:.14em;color:var(--muted);font-weight:700}
+.trk-live-data b,.trk-tele b{font-family:var(--f-num);font-weight:800;font-size:24px;line-height:1.1}
+.trk-rec{display:flex;align-items:center;justify-content:center;gap:10px;height:52px;border-radius:10px;border:1px solid var(--turq);background:rgba(0,224,198,.1);color:var(--turq);font-family:var(--f-num);font-weight:800;font-size:20px;letter-spacing:.1em}
+.trk-rec i{width:14px;height:14px;border-radius:50%;background:var(--turq)}
+.trk-rec.on{border-color:var(--pink);background:rgba(255,46,147,.12);color:var(--pink)}
+.trk-rec.on i{background:var(--pink);animation:blink 1s steps(2) infinite;border-radius:3px}
+.trk-boat{width:18px;height:18px;border-radius:50%;background:#fff;border:4px solid var(--turq);box-shadow:0 0 12px var(--turq)}
+.trk-recnow{display:flex;align-items:center;gap:8px;color:var(--pink);font-weight:700;font-size:14px}
+.trk-recnow i{width:10px;height:10px;border-radius:50%;background:var(--pink);animation:blink 1s steps(2) infinite}
+.trk-meta{grid-column:1 / -1;font-size:12px;color:var(--muted)}
+.trk-name b{display:block;font-family:var(--f-num);font-weight:800;font-size:22px;letter-spacing:.03em;text-transform:uppercase}
+.trk-name span{font-size:12px;color:var(--muted)}
+.trk-map{position:relative;height:46vh;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:var(--surface)}
+.trk-tele{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.trk-heel{height:28px}
+.trk-ctrl{display:flex;gap:8px;align-items:center}
+.trk-ctrl input{flex:1;accent-color:var(--turq)}
+.trk-legend{position:relative}

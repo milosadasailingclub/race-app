@@ -1,7 +1,7 @@
-/* The Race App — v0.8.5 */
+/* The Race App — v0.9.0 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.8.5';
+  var APP_VERSION = '0.9.0';
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -55,6 +55,7 @@
     if (v === 'settings') { renderSettings(); }
     if (v === 'weather') { wxOpen(); }
     if (v === 'checklist' && window.Checklist) { window.Checklist.open(); }
+    if (v === 'tracking' && window.Track) { window.Track.openList(); }
   }
   document.querySelectorAll('[data-go]').forEach(function (b) {
     b.addEventListener('click', function () { unlockAudio(); show(b.getAttribute('data-go')); });
@@ -85,6 +86,7 @@
     var i = Math.round(pager.scrollLeft / Math.max(1, pager.clientWidth));
     if (i !== pageIdx) {
       pageIdx = i;
+      if (i === 2 && window.Track) window.Track.showLive();
       document.querySelectorAll('#dots i').forEach(function (d, k) { d.classList.toggle('on', k === i); });
     }
   }, { passive: true });
@@ -155,6 +157,7 @@
       var sec = Math.ceil(rem / 1000);
       if (rem <= 0) {
         T.state = 'race'; signal('gun');
+        if (window.Track) window.Track.autoStart();
         if (!T.autoSwitched) { T.autoSwitched = true; goPage(1); }
       } else if (sec !== T.lastSec) {
         if (T.lastSec !== null) {
@@ -360,6 +363,7 @@
     renderSog();
     var rawKn = sogMs === null ? null : sogMs * 1.943844;
     liftOnFix(hdg, rawKn, S.heel);
+    if (window.Track) window.Track.onFix({ t: fix.t, lat: fix.lat, lon: fix.lon, sog: rawKn, cog: hdg === null ? S.hdg : hdg, heel: S.heel, acc: c.accuracy, sim: !!S.sim });
     logRow(hdg, rawKn);
   }
   function onGeoErr(e) {
