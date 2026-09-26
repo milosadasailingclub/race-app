@@ -241,3 +241,4 @@ body:not([data-view="menu"]):not([data-view="settings"]) .version{display:none}
 .btn.danger{color:var(--pink);border-color:var(--pink)}
 .icon-btn.cl-act{margin-left:auto}
 .icon-btn.on{background:var(--deep);border-color:var(--turq)}
+.soon-page p{text-align:center;max-width:300px;line-height:1.4}

@@ -10,11 +10,11 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/saira-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=0.7.0">
+<link rel="stylesheet" href="style.css?v=0.7.1">
 </head>
 <body class="theme-night">
 
-<div id="version" class="version">v0.7.0</div>
+<div id="version" class="version">v0.7.1</div>
 <div id="update" class="update hidden">New version available. Tap to update</div>
 <div id="toast" class="toast hidden"></div>
 
@@ -93,14 +93,20 @@
       <p>Coming soon</p>
     </div>
 
-    <!-- 4. NoR / SI -->
+    <!-- 4. RACE MAP (waypoints) -->
+    <div class="page soon-page" id="p-map">
+      <h2>RACE MAP</h2>
+      <p>Coming soon: waypoints for distance races · bearing &amp; distance to next mark · favoured / unfavoured tack</p>
+    </div>
+
+    <!-- 5. NoR / SI -->
     <div class="page soon-page" id="p-nor">
       <h2>NoR / SI</h2>
       <p>Coming soon</p>
     </div>
   </div>
 
-  <div class="dots" id="dots"><i class="on"></i><i></i><i></i><i></i></div>
+  <div class="dots" id="dots"><i class="on"></i><i></i><i></i><i></i><i></i></div>
   <button id="sensorsBtn" class="sensors-btn hidden">Tap to enable sensors</button>
 </section>
 
@@ -220,8 +226,8 @@
   </div>
 </section>
 
-<script src="wxmap.js?v=0.7.0"></script>
-<script src="checklist.js?v=0.7.0"></script>
-<script src="app.js?v=0.7.0"></script>
+<script src="wxmap.js?v=0.7.1"></script>
+<script src="checklist.js?v=0.7.1"></script>
+<script src="app.js?v=0.7.1"></script>
 </body>
 </html>
