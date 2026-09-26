@@ -10,11 +10,11 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/saira-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=0.4.2">
+<link rel="stylesheet" href="style.css?v=0.5.0">
 </head>
 <body class="theme-night">
 
-<div id="version" class="version">v0.4.2</div>
+<div id="version" class="version">v0.5.0</div>
 <div id="update" class="update hidden">New version available. Tap to update</div>
 <div id="toast" class="toast hidden"></div>
 
@@ -27,7 +27,7 @@
   </header>
   <nav class="menu-list">
     <button class="menu-item primary" data-go="race">Racing Mode<span>Timer · Start line · SOG · Lift/Header</span></button>
-    <button class="menu-item soon">Weather<span>Coming soon</span></button>
+    <button class="menu-item" data-go="weather">Weather<span>24 h wind · gusts · direction · waves</span></button>
     <button class="menu-item soon">Race Log<span>Coming soon</span></button>
     <button class="menu-item soon">Tracking<span>Coming soon</span></button>
     <button class="menu-item soon">Coaching<span>Pro · Coming soon</span></button>
@@ -104,6 +104,37 @@
   <button id="sensorsBtn" class="sensors-btn hidden">Tap to enable sensors</button>
 </section>
 
+<!-- WEATHER -->
+<section id="weather" class="view">
+  <div class="set-head">
+    <button class="icon-btn" data-go="menu" aria-label="Back">←</button>
+    <h2>WEATHER</h2>
+    <button class="icon-btn wx-refresh" id="wxRefresh" aria-label="Refresh">⟳</button>
+  </div>
+  <div class="wx-body">
+    <div class="wx-controls">
+      <select id="wxSpot" aria-label="Location"></select>
+      <select id="wxModel" aria-label="Model">
+        <option value="best_match">Best model</option>
+        <option value="icon_seamless">ICON (DWD)</option>
+        <option value="ecmwf_ifs025">ECMWF</option>
+        <option value="meteofrance_seamless">AROME / ARPEGE</option>
+        <option value="gfs_seamless">GFS (NOAA)</option>
+      </select>
+    </div>
+    <div id="wxStatus" class="wx-status"></div>
+    <div id="wxNow" class="wx-now hidden"></div>
+    <div id="wxChart" class="wx-chart hidden"></div>
+    <div id="wxTable" class="wx-table"></div>
+    <div class="wx-save">
+      <input id="wxSpotName" type="text" placeholder="Name this spot (e.g. Ada)" maxlength="24">
+      <button id="wxSaveSpot" class="btn">Save spot</button>
+      <button id="wxDelSpot" class="btn hidden">Delete spot</button>
+    </div>
+    <p class="small wx-credit">Forecast data: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0). Wind in knots, direction = where the wind comes from.</p>
+  </div>
+</section>
+
 <!-- SETTINGS -->
 <section id="settings" class="view">
   <div class="set-head">
@@ -178,6 +209,6 @@
   </div>
 </section>
 
-<script src="app.js?v=0.4.2"></script>
+<script src="app.js?v=0.5.0"></script>
 </body>
 </html>

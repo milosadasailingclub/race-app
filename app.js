@@ -1,7 +1,7 @@
-/* The Race App — v0.4.2 */
+/* The Race App — v0.5.0 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.4.2';
+  var APP_VERSION = '0.5.0';
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -52,6 +52,7 @@
     if (v === 'race' || v === 'settings') { startSensors(); }
     if (v === 'race') { requestWakeLock(); }
     if (v === 'settings') { renderSettings(); }
+    if (v === 'weather') { wxOpen(); }
   }
   document.querySelectorAll('[data-go]').forEach(function (b) {
     b.addEventListener('click', function () { unlockAudio(); show(b.getAttribute('data-go')); });
@@ -804,5 +805,158 @@
   setInterval(checkVersion, 60000);
 
   // test hook
+  /* ---------- WEATHER ---------- */
+  var WX = {
+    spots: store.get('wxSpots', [{ id: 'ada', name: 'Ada Ciganlija', lat: 44.7872, lon: 20.3985 }]),
+    spot: store.get('wxSpot', 'gps'), model: store.get('wxModel', 'best_match'),
+    loading: false, last: store.get('wxCache', null)
+  };
+  function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function wxRenderSpots() {
+    var sel = $('wxSpot'), html = '<option value="gps">📍 My location (GPS)</option>';
+    WX.spots.forEach(function (s) { html += '<option value="' + esc(s.id) + '">' + esc(s.name) + '</option>'; });
+    sel.innerHTML = html;
+    if (WX.spot !== 'gps' && !WX.spots.some(function (s) { return s.id === WX.spot; })) WX.spot = 'gps';
+    sel.value = WX.spot; $('wxModel').value = WX.model;
+    $('wxDelSpot').classList.toggle('hidden', WX.spot === 'gps');
+    $('wxSpotName').classList.toggle('hidden', WX.spot !== 'gps');
+    $('wxSaveSpot').classList.toggle('hidden', WX.spot !== 'gps');
+  }
+  function wxStatus(msg, err) { var el = $('wxStatus'); el.textContent = msg; el.classList.toggle('err', !!err); }
+  function wxLocate() {
+    return new Promise(function (res) {
+      if (WX.spot !== 'gps') { var s = WX.spots.filter(function (x) { return x.id === WX.spot; })[0]; return res({ lat: s.lat, lon: s.lon, name: s.name }); }
+      var lf = S.fixBuf.length ? S.fixBuf[S.fixBuf.length - 1] : null;
+      if (lf && now() - lf.rt < 5 * 60000) return res({ lat: lf.lat, lon: lf.lon, name: 'My location' });
+      if (!('geolocation' in navigator)) return res(null);
+      navigator.geolocation.getCurrentPosition(function (p) { res({ lat: p.coords.latitude, lon: p.coords.longitude, name: 'My location' }); },
+        function () { res(null); }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
+    });
+  }
+  function pick(h, name) {
+    if (!h) return null;
+    if (h[name]) return h[name];
+    for (var k in h) if (k.indexOf(name + '_') === 0) return h[k];
+    return null;
+  }
+  function wxFetch() {
+    if (WX.loading) return;
+    WX.loading = true; wxStatus('Loading forecast…');
+    wxLocate().then(function (loc) {
+      if (!loc) { WX.loading = false; wxStatus('Location not available. Allow location or pick a saved spot.', true); return; }
+      var base = 'latitude=' + loc.lat.toFixed(4) + '&longitude=' + loc.lon.toFixed(4) + '&timezone=auto&forecast_hours=24';
+      var fu = 'https://api.open-meteo.com/v1/forecast?' + base +
+        '&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m,temperature_2m,precipitation_probability,weather_code&wind_speed_unit=kn' +
+        (WX.model !== 'best_match' ? '&models=' + WX.model : '');
+      var mu = 'https://marine-api.open-meteo.com/v1/marine?' + base +
+        '&hourly=wave_height,wave_direction,wave_period,swell_wave_height,swell_wave_direction,swell_wave_period,wind_wave_height,wind_wave_direction,ocean_current_velocity,ocean_current_direction';
+      var getJ = function (u) { return fetch(u, { cache: 'no-store' }).then(function (r) { return r.json(); }); };
+      Promise.all([getJ(fu), getJ(mu).catch(function () { return null; })]).then(function (res) {
+        var f = res[0], m = res[1];
+        if (!f || f.error || !f.hourly) throw new Error((f && f.reason) || 'no data');
+        WX.last = { key: WX.spot + '|' + WX.model, loc: loc, model: WX.model, at: new Date().toISOString(), f: f, m: (m && !m.error) ? m : null };
+        store.set('wxCache', WX.last);
+        WX.loading = false; wxRender();
+      }).catch(function (e) {
+        WX.loading = false;
+        wxStatus('Could not load forecast (' + e.message + ').' + (WX.last ? ' Showing last saved forecast.' : ''), true);
+        if (WX.last) wxRender(true);
+      });
+    });
+  }
+  function arrow(dir) { return '<span class="wx-arrow" style="transform:rotate(' + Math.round((dir + 180) % 360) + 'deg)">↑</span>'; }
+  function d3(v) { return ('00' + Math.round(v) % 360).slice(-3); }
+  function wxRender(stale) {
+    var L = WX.last; if (!L) return;
+    var h = L.f.hourly, times = h.time || [];
+    var ws = pick(h, 'wind_speed_10m') || [], wg = pick(h, 'wind_gusts_10m') || [], wd = pick(h, 'wind_direction_10m') || [];
+    var tp = pick(h, 'temperature_2m') || [], pp = pick(h, 'precipitation_probability') || [];
+    var mh = L.m && L.m.hourly ? L.m.hourly : null, mi = {};
+    if (mh && mh.time) mh.time.forEach(function (t, i) { mi[t] = i; });
+    var curU = L.m && L.m.hourly_units ? (L.m.hourly_units.ocean_current_velocity || 'km/h') : 'km/h';
+    var toKn = curU.indexOf('km') === 0 ? 1 / 1.852 : (curU.indexOf('m/s') === 0 ? 1.943844 : 1);
+    var hasSea = !!mh && ['wave_height', 'swell_wave_height', 'wind_wave_height', 'ocean_current_velocity'].some(function (k) {
+      return (mh[k] || []).some(function (v) { return v !== null && v !== undefined; });
+    });
+    var modelName = $('wxModel').selectedOptions[0] ? $('wxModel').selectedOptions[0].textContent : L.model;
+    wxStatus((stale ? 'Offline · ' : '') + esc(L.loc.name) + ' · ' + L.loc.lat.toFixed(3) + ', ' + L.loc.lon.toFixed(3) + ' · ' + modelName +
+      ' · updated ' + new Date(L.at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + (hasSea ? '' : ' · no sea data (inland)'));
+    // NOW
+    var i0 = 0, n = $('wxNow');
+    if (ws[i0] !== undefined && ws[i0] !== null) {
+      n.innerHTML =
+        '<div class="wx-tile"><div class="lbl">Wind</div><div class="v">' + Math.round(ws[i0]) + '<small>kn</small></div></div>' +
+        '<div class="wx-tile' + (wg[i0] >= 20 ? ' hot' : '') + '"><div class="lbl">Gusts</div><div class="v">' + Math.round(wg[i0]) + '<small>kn</small></div></div>' +
+        '<div class="wx-tile"><div class="lbl">Direction</div><div class="v">' + d3(wd[i0]) + '°' + arrow(wd[i0]) + '</div></div>' +
+        '<div class="wx-tile"><div class="lbl">Air</div><div class="v">' + (tp[i0] === null || tp[i0] === undefined ? '–' : Math.round(tp[i0])) + '<small>°C</small></div></div>';
+      n.classList.remove('hidden');
+    }
+    // CHART
+    var W = 340, H = 150, pl = 24, pr = 6, pt = 22, pb = 18, N = times.length;
+    var mx = Math.max(10, Math.ceil(Math.max.apply(null, wg.concat(ws).filter(function (v) { return v !== null; })) / 5) * 5);
+    var X = function (i) { return pl + (W - pl - pr) * (N > 1 ? i / (N - 1) : 0); }, Y = function (v) { return pt + (H - pt - pb) * (1 - v / mx); };
+    var gpath = '', apath = '', svg = '';
+    for (var i = 0; i < N; i++) {
+      if (wg[i] !== null && wg[i] !== undefined) gpath += (gpath ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(wg[i]).toFixed(1);
+      if (ws[i] !== null && ws[i] !== undefined) apath += (apath ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(ws[i]).toFixed(1);
+    }
+    for (var g = 0; g <= mx; g += 5) svg += '<line x1="' + pl + '" x2="' + (W - pr) + '" y1="' + Y(g) + '" y2="' + Y(g) + '" stroke="var(--line)" stroke-width="1"/><text x="' + (pl - 4) + '" y="' + (Y(g) + 3) + '" text-anchor="end" font-size="9" fill="var(--muted)">' + g + '</text>';
+    for (i = 0; i < N; i += 3) {
+      svg += '<text x="' + X(i) + '" y="' + (H - 4) + '" text-anchor="middle" font-size="9" fill="var(--muted)">' + times[i].slice(11, 13) + '</text>';
+      if (wd[i] !== null && wd[i] !== undefined) svg += '<g transform="translate(' + X(i) + ' 10) rotate(' + Math.round((wd[i] + 180) % 360) + ')"><path d="M0 -6 L4 5 L0 2 L-4 5 Z" fill="var(--turq)"/></g>';
+    }
+    if (gpath) svg += '<path d="' + gpath + 'L' + X(N - 1) + ' ' + Y(0) + 'L' + X(0) + ' ' + Y(0) + 'Z" fill="var(--purple)" opacity=".18"/><path d="' + gpath + '" fill="none" stroke="var(--pink)" stroke-width="1.5" stroke-dasharray="3 3"/>';
+    if (apath) svg += '<path d="' + apath + '" fill="none" stroke="var(--turq)" stroke-width="2.5" stroke-linejoin="round"/>';
+    $('wxChart').innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Wind and gusts next 24 hours">' + svg + '</svg>' +
+      '<div class="small" style="display:flex;gap:14px;padding:2px 4px 0"><span style="color:var(--turq)">━ wind</span><span style="color:var(--pink)">┅ gusts</span><span>kn · arrows = wind direction</span></div>';
+    $('wxChart').classList.remove('hidden');
+    // TABLE
+    var rows = '<div class="wx-row head"><span>TIME</span><span>WIND · GUST kn</span><span style="text-align:right">DIR</span><span style="text-align:right">°C</span></div>', prevDay = '';
+    for (i = 0; i < N; i++) {
+      var day = times[i].slice(0, 10), newDay = prevDay && day !== prevDay; prevDay = day;
+      var a = ws[i], gg = wg[i];
+      rows += '<div class="wx-row"><span class="t' + (newDay ? ' day' : '') + '">' + (newDay ? times[i].slice(8, 10) + '.' : '') + times[i].slice(11, 13) + 'h</span>' +
+        '<div class="wx-wind"><b>' + (a === null || a === undefined ? '–' : Math.round(a)) + '<span>/' + (gg === null || gg === undefined ? '–' : Math.round(gg)) + '</span></b>' +
+        '<div class="wx-bar"><i class="g" style="width:' + Math.min(100, (gg || 0) / mx * 100) + '%"></i><i class="a" style="width:' + Math.min(100, (a || 0) / mx * 100) + '%"></i></div></div>' +
+        '<span class="wx-dir">' + (wd[i] === null || wd[i] === undefined ? '–' : d3(wd[i]) + arrow(wd[i])) + '</span>' +
+        '<span class="wx-misc">' + (tp[i] === null || tp[i] === undefined ? '–' : Math.round(tp[i])) + (pp[i] ? '<br>' + pp[i] + '%☂' : '') + '</span>';
+      if (hasSea && mi[times[i]] !== undefined) {
+        var k = mi[times[i]], v = function (key) { var x = (mh[key] || [])[k]; return x === null || x === undefined ? null : x; }, parts = [];
+        if (v('wave_height') !== null) parts.push('Waves <b>' + v('wave_height').toFixed(1) + ' m</b>' + (v('wave_period') !== null ? ' ' + Math.round(v('wave_period')) + 's' : ''));
+        if (v('swell_wave_height') !== null) parts.push('Swell <b>' + v('swell_wave_height').toFixed(1) + ' m</b>' + (v('swell_wave_direction') !== null ? ' ' + d3(v('swell_wave_direction')) + '°' : '') + (v('swell_wave_period') !== null ? ' ' + Math.round(v('swell_wave_period')) + 's' : ''));
+        if (v('wind_wave_height') !== null) parts.push('Chop <b>' + v('wind_wave_height').toFixed(1) + ' m</b>');
+        if (v('ocean_current_velocity') !== null) parts.push('Current <b>' + (v('ocean_current_velocity') * toKn).toFixed(1) + ' kn</b>' + (v('ocean_current_direction') !== null ? ' → ' + d3(v('ocean_current_direction')) + '°' : ''));
+        if (parts.length) rows += '<div class="wx-sea">' + parts.map(function (x) { return '<span>' + x + '</span>'; }).join('') + '</div>';
+      }
+      rows += '</div>';
+    }
+    $('wxTable').innerHTML = rows;
+  }
+  function wxOpen() {
+    wxRenderSpots();
+    if (WX.last && WX.last.key === WX.spot + '|' + WX.model) wxRender(true);
+    wxFetch();
+  }
+  $('wxSpot').addEventListener('change', function (e) { WX.spot = e.target.value; store.set('wxSpot', WX.spot); wxRenderSpots(); wxFetch(); });
+  $('wxModel').addEventListener('change', function (e) { WX.model = e.target.value; store.set('wxModel', WX.model); wxFetch(); });
+  $('wxRefresh').addEventListener('click', wxFetch);
+  $('wxSaveSpot').addEventListener('click', function () {
+    var name = $('wxSpotName').value.trim();
+    var L = WX.last;
+    if (!name) { toast('Type a name for this spot first.'); return; }
+    if (!L || L.key.indexOf('gps|') !== 0) { toast('Load the forecast for your location first.'); return; }
+    var id = 's' + now();
+    WX.spots.push({ id: id, name: name, lat: L.loc.lat, lon: L.loc.lon });
+    store.set('wxSpots', WX.spots); WX.spot = id; store.set('wxSpot', id); $('wxSpotName').value = '';
+    wxRenderSpots(); toast('Spot saved: ' + name); wxFetch();
+  });
+  $('wxDelSpot').addEventListener('click', function () {
+    var s = WX.spots.filter(function (x) { return x.id === WX.spot; })[0]; if (!s) return;
+    toast('Delete ' + s.name + '?', 'Delete', function () {
+      WX.spots = WX.spots.filter(function (x) { return x.id !== s.id; }); store.set('wxSpots', WX.spots);
+      WX.spot = 'gps'; store.set('wxSpot', 'gps'); wxRenderSpots(); wxFetch();
+    }, 4000);
+  });
+
   window.__ra = { S: S, T: T, cfg: cfg, calibrate: calibrate, show: show };
 })();

@@ -139,3 +139,43 @@ input[type=checkbox]{accent-color:var(--turq);width:18px;height:18px}
 .check{display:flex;gap:8px;align-items:center;font-size:15px;margin-bottom:8px}
 select{font:inherit;padding:4px 6px;background:var(--surface-2);color:var(--fg);border:1px solid var(--line);border-radius:6px}
 .diag{white-space:pre-wrap;font-size:12px;background:var(--bg);border-radius:8px;padding:10px;margin:0 0 8px;user-select:text;-webkit-user-select:text;color:var(--muted)}
+
+/* WEATHER (v0.5) */
+.wx-refresh{margin-left:auto}
+.wx-body{overflow:auto;padding:4px 16px 48px;display:flex;flex-direction:column;gap:10px}
+.wx-controls{display:flex;gap:8px}
+.wx-controls select{flex:1;min-height:44px;font-weight:700}
+.wx-status{font-size:12px;color:var(--muted);letter-spacing:.03em}
+.wx-status.err{color:var(--pink)}
+.wx-now{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.wx-tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.wx-tile .lbl{font-size:11px}
+.wx-tile .v{font-family:var(--f-num);font-weight:800;font-size:40px;line-height:1.05;font-variant-numeric:tabular-nums}
+.wx-tile .v small{font-size:16px;color:var(--muted);font-weight:700;margin-left:3px}
+.wx-tile.hot .v{color:var(--pink)}
+.wx-arrow{display:inline-block;width:.8em;text-align:center;color:var(--turq)}
+.wx-chart{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px}
+.wx-chart svg{display:block;width:100%;height:auto}
+.wx-table{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.wx-row{display:grid;grid-template-columns:44px 1fr 64px 44px;align-items:center;gap:6px;padding:8px 10px;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
+.wx-row:first-child{border-top:0}
+.wx-row.head{font-size:11px;color:var(--muted);letter-spacing:.12em;font-weight:700;background:var(--surface-2)}
+.wx-row .t{font-family:var(--f-num);font-weight:700;font-size:17px}
+.wx-row .t.day{color:var(--turq)}
+.wx-wind{display:flex;align-items:center;gap:8px}
+.wx-wind b{font-family:var(--f-num);font-weight:800;font-size:22px;min-width:64px}
+.wx-wind b span{color:var(--muted);font-weight:700;font-size:16px}
+.wx-bar{flex:1;height:8px;border-radius:4px;background:var(--off);position:relative;overflow:hidden}
+.wx-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:4px}
+.wx-bar i.g{background:linear-gradient(90deg,var(--purple),var(--pink));opacity:.55}
+.wx-bar i.a{background:var(--turq)}
+.wx-dir{font-family:var(--f-num);font-weight:800;font-size:18px;text-align:right}
+.wx-dir .wx-arrow{margin-left:4px}
+.wx-misc{font-size:12px;color:var(--muted);text-align:right;line-height:1.2}
+.wx-sea{grid-column:2 / -1;font-size:12px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap}
+.wx-sea b{color:var(--fg);font-weight:700}
+.wx-save{display:flex;gap:8px;flex-wrap:wrap}
+.wx-save input{flex:1 1 100%;min-height:44px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg);font:inherit}
+.wx-credit a{color:var(--turq)}
+.set-body > *, .wx-body > *{flex-shrink:0}
+.wx-sea{row-gap:2px;column-gap:12px}
