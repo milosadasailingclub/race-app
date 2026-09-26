@@ -1,7 +1,7 @@
-/* The Race App — v0.5.0 */
+/* The Race App — v0.5.1 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.5.0';
+  var APP_VERSION = '0.5.1';
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -49,6 +49,7 @@
     if (v !== currentView) prevView = currentView;
     document.querySelectorAll('.view').forEach(function (el) { el.classList.toggle('active', el.id === v); });
     currentView = v;
+    document.body.setAttribute('data-view', v);
     if (v === 'race' || v === 'settings') { startSensors(); }
     if (v === 'race') { requestWakeLock(); }
     if (v === 'settings') { renderSettings(); }
@@ -891,35 +892,22 @@
         '<div class="wx-tile"><div class="lbl">Air</div><div class="v">' + (tp[i0] === null || tp[i0] === undefined ? '–' : Math.round(tp[i0])) + '<small>°C</small></div></div>';
       n.classList.remove('hidden');
     }
-    // CHART
-    var W = 340, H = 150, pl = 24, pr = 6, pt = 22, pb = 18, N = times.length;
-    var mx = Math.max(10, Math.ceil(Math.max.apply(null, wg.concat(ws).filter(function (v) { return v !== null; })) / 5) * 5);
-    var X = function (i) { return pl + (W - pl - pr) * (N > 1 ? i / (N - 1) : 0); }, Y = function (v) { return pt + (H - pt - pb) * (1 - v / mx); };
-    var gpath = '', apath = '', svg = '';
-    for (var i = 0; i < N; i++) {
-      if (wg[i] !== null && wg[i] !== undefined) gpath += (gpath ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(wg[i]).toFixed(1);
-      if (ws[i] !== null && ws[i] !== undefined) apath += (apath ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(ws[i]).toFixed(1);
-    }
-    for (var g = 0; g <= mx; g += 5) svg += '<line x1="' + pl + '" x2="' + (W - pr) + '" y1="' + Y(g) + '" y2="' + Y(g) + '" stroke="var(--line)" stroke-width="1"/><text x="' + (pl - 4) + '" y="' + (Y(g) + 3) + '" text-anchor="end" font-size="9" fill="var(--muted)">' + g + '</text>';
-    for (i = 0; i < N; i += 3) {
-      svg += '<text x="' + X(i) + '" y="' + (H - 4) + '" text-anchor="middle" font-size="9" fill="var(--muted)">' + times[i].slice(11, 13) + '</text>';
-      if (wd[i] !== null && wd[i] !== undefined) svg += '<g transform="translate(' + X(i) + ' 10) rotate(' + Math.round((wd[i] + 180) % 360) + ')"><path d="M0 -6 L4 5 L0 2 L-4 5 Z" fill="var(--turq)"/></g>';
-    }
-    if (gpath) svg += '<path d="' + gpath + 'L' + X(N - 1) + ' ' + Y(0) + 'L' + X(0) + ' ' + Y(0) + 'Z" fill="var(--purple)" opacity=".18"/><path d="' + gpath + '" fill="none" stroke="var(--pink)" stroke-width="1.5" stroke-dasharray="3 3"/>';
-    if (apath) svg += '<path d="' + apath + '" fill="none" stroke="var(--turq)" stroke-width="2.5" stroke-linejoin="round"/>';
-    $('wxChart').innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Wind and gusts next 24 hours">' + svg + '</svg>' +
-      '<div class="small" style="display:flex;gap:14px;padding:2px 4px 0"><span style="color:var(--turq)">━ wind</span><span style="color:var(--pink)">┅ gusts</span><span>kn · arrows = wind direction</span></div>';
-    $('wxChart').classList.remove('hidden');
+    var N = times.length;
     // TABLE
-    var rows = '<div class="wx-row head"><span>TIME</span><span>WIND · GUST kn</span><span style="text-align:right">DIR</span><span style="text-align:right">°C</span></div>', prevDay = '';
-    for (i = 0; i < N; i++) {
-      var day = times[i].slice(0, 10), newDay = prevDay && day !== prevDay; prevDay = day;
+    var DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'], MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    var dayLbl = function (iso) { var d = new Date(iso.slice(0, 10) + 'T12:00:00Z'); return DAYS[d.getUTCDay()] + ' ' + d.getUTCDate() + ' ' + MON[d.getUTCMonth()]; };
+    var num = function (x) { return x === null || x === undefined ? '–' : Math.round(x); };
+    var rows = '<div class="wx-day">' + dayLbl(times[0]) + '</div>' +
+      '<div class="wx-row head"><span>TIME</span><span class="wx-wg-h"><span>WIND</span><span>GUST</span></span><span style="text-align:right">DIR</span><span style="text-align:right">°C</span></div>', prevDay = times[0].slice(0, 10);
+    for (var i = 0; i < N; i++) {
+      var day = times[i].slice(0, 10);
+      if (day !== prevDay) { rows += '<div class="wx-day">' + dayLbl(times[i]) + '</div>'; prevDay = day; }
       var a = ws[i], gg = wg[i];
-      rows += '<div class="wx-row"><span class="t' + (newDay ? ' day' : '') + '">' + (newDay ? times[i].slice(8, 10) + '.' : '') + times[i].slice(11, 13) + 'h</span>' +
-        '<div class="wx-wind"><b>' + (a === null || a === undefined ? '–' : Math.round(a)) + '<span>/' + (gg === null || gg === undefined ? '–' : Math.round(gg)) + '</span></b>' +
-        '<div class="wx-bar"><i class="g" style="width:' + Math.min(100, (gg || 0) / mx * 100) + '%"></i><i class="a" style="width:' + Math.min(100, (a || 0) / mx * 100) + '%"></i></div></div>' +
+      var ratio = (a !== null && gg) ? Math.max(0.15, Math.min(0.85, a / gg)) : 0.5;
+      rows += '<div class="wx-row"><span class="t">' + times[i].slice(11, 13) + ':00</span>' +
+        '<span class="wx-wg" style="--r:' + Math.round(ratio * 100) + '%"><b>' + num(a) + '</b><b>' + num(gg) + '</b></span>' +
         '<span class="wx-dir">' + (wd[i] === null || wd[i] === undefined ? '–' : d3(wd[i]) + arrow(wd[i])) + '</span>' +
-        '<span class="wx-misc">' + (tp[i] === null || tp[i] === undefined ? '–' : Math.round(tp[i])) + (pp[i] ? '<br>' + pp[i] + '%☂' : '') + '</span>';
+        '<span class="wx-misc">' + num(tp[i]) + (pp[i] ? '<br>' + pp[i] + '%☂' : '') + '</span>';
       if (hasSea && mi[times[i]] !== undefined) {
         var k = mi[times[i]], v = function (key) { var x = (mh[key] || [])[k]; return x === null || x === undefined ? null : x; }, parts = [];
         if (v('wave_height') !== null) parts.push('Waves <b>' + v('wave_height').toFixed(1) + ' m</b>' + (v('wave_period') !== null ? ' ' + Math.round(v('wave_period')) + 's' : ''));
@@ -931,9 +919,33 @@
       rows += '</div>';
     }
     $('wxTable').innerHTML = rows;
+    wxSetView(WX.view);
   }
+  WX.view = store.get('wxView', 'table');
+  function wxMap() {
+    var box = $('wxMap'), L = WX.last;
+    if (WX.view !== 'map') return;
+    var loc = L ? L.loc : { lat: 44.7872, lon: 20.3985 };
+    var key = loc.lat.toFixed(3) + ',' + loc.lon.toFixed(3);
+    if (box.getAttribute('data-k') === key) return;
+    box.setAttribute('data-k', key);
+    var prod = { ecmwf_ifs025: 'ecmwf', icon_seamless: 'iconEu', gfs_seamless: 'gfs', meteofrance_seamless: 'arome' }[WX.model] || 'ecmwf';
+    var q = 'lat=' + loc.lat.toFixed(3) + '&lon=' + loc.lon.toFixed(3) + '&detailLat=' + loc.lat.toFixed(3) + '&detailLon=' + loc.lon.toFixed(3) +
+      '&zoom=11&level=surface&overlay=wind&product=' + prod + '&menu=&message=true&marker=true&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=kt&metricTemp=%C2%B0C&radarRange=-1';
+    box.innerHTML = navigator.onLine === false ? '<p class="small" style="padding:16px">Map needs internet.</p>' :
+      '<iframe title="Wind map" loading="lazy" src="https://embed.windy.com/embed2.html?' + q + '" allow="fullscreen"></iframe>';
+  }
+  function wxSetView(v) {
+    WX.view = v; store.set('wxView', v);
+    document.querySelectorAll('[data-wxv]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-wxv') === v); });
+    $('wxMap').classList.toggle('hidden', v !== 'map');
+    $('wxTableWrap').classList.toggle('hidden', v !== 'table');
+    $('wxNow').classList.toggle('hidden', v !== 'table' || !WX.last);
+    wxMap();
+  }
+  document.querySelectorAll('[data-wxv]').forEach(function (b) { b.addEventListener('click', function () { wxSetView(b.getAttribute('data-wxv')); }); });
   function wxOpen() {
-    wxRenderSpots();
+    wxRenderSpots(); wxSetView(WX.view);
     if (WX.last && WX.last.key === WX.spot + '|' + WX.model) wxRender(true);
     wxFetch();
   }

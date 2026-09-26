@@ -10,11 +10,11 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/saira-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=0.5.0">
+<link rel="stylesheet" href="style.css?v=0.5.1">
 </head>
 <body class="theme-night">
 
-<div id="version" class="version">v0.5.0</div>
+<div id="version" class="version">v0.5.1</div>
 <div id="update" class="update hidden">New version available. Tap to update</div>
 <div id="toast" class="toast hidden"></div>
 
@@ -122,10 +122,11 @@
         <option value="gfs_seamless">GFS (NOAA)</option>
       </select>
     </div>
+    <div class="seg" id="wxView"><button data-wxv="table" class="on">TABLE</button><button data-wxv="map">MAP</button></div>
     <div id="wxStatus" class="wx-status"></div>
+    <div id="wxMap" class="wx-map hidden"></div>
     <div id="wxNow" class="wx-now hidden"></div>
-    <div id="wxChart" class="wx-chart hidden"></div>
-    <div id="wxTable" class="wx-table"></div>
+    <div id="wxTableWrap"><div id="wxTable" class="wx-table"></div></div>
     <div class="wx-save">
       <input id="wxSpotName" type="text" placeholder="Name this spot (e.g. Ada)" maxlength="24">
       <button id="wxSaveSpot" class="btn">Save spot</button>
@@ -209,6 +210,6 @@
   </div>
 </section>
 
-<script src="app.js?v=0.5.0"></script>
+<script src="app.js?v=0.5.1"></script>
 </body>
 </html>
