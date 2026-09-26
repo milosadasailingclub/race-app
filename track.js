@@ -104,8 +104,7 @@
   function updateLive() {
     var f = live.last;
     if ($('trkLSog')) {
-      $('trkLSog').textContent = f ? kn(f.sog) : '–.–'; $('trkLCog').textContent = f ? d3(f.cog) : '–––'; $('trkLHeel').textContent = f ? heelTxt(f.heel) : '–';
-      $('trkLDist').textContent = rec ? stats(rec.points).dist.toFixed(2) : '0.00';
+      $('trkLSog').textContent = f ? kn(f.sog) : '–.–'; $('trkLCog').textContent = f ? d3(f.cog) : '–––';
     }
     if (!live.map || !f) return;
     live.marker.setLngLat([f.lon, f.lat]);
@@ -157,11 +156,12 @@
     getTrack(id).then(function (t) {
       if (!t || !t.points || !t.points.length) { toast('Empty track'); return; }
       view.id = id; view.pts = t.points; view.i = 0; view.t = t;
+      view.cum = [0]; for (var ci = 1; ci < t.points.length; ci++) view.cum.push(view.cum[ci - 1] + dist(t.points[ci - 1], t.points[ci]) / 1852);
       $('trkTitle').textContent = 'REPLAY'; $('trkMore').classList.remove('hidden');
       var st = t.stats || stats(t.points);
       $('trkBody').innerHTML = '<div class="trk-name"><b>' + esc(t.name) + '</b><span>' + st.dist.toFixed(2) + ' NM · ' + fmtDur(st.dur) + ' · avg ' + st.avg.toFixed(1) + ' · max ' + st.max.toFixed(1) + ' kn</span></div>' +
         '<div class="trk-map" id="trkMap"></div>' +
-        '<div class="trk-tele"><div><em>TIME</em><b id="rpT">0:00</b></div><div><em>SOG kn</em><b id="rpS">–.–</b></div><div><em>COG</em><b id="rpC">–––</b></div><div><em>HEEL</em><b id="rpH">–</b></div></div>' +
+        '<div class="trk-tele"><div><em>TIME</em><b id="rpT">0:00</b></div><div><em>SOG kn</em><b id="rpS">–.–</b></div><div><em>COG</em><b id="rpC">–––</b></div><div><em>HEEL</em><b id="rpH">–</b></div><div><em>DIST NM</em><b id="rpD">0.00</b></div></div>' +
         '<div class="heel trk-heel" id="rpHeel"></div>' +
         '<div class="trk-ctrl"><button class="icon-btn" id="rpPlay">▶</button><input type="range" id="rpSlider" min="0" max="' + (t.points.length - 1) + '" value="0"><button class="icon-btn" id="rpSpeed">×10</button></div>' +
         '<div class="wm-legend trk-legend"><i style="background:linear-gradient(90deg,#0a5566,#00b3a4 25%,#00e0c6 42%,#9b3bff 58%,#ff2e93 75%,#ff1fd2)"></i><span>0</span><span>3</span><span>5</span><span>7</span><span>9</span><span>12 kn</span></div>' +
@@ -193,7 +193,7 @@
     var p = view.pts; if (!p) return; i = Math.max(0, Math.min(p.length - 1, i)); view.i = i;
     var q = p[i];
     $('rpT').textContent = fmtDur((q[0] - p[0][0]) / 1000); $('rpS').textContent = kn(q[3]); $('rpC').textContent = d3(q[4]); $('rpH').textContent = heelTxt(q[5]);
-    $('rpHeel').innerHTML = heelBar(q[5]); $('rpSlider').value = i;
+    $('rpHeel').innerHTML = heelBar(q[5]); $('rpSlider').value = i; $('rpD').textContent = (view.cum ? view.cum[i] : 0).toFixed(2);
     if (view.marker) view.marker.setLngLat([q[2], q[1]]);
   }
   function play() {
