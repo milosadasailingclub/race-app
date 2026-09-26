@@ -285,3 +285,7 @@ body:not([data-view="menu"]):not([data-view="settings"]) .version{display:none}
 .nor-file{display:flex;align-items:center;justify-content:center;margin-top:8px;cursor:pointer}
 .nor-manage textarea{width:100%;margin:8px 0;min-height:110px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg);font:inherit;font-size:13px;padding:8px}
 .nor-manage a.btn{display:flex;align-items:center;justify-content:center;text-decoration:none;color:var(--fg)}
+.nor-cname{display:flex;align-items:center;gap:10px}
+.nor-cname .pennant{flex:0 0 auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+.nor-dia{background:#05070a;border:1px solid var(--line);border-radius:8px;margin:8px 0 4px;padding:4px}
+.nor-dia svg{display:block;width:100%;height:auto;max-height:300px}

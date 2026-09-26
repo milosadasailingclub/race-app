@@ -93,7 +93,8 @@
     if (tiles.length) h += '<div class="nor-tiles">' + tiles.map(function (x) { return '<div class="nor-tile"><span>' + x[0] + '</span><b>' + esc(x[1]) + '</b></div>'; }).join('') + '</div>';
     if (S.changes && S.changes.filter(Boolean).length) h += '<div class="nor-changes"><h3>Amendments</h3>' + list(S.changes) + '</div>';
     if (S.courses && S.courses.length) h += sec('Courses', S.courses.map(function (co) {
-      return '<div class="nor-course"><b>' + esc(co.name) + '</b><div class="nor-seq">' + (co.sequence || []).map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('<i>›</i>') + '</div>' + (co.notes ? '<p>' + esc(co.notes) + '</p>' : '') + '</div>';
+      var C = window.Courses, pn = C && C.pennantFromName(co.name), dia = C ? C.svg(co.sequence) : '';
+      return '<div class="nor-course"><div class="nor-cname">' + (pn ? C.pennant(pn) : '') + '<b>' + esc(co.name) + '</b></div>' + (dia ? '<div class="nor-dia">' + dia + '</div>' : '') + '<div class="nor-seq">' + (co.sequence || []).map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('<i>›</i>') + '</div>' + (co.notes ? '<p>' + esc(co.notes) + '</p>' : '') + '</div>';
     }).join(''));
     if (S.marks && S.marks.length) h += sec('Marks', '<ul>' + S.marks.map(function (m) { return '<li><b>' + esc(m.name) + '</b> ' + esc(m.description) + '</li>'; }).join('') + '</ul>');
     h += sec('Start', txt(S.start)) + sec('Finish', txt(S.finish));

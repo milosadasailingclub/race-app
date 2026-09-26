@@ -1,7 +1,7 @@
-/* The Race App — v0.8.2 */
+/* The Race App — v0.8.3 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.8.2';
+  var APP_VERSION = '0.8.3';
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
