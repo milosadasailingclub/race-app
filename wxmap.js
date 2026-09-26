@@ -102,18 +102,6 @@
     oc.putImageData(img, 0, 0);
     ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(off, -STEP / 2, -STEP / 2, cols * STEP, rows * STEP);
-    // labels: speed + arrow every ~72 px
-    var LS = 72;
-    ctx.font = '700 13px "Saira Condensed", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    for (var py = LS / 2; py < sz.h - 120; py += LS) for (var px = LS / 2; px < sz.w; px += LS) {
-      var s = at(px, py); if (!s) continue;
-      var ang = Math.atan2(s.u, s.v);
-      ctx.save(); ctx.translate(px, py); ctx.rotate(ang);
-      ctx.strokeStyle = 'rgba(238,243,245,.85)'; ctx.lineWidth = 1.6; ctx.beginPath();
-      ctx.moveTo(0, 9); ctx.lineTo(0, -9); ctx.moveTo(-4, -4); ctx.lineTo(0, -9); ctx.lineTo(4, -4); ctx.stroke(); ctx.restore();
-      ctx.fillStyle = '#eef3f5'; ctx.strokeStyle = 'rgba(5,7,10,.8)'; ctx.lineWidth = 3;
-      ctx.strokeText(Math.round(s.s), px + 16, py + 1); ctx.fillText(Math.round(s.s), px + 16, py + 1);
-    }
     sizeCanvas(M.pc); seedParticles();
   }
   function at(px, py) {
