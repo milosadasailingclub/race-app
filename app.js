@@ -1,7 +1,7 @@
-/* The Race App — v0.1.1 */
+/* The Race App — v0.2.0 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.1.1';
+  var APP_VERSION = '0.2.0';
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -162,6 +162,7 @@
     }
     renderTimer();
     renderElapsed();
+    renderLine();
   }
   setInterval(tick, 100);
 
@@ -217,7 +218,7 @@
     started: false, motionPerm: 'nepoznato', motionEvents: 0, lastMotion: 0,
     rawHeel: null, heel: null, lastT: 0, recent: [],
     geoPerm: 'nepoznato', geoError: '', fixes: 0, lastFix: null, acc: null,
-    sog: null, hdg: null, prevFix: null, wake: 'nije traženo'
+    sog: null, hdg: null, prevFix: null, wake: 'nije traženo', fixBuf: []
   };
 
   function heelFromGravity(gx, gy, gz) {
@@ -317,14 +318,20 @@
     S.fixes++; S.geoPerm = 'granted'; S.geoError = '';
     var c = p.coords, fix = { lat: c.latitude, lon: c.longitude, t: p.timestamp || now() };
     S.acc = c.accuracy; S.lastFix = fix;
+    S.fixBuf.push({ lat: fix.lat, lon: fix.lon, acc: c.accuracy, t: fix.t, rt: now() }); if (S.fixBuf.length > 20) S.fixBuf.shift();
     var sogMs = (c.speed !== null && c.speed !== undefined && !isNaN(c.speed)) ? c.speed : null;
     var hdg = (c.heading !== null && c.heading !== undefined && !isNaN(c.heading)) ? c.heading : null;
-    if (S.prevFix) {
-      var d = dist(S.prevFix, fix), dt = (fix.t - S.prevFix.t) / 1000;
+    // rezerva kad telefon ne da brzinu/kurs: poredi sa očitavanjem od pre 1-4 s
+    var ref = null;
+    for (var i = 0; i < S.fixBuf.length - 1; i++) {
+      var age = (fix.t - S.fixBuf[i].t) / 1000;
+      if (age <= 4 && age >= 0.9) { ref = S.fixBuf[i]; break; }
+    }
+    if (ref) {
+      var d = dist(ref, fix), dt = (fix.t - ref.t) / 1000;
       if (sogMs === null && dt > 0) sogMs = d / dt;
-      if (hdg === null && d > 3) hdg = bearing(S.prevFix, fix);
-      if (d > 3 || dt > 5) S.prevFix = fix;
-    } else S.prevFix = fix;
+      if (hdg === null && d > 3) hdg = bearing(ref, fix);
+    }
 
     var t = now(), dts = lastGeoT ? (t - lastGeoT) / 1000 : 0; lastGeoT = t;
     var tau = TAU[cfg.damp] || 0, a = (tau === 0 || dts <= 0) ? 1 : 1 - Math.exp(-dts / tau);
@@ -405,6 +412,88 @@
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible') { if (currentView === 'race') requestWakeLock(); checkVersion(); }
   });
+
+  /* ---------- START LINIJA ---------- */
+  // Konvencija: gledano u vetar iza linije, BOAT (komisijski brod) je desno, PIN levo.
+  var line = { pin: store.get('pin', null), boat: store.get('boat', null) };
+  var LINE_TOL = 3; // sekunde tolerancije za "na vreme"
+
+  function recentFix() {
+    var t = now(), buf = S.fixBuf.filter(function (f) { return t - f.rt < 3000; });
+    if (!buf.length && S.fixBuf.length && t - S.fixBuf[S.fixBuf.length - 1].rt < 5000) buf = [S.fixBuf[S.fixBuf.length - 1]];
+    if (!buf.length) return null;
+    var la = 0, lo = 0, ac = 0;
+    buf.forEach(function (f) { la += f.lat; lo += f.lon; ac += f.acc; });
+    return { lat: la / buf.length, lon: lo / buf.length, acc: ac / buf.length };
+  }
+  function setPoint(which) {
+    var f = recentFix();
+    if (!f) { toast('Nema GPS signala, sačekaj pa pokušaj ponovo.'); return; }
+    line[which] = { lat: f.lat, lon: f.lon, acc: f.acc, t: new Date().toISOString() };
+    store.set(which, line[which]); buzz(150);
+    var msg = (which === 'pin' ? 'PIN' : 'BOAT') + ' postavljen (±' + Math.round(f.acc) + ' m)';
+    if (f.acc > 15) msg += '. Slab GPS, ponovi kad se popravi.';
+    toast(msg); renderLine();
+  }
+  function pointBtn(which, el) {
+    el.addEventListener('click', function () {
+      unlockAudio();
+      if (!line[which]) setPoint(which);
+      else toast((which === 'pin' ? 'PIN' : 'BOAT') + ' je već postavljen.', 'Postavi ponovo', function () { setPoint(which); }, 4000);
+    });
+  }
+  pointBtn('pin', $('pinBtn')); pointBtn('boat', $('boatBtn'));
+  $('lineClear').addEventListener('click', function () {
+    toast('Obrisati liniju?', 'Obriši', function () {
+      line.pin = null; line.boat = null; store.set('pin', null); store.set('boat', null); renderLine(); toast('Linija obrisana');
+    }, 4000);
+  });
+
+  function xy(ref, p) {
+    return { x: toRad(p.lon - ref.lon) * 6371000 * Math.cos(toRad(ref.lat)), y: toRad(p.lat - ref.lat) * 6371000 };
+  }
+  function lineCalc(pos) {
+    var b = xy(line.pin, line.boat), x = xy(line.pin, pos);
+    var L2 = b.x * b.x + b.y * b.y, L = Math.sqrt(L2);
+    var t = L2 ? Math.max(0, Math.min(1, (x.x * b.x + x.y * b.y) / L2)) : 0;
+    var cx = b.x * t, cy = b.y * t;
+    var dist = Math.sqrt((x.x - cx) * (x.x - cx) + (x.y - cy) * (x.y - cy));
+    var cross = b.x * x.y - b.y * x.x; // > 0 = strana kursa (preko linije)
+    return { len: L, dist: dist, over: cross > 0 };
+  }
+  function renderLine() {
+    var both = !!(line.pin && line.boat);
+    $('pinBtn').classList.toggle('set', !!line.pin);
+    $('boatBtn').classList.toggle('set', !!line.boat);
+    $('pinBtn').textContent = line.pin ? 'PIN ✓' : 'PIN';
+    $('boatBtn').textContent = line.boat ? 'BOAT ✓' : 'BOAT';
+    $('lineClear').classList.toggle('hidden', !(line.pin || line.boat));
+    var show = both && T.state !== 'race';
+    $('p-timer').classList.toggle('lined', show);
+    $('lineBlock').classList.toggle('hidden', !show);
+    if (!show) return;
+
+    var el = $('dtl'), info = $('lineInfo'), cls = 'none', txt = '––';
+    var lenTxt = 'linija ' + Math.round(lineCalc(line.boat).len) + ' m';
+    var last = S.fixBuf.length ? S.fixBuf[S.fixBuf.length - 1] : null;
+    if (!last || now() - last.rt > 5000) {
+      info.textContent = lenTxt + ' · nema GPS signala';
+    } else {
+      var r = lineCalc(last);
+      var tts = T.state === 'count' ? (T.end - now()) / 1000 : cfg.preset * 60;
+      if (r.over) { cls = 'ocs'; txt = '−' + Math.round(r.dist); }
+      else {
+        txt = String(Math.round(r.dist));
+        var v = (S.sog || 0) / 1.943844;
+        var ttl = v > 0.26 ? r.dist / v : Infinity;
+        var margin = ttl - tts;
+        cls = margin > LINE_TOL ? 'late' : (margin < -LINE_TOL ? 'early' : 'ok');
+      }
+      info.textContent = (r.over ? 'PREKO LINIJE · ' : '') + lenTxt + ' · GPS ±' + Math.round(last.acc) + ' m';
+    }
+    el.textContent = txt;
+    el.className = 'dtl ' + cls;
+  }
 
   /* ---------- settings ---------- */
   var damp = $('damp');

@@ -9,11 +9,11 @@
 <title>The Race App</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=0.1.1">
+<link rel="stylesheet" href="style.css?v=0.2.0">
 </head>
 <body class="theme-day">
 
-<div id="version" class="version">v0.1.1</div>
+<div id="version" class="version">v0.2.0</div>
 <div id="update" class="update hidden">Nova verzija je spremna, dodirni za osvežavanje</div>
 <div id="toast" class="toast hidden"></div>
 
@@ -49,9 +49,21 @@
         <button class="adj" id="minus">−1 min</button>
         <button class="adj" id="plus">+1 min</button>
       </div>
-      <div id="timer" class="timer">5:00</div>
-      <div id="timerSub" class="timer-sub">spreman</div>
+      <div class="time-block">
+        <div id="timer" class="timer">5:00</div>
+        <div id="timerSub" class="timer-sub">spreman</div>
+      </div>
+      <div id="lineBlock" class="line-block hidden">
+        <div class="lbl">DO LINIJE <span class="unit">m</span></div>
+        <div id="dtl" class="dtl">––</div>
+        <div id="lineInfo" class="line-info"></div>
+      </div>
       <button id="sync" class="sync">START</button>
+      <div class="line-row">
+        <button id="pinBtn" class="line-btn">PIN</button>
+        <button id="lineClear" class="line-clear hidden" aria-label="Obriši liniju">✕</button>
+        <button id="boatBtn" class="line-btn">BOAT</button>
+      </div>
       <div class="preset-row" id="presets">
         <button data-min="5" class="preset on">5</button>
         <button data-min="4" class="preset">4</button>
@@ -145,6 +157,6 @@
   </div>
 </section>
 
-<script src="app.js?v=0.1.1"></script>
+<script src="app.js?v=0.2.0"></script>
 </body>
 </html>

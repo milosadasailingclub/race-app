@@ -94,3 +94,22 @@ input[type=range]{width:100%;height:36px}
 .check{display:flex;gap:8px;align-items:center;font-size:15px;margin-bottom:8px}
 select{font:inherit;padding:4px}
 .diag{white-space:pre-wrap;font-size:12px;background:var(--bg);border-radius:8px;padding:10px;margin:0 0 8px;user-select:text;-webkit-user-select:text}
+
+/* START LINIJA (v0.2) */
+.time-block{text-align:center}
+.line-block{text-align:center;width:100%}
+.dtl{font-size:min(28vw,17vh);font-weight:900;line-height:1;font-variant-numeric:tabular-nums;border-radius:16px;padding:4px 0;color:#fff;background:var(--muted)}
+.dtl.late{background:#1f5fd6} .dtl.ok{background:var(--good)} .dtl.early{background:var(--bad)}
+.dtl.ocs{background:var(--bad);animation:blink .6s steps(2) infinite}
+.dtl.none{background:var(--card);color:var(--muted)}
+@keyframes blink{50%{opacity:.35}}
+.line-info{font-size:13px;color:var(--muted);margin-top:4px}
+.line-row{display:flex;gap:10px;width:100%;align-items:center}
+.line-btn{flex:1;height:52px;border-radius:12px;border:2px dashed var(--line);background:var(--card);font-size:19px;font-weight:800}
+.line-btn.set{border-style:solid;border-color:var(--good);background:var(--good);color:#fff}
+.line-btn.pressing{outline:3px solid var(--accent)}
+.line-clear{width:52px;height:52px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-size:20px;font-weight:800}
+#p-timer.lined .timer{font-size:min(20vw,11vh)}
+#p-timer.lined .timer-sub{margin-top:0;font-size:15px}
+#p-timer.lined .sync{width:min(38vw,19vh);height:min(38vw,19vh);font-size:28px}
+#p-timer.lined .preset-row.locked .preset:not(.reset){display:none}
