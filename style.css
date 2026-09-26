@@ -242,3 +242,8 @@ body:not([data-view="menu"]):not([data-view="settings"]) .version{display:none}
 .icon-btn.cl-act{margin-left:auto}
 .icon-btn.on{background:var(--deep);border-color:var(--turq)}
 .soon-page p{text-align:center;max-width:300px;line-height:1.4}
+.cl-na{flex:0 0 auto;height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--muted);font-family:var(--f-num);font-weight:800;font-size:13px;letter-spacing:.08em}
+.cl-item.na .cl-na{background:var(--deep);border-color:var(--turq);color:#fff}
+.cl-item.na .cl-box{border-color:var(--deep);background:var(--deep)}
+.cl-item.na .cl-box::after{content:"";position:absolute;left:5px;right:5px;top:10px;height:3px;background:#fff;border-radius:2px}
+.cl-item.na .cl-t{color:var(--muted);font-style:italic}

@@ -62,9 +62,9 @@
     return p || myLists().filter(function (l) { return l.id === id; })[0] || null;
   }
   function progress(list, sub) {
-    var c = checks()[list.id] || {}, n = 0, d = 0;
-    (sub ? [sub] : list.subs).forEach(function (s) { s.items.forEach(function (it) { if (it.h) return; n++; if (c[it.id]) d++; }); });
-    return { n: n, d: d, done: n > 0 && d === n };
+    var c = checks()[list.id] || {}, n = 0, d = 0, na = 0;
+    (sub ? [sub] : list.subs).forEach(function (s) { s.items.forEach(function (it) { if (it.h) return; n++; if (c[it.id]) d++; if (c[it.id] === 2) na++; }); });
+    return { n: n, d: d, na: na, done: n > 0 && d === n };
   }
 
   // navigation state
@@ -95,7 +95,7 @@
       if (st.edit) html += '<div class="cl-edit"><input id="clRename" type="text" maxlength="30" value="' + esc(L.name) + '"><button class="btn" id="clRenameBtn">Rename</button><button class="btn danger" id="clDelList">Delete list</button></div>';
       L.subs.forEach(function (s) {
         var p = progress(L, s);
-        html += '<button class="cl-card' + (p.done ? ' done' : '') + '" data-sub="' + s.id + '"><span class="cl-name">' + esc(s.name) + '</span><span class="cl-meta">' + (p.n ? p.d + ' / ' + p.n : 'empty') + '</span>' + bar(p) + '</button>';
+        html += '<button class="cl-card' + (p.done ? ' done' : '') + '" data-sub="' + s.id + '"><span class="cl-name">' + esc(s.name) + '</span><span class="cl-meta">' + (p.n ? p.d + ' / ' + p.n + (p.na ? ' · ' + p.na + ' N/A' : '') : 'empty') + '</span>' + bar(p) + '</button>';
       });
       html += '<div class="row"><button class="btn" id="clReset">Reset all checks</button>' + (L.pub ? '<button class="btn primary" id="clCopy">Copy to My lists</button>' : '') + '</div>';
       if (L.source) html += '<p class="small">' + esc(L.source) + '</p>';
@@ -103,12 +103,13 @@
     }
     var S = L.subs.filter(function (x) { return x.id === st.sub; })[0], c = checks()[L.id] || {}, ps = progress(L, S);
     $('clTitle').textContent = S.name.toUpperCase();
-    html += '<div class="cl-sum' + (ps.done ? ' done' : '') + '"><span>' + esc(L.name) + ' · ' + ps.d + ' / ' + ps.n + '</span>' + bar(ps) + '</div><div class="cl-items">';
+    html += '<div class="cl-sum' + (ps.done ? ' done' : '') + '"><span>' + esc(L.name) + ' · ' + ps.d + ' / ' + ps.n + (ps.na ? ' · ' + ps.na + ' not needed' : '') + ' · tap N/A if you don\'t need an item</span>' + bar(ps) + '</div><div class="cl-items">';
     if (!S.items.length) html += '<p class="small" style="padding:12px">No items yet.' + (L.pub ? '' : ' Add the first one below.') + '</p>';
     S.items.forEach(function (it) {
       if (it.h) { html += '<div class="cl-h">' + esc(it.t) + (st.edit ? '<button class="cl-del" data-del="' + it.id + '">✕</button>' : '') + '</div>'; return; }
-      html += '<div class="cl-item' + (c[it.id] ? ' on' : '') + '" data-chk="' + it.id + '"><span class="cl-box"></span><span class="cl-t">' + esc(it.t) + '</span>' +
-        (st.edit ? '<button class="cl-del" data-del="' + it.id + '">✕</button>' : '') + '</div>';
+      var stt = c[it.id] === 2 ? ' na' : (c[it.id] ? ' on' : '');
+      html += '<div class="cl-item' + stt + '" data-chk="' + it.id + '"><span class="cl-box"></span><span class="cl-t">' + esc(it.t) + '</span>' +
+        (st.edit ? '<button class="cl-del" data-del="' + it.id + '">✕</button>' : '<button class="cl-na" data-na="' + it.id + '" aria-label="Not needed">N/A</button>') + '</div>';
     });
     html += '</div><div class="row"><button class="btn" id="clAll">' + (ps.done ? 'Uncheck all' : 'Check all') + '</button></div>';
     if (!L.pub) html += '<div class="cl-new"><input id="clItem" type="text" maxlength="60" placeholder="Add item (start with # for a section title)"><button class="btn primary" id="clAdd">Add</button></div>';
@@ -118,17 +119,25 @@
 
   function toggle(itemId) {
     var c = checks(), m = c[st.list] || (c[st.list] = {});
-    if (m[itemId]) delete m[itemId]; else m[itemId] = 1;
+    if (m[itemId] === 1) delete m[itemId]; else m[itemId] = 1;
     saveChecks(c);
     var L = findList(st.list), S = L.subs.filter(function (x) { return x.id === st.sub; })[0], was = progress(L, S);
     render();
     if (was.done) { try { navigator.vibrate && navigator.vibrate([40, 60, 40]); } catch (e) {} R().toast(S.name + ' complete ✓'); }
   }
+  function toggleNA(itemId) {
+    var c = checks(), m = c[st.list] || (c[st.list] = {});
+    if (m[itemId] === 2) delete m[itemId]; else m[itemId] = 2;
+    saveChecks(c);
+    var L = findList(st.list), S = L.subs.filter(function (x) { return x.id === st.sub; })[0];
+    render();
+    if (progress(L, S).done) { try { navigator.vibrate && navigator.vibrate([40, 60, 40]); } catch (e) {} R().toast(S.name + ' complete ✓'); }
+  }
   function mutateMy(fn) { var l = myLists(), L = l.filter(function (x) { return x.id === st.list; })[0]; if (L) { fn(L, l); saveMy(l); } }
 
   document.addEventListener('click', function (e) {
     if (!e.target.closest || !$('checklist').classList.contains('active')) return;
-    var t = e.target.closest('[data-cltab],[data-open],[data-sub],[data-chk],[data-del],button');
+    var t = e.target.closest('[data-cltab],[data-open],[data-sub],[data-na],[data-chk],[data-del],button');
     if (!t) return;
     if (t.dataset.cltab) { st.tab = t.dataset.cltab; render(); return; }
     if (t.dataset.open) { st.list = t.dataset.open; st.sub = null; st.edit = false; render(); return; }
@@ -137,6 +146,7 @@
       var id = t.dataset.del; e.stopPropagation();
       mutateMy(function (L) { L.subs.forEach(function (s) { s.items = s.items.filter(function (it) { return it.id !== id; }); }); }); render(); return;
     }
+    if (t.dataset.na) { toggleNA(t.dataset.na); return; }
     if (t.dataset.chk) { toggle(t.dataset.chk); return; }
     switch (t.id) {
       case 'clNewBtn':
@@ -150,7 +160,7 @@
         R().toast('Reset all checks in this list?', 'Reset', function () { var c = checks(); delete c[st.list]; saveChecks(c); render(); }, 4000); break;
       case 'clAll':
         var L2 = findList(st.list), S2 = L2.subs.filter(function (x) { return x.id === st.sub; })[0], c2 = checks(), m2 = c2[st.list] || (c2[st.list] = {}), pr = progress(L2, S2);
-        S2.items.forEach(function (it) { if (it.h) return; if (pr.done) delete m2[it.id]; else m2[it.id] = 1; }); saveChecks(c2); render(); break;
+        S2.items.forEach(function (it) { if (it.h) return; if (pr.done) { if (m2[it.id] === 1) delete m2[it.id]; } else if (!m2[it.id]) m2[it.id] = 1; }); saveChecks(c2); render(); break;
       case 'clAdd':
         var v = $('clItem').value.trim(); if (!v) return;
         mutateMy(function (L) { var S3 = L.subs.filter(function (x) { return x.id === st.sub; })[0];
