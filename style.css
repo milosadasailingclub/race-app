@@ -44,8 +44,8 @@ button{font:inherit;color:inherit;cursor:pointer}
 .brand-mark{width:44px;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--turq),var(--purple),var(--pink));margin-bottom:14px}
 .menu-head h1{margin:0;font-family:var(--f-num);font-weight:800;font-size:38px;letter-spacing:.04em;line-height:1}
 .menu-head p{margin:6px 0 0;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;font-size:12px}
-.menu-list{display:flex;flex-direction:column;gap:8px;padding:14px 16px 40px;overflow:auto}
-.menu-item{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:2px;padding:14px 16px;border-radius:8px;
+.menu-list{display:flex;flex-direction:column;gap:8px;padding:14px 16px 40px;overflow-y:auto;flex:1;min-height:0}
+.menu-item{flex-shrink:0;display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:2px;padding:14px 16px;border-radius:8px;
   border:1px solid var(--line);background:var(--surface);font-family:var(--f-num);font-weight:800;font-size:22px;letter-spacing:.04em;text-transform:uppercase}
 .menu-item span{font-family:var(--f-ui);font-size:12px;font-weight:500;color:var(--muted);letter-spacing:.04em;text-transform:none}
 .menu-item.primary{background:linear-gradient(120deg,var(--deep-2),var(--deep) 55%,#0b6b73);border-color:transparent;color:#fff;position:relative;overflow:hidden}
