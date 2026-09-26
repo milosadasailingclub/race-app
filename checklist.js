@@ -5,37 +5,7 @@
     ['clothing', 'Clothing'], ['boat', 'Boat'], ['tools', 'Tools'], ['transport', 'Transport'],
     ['other', 'Other'], ['fnb', 'F&B'], ['medical', 'Medical']
   ];
-  // item: string = checkable item, '# Text' = section header
-  var ILCA = {
-    id: 'pub-ilca', name: 'ILCA (Laser)', cls: 'ILCA', pub: true,
-    source: 'Boat section based on the ILCA/Laser Equipment Checklist (Regatta Network).',
-    subs: {
-      clothing: ['Buoyancy aid (PFD) + whistle', 'Wetsuit / drysuit (for conditions)', 'Hiking pants', 'Rash vest / thermal top',
-        'Spray top / smock', 'Sailing boots', 'Sailing gloves (+ spare pair)', 'Cap / beanie', 'Warm dry clothes for after', 'Towel'],
-      boat: ['# Lines', 'All lines checked for chafe and fraying', 'Knots and splices checked', 'Mainsheet 7–8 mm',
-        'Outhaul, cunningham and vang rigged and tested before leaving', 'Vang: all purchases rigged', 'Cunningham at least 8:1 (10:1 full rig)',
-        '# Deck and hull fittings', 'Fitting screws hand-tight (no drill)', 'Cunningham / outhaul turning-block plate secure', 'Cunningham and outhaul deck cleats',
-        'Mainsheet block eye-strap screws', 'Hiking strap eye-strap screws', 'Gudgeons and screws: no cracks', 'Grab rails: tight, no cracks',
-        'Traveller fairleads: no cracks or wear (metal, not plastic)', 'Bailer opens and closes', 'Transom plug in, O-ring OK',
-        '# Spars', 'No corrosion around riveted fittings', 'No scoring at mast base (deck level)', 'Gooseneck rivets tight', 'Vang tang rivets tight, no cracks',
-        'Upper collar rivets tight', 'Boom block rivets and blocks OK', 'Traveller blocks OK', 'Upper and lower mast straight (sight down the mast)',
-        'Upper / lower fit snug (tape collar if loose)', 'Composite top cap secured', 'Mast retaining line fitted (180° rotation)',
-        '# Blades and tiller', 'Daggerboard and rudder: no cracks or missing glass', 'Daggerboard stopper and retaining elastic', 'Rudder lift stop works (rudder cannot pull out)',
-        'Rudder retaining clip / ring ding', 'Tiller extension universal: no cracks', 'Extension rubber not splitting',
-        '# Vang', 'Vang pin secured (clevis pin + ring ding)', 'Upper vang block not bent', 'Vang key retaining bolt tight',
-        '# Sail and hull', 'Sail, battens, sail ties', 'Sail numbers / class markings', 'Hull drained, no leaks found'],
-      tools: ['Screwdrivers (Phillips + flat)', 'Allen keys', 'Adjustable wrench / spanner', 'Pliers', 'Rivet tool (two-handed for stainless)',
-        'Stainless and aluminium rivets', 'Drill + bits (3/16", 15/64")', 'Spare shackles, clevis pins, ring dings', 'Spare lines (mainsheet, vang, outhaul, cunningham)',
-        'Rigging / duct tape', 'Knife', 'Loctite + lanolin', 'Two-part epoxy + threaded inserts', 'Sandpaper / repair kit for blades', 'Sponge and bailer'],
-      transport: ['Launching trolley', 'Road trailer / roof rack', 'Ratchet straps (+ spares)', 'Top cover', 'Bottom / hull cover',
-        'Mast and boom bag', 'Blade bags (rudder + daggerboard)', 'Lighting board + plug adapter', 'Number plate / registration', 'Padding / cradles', 'Spare wheel + trailer jack'],
-      other: ['Sunscreen', 'Sunglasses + strap', 'Hand compass / tactical compass', 'Race timer / Vakaros', 'Phone in waterproof case', 'Phone charger + power bank',
-        'NoR / SI (on phone or printed)', 'Measurement certificate / class membership', 'Entry confirmation / ID', 'Water bottle'],
-      fnb: ['Water (1.5 L+ per day)', 'Electrolyte drink', 'Energy bars', 'Bananas / fruit', 'Lunch for on the water', 'Supplements'],
-      medical: ['Plasters / blister kit', 'Painkillers', 'Antiseptic', 'Hand tape', 'Seasickness tablets', 'Personal medication', 'After-sun']
-    }
-  };
-  var PUBLIC = [ILCA];
+  var PUBLIC = window.RA_PUBLIC_LISTS || [];
 
   var R = function () { return window.RA; };
   var $ = function (id) { return document.getElementById(id); };
@@ -44,7 +14,7 @@
 
   function toInternal(def) {
     return {
-      id: def.id, name: def.name, cls: def.cls || '', pub: !!def.pub, source: def.source || '',
+      id: def.id, name: def.name, cls: def.cls || '', pub: def.pub !== false && def.id.indexOf('pub-') === 0, draft: !!def.draft, source: def.source || '',
       subs: SUBS.map(function (s) {
         return { id: s[0], name: s[1], items: (def.subs[s[0]] || []).map(function (t, i) {
           return t.charAt(0) === '#' ? { id: s[0] + i, t: t.slice(1).trim(), h: true } : { id: s[0] + i, t: t };
@@ -80,7 +50,7 @@
       if (!lists.length) html += '<p class="small" style="padding:4px 2px">No lists yet. Create one from the empty template, or copy a public list.</p>';
       lists.forEach(function (l) {
         var p = progress(l);
-        html += '<button class="cl-card' + (p.done ? ' done' : '') + '" data-open="' + esc(l.id) + '"><span class="cl-name">' + esc(l.name) + '</span>' +
+        html += '<button class="cl-card' + (p.done ? ' done' : '') + '" data-open="' + esc(l.id) + '"><span class="cl-name">' + esc(l.name) + (l.pub && l.draft ? ' <em class="cl-draft">DRAFT</em>' : '') + '</span>' +
           '<span class="cl-meta">' + (l.cls ? esc(l.cls) + ' · ' : '') + p.d + ' / ' + p.n + '</span>' + bar(p) + '</button>';
       });
       if (st.tab === 'my') html += '<div class="cl-new"><input id="clNewName" type="text" maxlength="30" placeholder="New list name (e.g. Regatta Split)"><button class="btn primary" id="clNewBtn">+ New list</button></div>';
@@ -154,7 +124,7 @@
         var l = myLists(); var nl = toInternal({ id: 'my-' + uid(), name: nm, subs: {} }); l.push(nl); saveMy(l);
         st.list = nl.id; st.sub = null; st.edit = false; render(); R().toast('List created: ' + nm); break;
       case 'clCopy':
-        var src = findList(st.list), cp = JSON.parse(JSON.stringify(src)); cp.id = 'my-' + uid(); cp.pub = false; cp.name = src.name + ' (my copy)'; cp.source = '';
+        var src = findList(st.list), cp = JSON.parse(JSON.stringify(src)); cp.id = 'my-' + uid(); cp.pub = false; cp.draft = false; cp.name = src.name + ' (my copy)'; cp.source = '';
         var ml = myLists(); ml.push(cp); saveMy(ml); st.tab = 'my'; st.list = cp.id; st.sub = null; render(); R().toast('Copied to My lists'); break;
       case 'clReset':
         R().toast('Reset all checks in this list?', 'Reset', function () { var c = checks(); delete c[st.list]; saveChecks(c); render(); }, 4000); break;

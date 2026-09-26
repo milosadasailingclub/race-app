@@ -247,3 +247,4 @@ body:not([data-view="menu"]):not([data-view="settings"]) .version{display:none}
 .cl-item.na .cl-box{border-color:var(--deep);background:var(--deep)}
 .cl-item.na .cl-box::after{content:"";position:absolute;left:5px;right:5px;top:10px;height:3px;background:#fff;border-radius:2px}
 .cl-item.na .cl-t{color:var(--muted);font-style:italic}
+.cl-draft{font-style:normal;font-family:var(--f-ui);font-size:10px;letter-spacing:.1em;vertical-align:middle;background:linear-gradient(90deg,var(--purple),var(--pink));color:#fff;border-radius:3px;padding:2px 5px;margin-left:6px}
