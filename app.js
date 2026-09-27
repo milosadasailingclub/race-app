@@ -1,7 +1,7 @@
 /* The Race App — v0.9.2 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.2';
+  var APP_VERSION = '0.9.3';
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -148,7 +148,7 @@
       sub.textContent = 'TTS'; btn.textContent = 'SYNC';
     } else {
       el.textContent = '+' + fmtUp(now() - T.end); el.classList.remove('last'); el.classList.add('up');
-      sub.textContent = 'RACE TIME'; btn.textContent = 'RACE';
+      sub.textContent = 'RACE TIME'; btn.textContent = 'FINISH';
     }
   }
   function tick() {
@@ -187,6 +187,13 @@
       var m = Math.floor(shownSec / 60);
       T.end = now() + m * 60000; T.lastSec = null;
       signal('sec');
+    } else if (T.state === 'race') {
+      var recOn = window.Track && window.Track._rec();
+      toast(recOn ? 'Finish race and stop track?' : 'Finish race?', 'Finish', function () {
+        if (window.Track) window.Track.stop();
+        T.state = 'idle'; T.lastSec = null; tick();
+      }, 5000);
+      return;
     }
     tick();
   });
@@ -436,11 +443,12 @@
   /* ---------- LIFT / HEADER ---------- */
   // Smer: +delta = okret u smeru kazaljke (CW). Na desnim uzdama (vetar s desne) lift = CW; na levim lift = CCW.
   // Uz vetar lift je povoljan (zeleno), niz vetar lift znači "idi u gybe" (crveno).
-  var LP = { TURN: 50, TURN_WIN: 20, COOLDOWN: 15, SPEED_OK: 0.9, PLATEAU: 0.03, HDG_STD: 4, TIMEOUT: 60, HARD: 90, LOCK: 8, HEEL: 4 };
+  // v0.9.3: brže zaključavanje (max ~15 s posle okreta), osa vetra iz halsova, nagib samo ako je telefon stabilno montiran
+  var LP = { TURN: 50, TURN_DOWN: 40, TURN_WIN: 20, COOLDOWN: 5, SPEED_OK: 0.9, PLATEAU: 0.03, HDG_STD: 6, MIN_ACC: 4, QUIET: 8, SOFT: 10, HARD: 15, LOCK_WIN: 3, HEEL: 4, HEEL_STD: 3, UP_MAX: 75, DOWN_MIN: 105 };
   var L = {
     hist: [], phase: 'idle', leg: cfg.startLeg || 'up', side: null,
     ref: null, refSrc: null, lastT: 0, turnT: 0, turnDir: 0, v0: null, heelBefore: null,
-    lockStart: 0, lastRef: { stbd: null, port: null }, note: ''
+    lockStart: 0, lastRef: { stbd: null, port: null }, note: '', axis: null, hdgBefore: null, heelPre: null
   };
   function nrm(d) { d = ((d % 360) + 540) % 360 - 180; return d; }
   function cmean(arr) {
@@ -456,6 +464,15 @@
   function hdgs(arr) { return arr.filter(function (e) { return e.hdg !== null; }).map(function (e) { return e.hdg; }); }
   function heelOk() { return S.motionEvents > 0; }
   function strong(h) { return h !== null && Math.abs(h) >= LP.HEEL; }
+  function heelStat(arr) {
+    var v = arr.filter(function (e) { return e.heel !== null && e.heel !== undefined; }).map(function (e) { return e.heel; });
+    if (v.length < 3) return { ok: false, mean: null };
+    var m = 0; v.forEach(function (x) { m += x; }); m /= v.length;
+    var sd = 0; v.forEach(function (x) { sd += (x - m) * (x - m); }); sd = Math.sqrt(sd / v.length);
+    return { ok: heelOk() && sd < LP.HEEL_STD, mean: m, sd: sd }; // nemiran nagib = telefon nije montiran -> ne koristi
+  }
+  function sideFromAxis(h) { return L.axis === null || h === null ? null : (nrm(h - L.axis) > 0 ? 'port' : 'stbd'); }
+  function turnQuiet(t) { var w = win(t - 3000, t).filter(function (e) { return e.hdg !== null; }), s = 0; for (var i = 1; i < w.length; i++) s += nrm(w[i].hdg - w[i - 1].hdg); return w.length >= 2 && Math.abs(s) < LP.QUIET; }
   function sideFromHeel(h) { return strong(h) ? (h > 0 ? 'port' : 'stbd') : null; } // nagib na desnu stranu = vetar s leve = leve uzde
 
   function settledNow(t) {
@@ -472,19 +489,33 @@
     if (L.side && src === 'smart') { /* zapamti za poređenje posle sledećeg okreta na isti hals */ }
   }
   function finishManeuver(t) {
-    var ha = avg(win(t - 5000, t), 'heel'), hb = L.heelBefore, kind = L.leg === 'up' ? 'Tack' : 'Gybe';
+    var hA = hdgs(win(t - 3000, t)), after = hA.length ? cmean(hA) : S.hdg, before = L.hdgBefore;
+    var kind = L.leg === 'up' ? 'Tack' : 'Gybe', newLeg = L.leg;
     var turnSide = L.leg === 'up' ? (L.turnDir < 0 ? 'stbd' : 'port') : (L.turnDir > 0 ? 'stbd' : 'port');
-    if (L.leg === 'up') {
-      if (heelOk() && strong(hb) && !strong(ha) && Math.abs(L.turnSum) >= 70) {
-        L.leg = 'down'; kind = 'Bear-away (downwind)';
-        toast('Detected: downwind', 'No, upwind', function () { L.leg = 'up'; renderLift(); }, 6000);
-      } else { L.side = turnSide; }
+    if (L.axis !== null && after !== null) {
+      // poznata osa vetra -> leg iz geometrije
+      var rel = Math.abs(nrm(after - L.axis));
+      if (rel <= LP.UP_MAX) newLeg = 'up'; else if (rel >= LP.DOWN_MIN) newLeg = 'down';
     } else {
-      if (heelOk() && strong(ha) && !strong(hb)) {
-        L.leg = 'up'; L.side = sideFromHeel(ha) || turnSide; kind = 'Round-up (upwind)';
-        toast('Detected: upwind', 'No, downwind', function () { L.leg = 'down'; renderLift(); }, 6000);
-      } else { L.side = turnSide; }
+      // bez ose: nagib samo ako je stabilan pre i posle (telefon montiran)
+      var hb = L.heelPre, ha = heelStat(win(t - 5000, t));
+      if (hb && hb.ok && ha.ok) {
+        if (L.leg === 'up' && strong(hb.mean) && !strong(ha.mean) && Math.abs(L.turnSum) >= 70) newLeg = 'down';
+        if (L.leg === 'down' && strong(ha.mean) && !strong(hb.mean)) newLeg = 'up';
+      }
     }
+    if (newLeg !== L.leg) {
+      var was = L.leg; L.leg = newLeg;
+      kind = newLeg === 'down' ? 'Bear-away (downwind)' : 'Round-up (upwind)';
+      toast(newLeg === 'down' ? 'Detected: downwind' : 'Detected: upwind', newLeg === 'down' ? 'No, upwind' : 'No, downwind', function () { L.leg = was; renderLift(); }, 6000);
+    } else if (before !== null && after !== null) {
+      // učenje ose vetra iz halsa / gybe-a
+      var diff = Math.abs(nrm(after - before)), mid = cmean([before, after]), ax = null;
+      if (L.leg === 'up' && diff >= 60 && diff <= 130) ax = mid;
+      if (L.leg === 'down' && diff >= 35 && diff <= 130) ax = (mid + 180) % 360;
+      if (ax !== null) L.axis = (L.axis !== null && Math.abs(nrm(ax - L.axis)) < 30) ? cmean([L.axis, ax]) : ax;
+    }
+    L.side = sideFromAxis(after) || (newLeg === 'up' && L.heelPre && L.heelPre.ok && kind.indexOf('Round') === 0 ? sideFromHeel(heelStat(win(t - 5000, t)).mean) : null) || turnSide;
     L.note = kind;
   }
 
@@ -495,40 +526,37 @@
     if (kn === null || kn < 1.0 || hdg === null) { renderLift(); return; }
 
     // 1) detekcija manevra: zbir promena kursa u zadnjih 20 s (od poslednjeg manevra)
-    if (t - L.lastT > LP.COOLDOWN * 1000) {
+    if (L.phase !== 'accel' && t - L.lastT > LP.COOLDOWN * 1000) {
       var from = Math.max(t - LP.TURN_WIN * 1000, L.lastT), w = win(from, t).filter(function (e) { return e.hdg !== null && e.sog !== null && e.sog >= 1; });
       var sum = 0; for (var i = 1; i < w.length; i++) sum += nrm(w[i].hdg - w[i - 1].hdg);
-      if (Math.abs(sum) >= LP.TURN) {
-        var pre = win(t - 50000, t - LP.TURN_WIN * 1000);
-        L.v0 = avg(pre, 'sog'); L.heelBefore = avg(pre, 'heel');
+      if (Math.abs(sum) >= (L.leg === 'down' ? LP.TURN_DOWN : LP.TURN)) {
+        var pre = win(Math.max(t - 40000, L.lastT + 5000), t - 8000);
+        if (hdgs(pre).length < 3) pre = win(t - 40000, t - 8000);
+        var ph = hdgs(pre);
+        L.v0 = avg(pre, 'sog'); L.heelBefore = avg(pre, 'heel'); L.heelPre = heelStat(pre); L.hdgBefore = ph.length ? cmean(ph) : null;
         if (L.phase === 'locked' && L.ref !== null && L.side) L.lastRef[L.side] = L.ref;
         L.turnDir = sum > 0 ? 1 : -1; L.turnSum = sum; L.turnT = t; L.lastT = t;
         L.phase = 'accel'; L.ref = null; L.refSrc = null; L.note = '';
         buzz(80);
       }
     }
-    // 2) ubrzavanje -> kraj faze
-    if (L.phase === 'accel' && t - L.turnT > 6000) {
-      var st = settledNow(t), since = (t - L.turnT) / 1000;
+    // 2) ubrzavanje -> kraj faze: najkasnije HARD s posle okreta
+    if (L.phase === 'accel') {
+      var st = settledNow(t), since = (t - L.turnT) / 1000, quiet = turnQuiet(t);
       var speedOk = !L.v0 || L.v0 < 1.5 || (st.v !== null && st.v >= LP.SPEED_OK * L.v0);
-      if ((speedOk && st.plateau && st.stable) || (since > LP.TIMEOUT && st.plateau && st.stable) || since > LP.HARD) {
-        finishManeuver(t);
-        if (cfg.liftMode === 'smart') { L.phase = 'locking'; L.lockStart = t; } else L.phase = 'wait';
+      if ((since >= LP.MIN_ACC && quiet && (speedOk || st.plateau || since >= LP.SOFT)) || since >= LP.HARD) {
+        finishManeuver(t); L.lastT = t; // sledeći manevar se traži tek posle ovog trenutka
+        if (cfg.liftMode === 'smart') { var hl = hdgs(win(t - LP.LOCK_WIN * 1000, t)); lockRef('smart', hl.length ? cmean(hl) : S.hdg); }
+        else L.phase = 'wait';
       }
     }
-    // 3) prvi hals bez prethodnog manevra (smart)
-    if (L.phase === 'idle' && cfg.liftMode === 'smart') {
-      var s0 = settledNow(t);
-      if (s0.plateau && s0.stable && kn >= 1.5) {
-        if (!L.side) L.side = sideFromHeel(avg(win(t - 5000, t), 'heel'));
-        L.phase = 'locking'; L.lockStart = t;
+    // 3) prvi hals bez prethodnog manevra (smart): ~6 s mirnog kursa
+    if (L.phase === 'idle' && cfg.liftMode === 'smart' && kn >= 1.5) {
+      var h6 = hdgs(win(t - 6000, t));
+      if (h6.length >= 5 && cstd(h6) < LP.HDG_STD && turnQuiet(t)) {
+        if (!L.side) L.side = sideFromAxis(S.hdg) || (heelStat(win(t - 5000, t)).ok ? sideFromHeel(avg(win(t - 5000, t), 'heel')) : null);
+        lockRef('smart', cmean(hdgs(win(t - LP.LOCK_WIN * 1000, t))));
       }
-    }
-    // 4) zaključavanje reference (prosek ~8 s)
-    if (L.phase === 'locking' && t - L.lockStart >= LP.LOCK * 1000) {
-      var hh = hdgs(win(L.lockStart - 2000, t));
-      if (cstd(hh) < LP.HDG_STD * 1.5 && settledNow(t).stable) lockRef('smart', cmean(hh));
-      else L.lockStart = t; // još se koleba, probaj ponovo
     }
     renderLift();
   }
@@ -538,7 +566,7 @@
     var v = hh.length ? cmean(hh) : S.hdg;
     if (v === null || v === undefined) { toast('No heading yet (needs speed above 1 kn).'); return; }
     if (L.phase === 'accel') finishManeuver(t);
-    if (!L.side) L.side = sideFromHeel(S.heel);
+    if (!L.side) L.side = sideFromAxis(v) || (heelStat(win(t - 5000, t)).ok ? sideFromHeel(S.heel) : null);
     lockRef('manual', v); buzz(60);
     toast('Reference set: ' + ('00' + Math.round(v) % 360).slice(-3) + '°');
     renderLift();
@@ -565,7 +593,7 @@
     for (var ri = 1; ri < rw.length; ri++) rs += nrm(rw[ri].hdg - rw[ri - 1].hdg);
     if (Math.abs(rs) > 15) { val.textContent = 'MANEUVER…'; val.classList.add('wait'); sub.textContent = 'Heading changing fast'; return; }
     var d = nrm(S.hdg - L.ref);
-    var refTxt = 'ref ' + ('00' + Math.round(L.ref) % 360).slice(-3) + '° · ' + sideTxt + ' · ' + modeTxt;
+    var refTxt = 'ref ' + ('00' + Math.round(L.ref) % 360).slice(-3) + '° · ' + sideTxt + ' · ' + modeTxt + (L.axis !== null ? ' · wind ~' + ('00' + Math.round(L.axis) % 360).slice(-3) + '°' : '');
     if (!L.side) {
       val.textContent = (d >= 0 ? '► ' : '◄ ') + Math.abs(Math.round(d)) + '°';
       sub.textContent = refTxt + ' · tack unknown';
@@ -608,27 +636,30 @@
   }
   function startSim() {
     if (simTimer) return;
-    S.sim = true; L.leg = 'up'; L.side = null; L.phase = 'idle'; L.ref = null; L.lastT = 0; L.hist = [];
+    S.sim = true; L.leg = 'up'; L.side = null; L.phase = 'idle'; L.ref = null; L.lastT = 0; L.hist = []; L.axis = null;
     var badge = document.createElement('div'); badge.className = 'sim-badge'; badge.id = 'simBadge'; badge.textContent = 'SIMULATION'; document.body.appendChild(badge);
     var pos = S.lastFix ? { lat: S.lastFix.lat, lon: S.lastFix.lon } : { lat: 44.785, lon: 20.40 };
     var k = 0, h = 45, n = function (a) { return (Math.random() - 0.5) * 2 * a; };
     show('race'); setTimeout(function () { goPage(1); }, 100);
-    toast('Simulation: port tack 045°, tack at ~35 s, then an 8° lift at ~90 s', null, null, 5000);
+    toast('Simulation: wind 000°, full course: beat with tacks and a lift, run with gybes, round-up', null, null, 5000);
+    // [trajanje s, kurs, brzina kn, nagib]; okreti su linearni prelazi
+    var plan = [[30, 45, 5, 12], [7, 315, 3.2, -12], [30, 315, 5, -12], [5, 323, 5, -12], [25, 323, 5, -12], [7, 45, 3.2, 12], [30, 45, 5, 12],
+      [7, 315, 3.2, -12], [25, 315, 5, -12], [8, 160, 5.5, 2], [30, 160, 6, 2], [6, 205, 5, -2], [30, 205, 6, -2], [6, 160, 5, 2], [25, 160, 6, 2], [8, 45, 3.5, 12], [30, 45, 5, 12]];
+    var seg = 0, segT = 0, fromH = 45, fromK = 5;
     simTimer = setInterval(function () {
       k++;
-      var kn, heel;
-      if (k <= 35) { h = 45; kn = 5; heel = 12; }
-      else if (k <= 41) { h = 45 - (k - 35) * 15; kn = 5 - (k - 35) * 0.37; heel = 12 - (k - 35) * 4; }
-      else if (k <= 47) { h = 305; kn = 3 + (k - 41) * 0.2; heel = -12; }
-      else if (k <= 55) { h = 305 + (k - 47) * 1.25; kn = 4.2 + (k - 47) * 0.08; heel = -12; }
-      else if (k <= 88) { h = 315; kn = 4.95; heel = -12; }
-      else if (k <= 93) { h = 315 + (k - 88) * 1.6; kn = 4.95; heel = -12; }
-      else { h = 323; kn = 4.95; heel = -12; }
+      var P = plan[seg], f = Math.min(1, (segT + 1) / P[0]);
+      var dh = nrm(P[1] - fromH), turning = Math.abs(dh) > 20;
+      h = (fromH + dh * f + 360) % 360;
+      var kn = turning ? (f < 0.5 ? fromK - (fromK - P[2]) * f * 2 : P[2]) : fromK + (P[2] - fromK) * Math.min(1, (segT + 1) / 8);
+      var heel = window.__looseHeel ? n(15) : P[3];
+      segT++;
+      if (segT >= P[0]) { fromH = P[1]; fromK = P[2]; seg++; segT = 0; }
       var hh = (h + n(1.5) + 360) % 360, kk = kn + n(0.08);
       var dm = kk / 1.943844;
       pos.lat += dm * Math.cos(toRad(hh)) / 111195; pos.lon += dm * Math.sin(toRad(hh)) / (111195 * Math.cos(toRad(pos.lat)));
       simFix(pos, hh, kk, heel + n(1));
-      if (k >= 125) stopSim();
+      if (seg >= plan.length) stopSim();
     }, 1000);
   }
   function stopSim() {
@@ -646,7 +677,7 @@
     LOG.rows.push([new Date().toISOString(), S.lastFix.lat.toFixed(6), S.lastFix.lon.toFixed(6), S.acc === null ? '' : Math.round(S.acc),
       kn === null ? '' : kn.toFixed(2), hdg === null ? '' : Math.round(hdg), S.sog === null ? '' : S.sog.toFixed(2), S.hdg === null ? '' : Math.round(S.hdg),
       S.heel === null ? '' : S.heel.toFixed(1), L.phase, L.leg, L.side || '', L.ref === null ? '' : Math.round(L.ref), lift === '' ? '' : Math.round(lift),
-      T.state, T.state === 'count' ? Math.round((T.end - now()) / 1000) : '', S.sim ? 1 : 0].join(','));
+      T.state, T.state === 'count' ? Math.round((T.end - now()) / 1000) : '', S.sim ? 1 : 0, L.axis === null ? '' : Math.round(L.axis)].join(','));
     if (LOG.rows.length % 15 === 0) store.set('log', LOG.rows);
     renderLog();
   }
@@ -663,7 +694,7 @@
   });
   $('logExport').addEventListener('click', function () {
     if (!LOG.rows.length) { toast('No log yet.'); return; }
-    var head = 'time,lat,lon,acc_m,sog_raw_kn,cog_raw,sog_kn,hdg,heel,lift_phase,leg,side,ref,lift_deg,timer_state,tts_s,sim';
+    var head = 'time,lat,lon,acc_m,sog_raw_kn,cog_raw,sog_kn,hdg,heel,lift_phase,leg,side,ref,lift_deg,timer_state,tts_s,sim,wind_axis';
     var blob = new Blob([head + '\n' + LOG.rows.join('\n') + '\n'], { type: 'text/csv' });
     var a = document.createElement('a'), d = new Date();
     a.href = URL.createObjectURL(blob);
@@ -973,5 +1004,5 @@
   });
 
   window.RA = { toast: toast, store: store, show: show };
-  window.__ra = { S: S, T: T, cfg: cfg, calibrate: calibrate, show: show };
+  window.__ra = { S: S, T: T, L: L, cfg: cfg, calibrate: calibrate, show: show };
 })();
