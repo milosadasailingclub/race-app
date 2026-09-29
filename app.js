@@ -1,7 +1,7 @@
-/* The Race App — v0.9.3 */
+/* The Race App — v0.9.4 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.3';
+  var APP_VERSION = '0.9.4';
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -710,7 +710,10 @@
   var LINE_TOL = 3; // sekunde tolerancije za "na vreme"
 
   function recentFix() {
-    var t = now(), buf = S.fixBuf.filter(function (f) { return t - f.rt < 3000; });
+    // najsvežija tačka (bez usrednjavanja: u pokretu prosek kasni nekoliko metara)
+    var t = now(), lastF = S.fixBuf.length ? S.fixBuf[S.fixBuf.length - 1] : null;
+    if (lastF && t - lastF.rt < 2500 && (S.sog || 0) > 1) return { lat: lastF.lat, lon: lastF.lon, acc: lastF.acc };
+    var buf = S.fixBuf.filter(function (f) { return t - f.rt < 3000; });
     if (!buf.length && S.fixBuf.length && t - S.fixBuf[S.fixBuf.length - 1].rt < 5000) buf = [S.fixBuf[S.fixBuf.length - 1]];
     if (!buf.length) return null;
     var la = 0, lo = 0, ac = 0;
@@ -729,8 +732,7 @@
   function pointBtn(which, el) {
     el.addEventListener('click', function () {
       unlockAudio();
-      if (!line[which]) setPoint(which);
-      else toast((which === 'pin' ? 'PIN' : 'BOAT') + ' is already set.', 'Set again', function () { setPoint(which); }, 4000);
+      setPoint(which); // svaki pritisak = nova pozicija, bez potvrde
     });
   }
   pointBtn('pin', $('pinBtn')); pointBtn('boat', $('boatBtn'));
@@ -746,7 +748,7 @@
   function lineCalc(pos) {
     var b = xy(line.pin, line.boat), x = xy(line.pin, pos);
     var L2 = b.x * b.x + b.y * b.y, L = Math.sqrt(L2);
-    var t = L2 ? Math.max(0, Math.min(1, (x.x * b.x + x.y * b.y) / L2)) : 0;
+    var t = L2 ? (x.x * b.x + x.y * b.y) / L2 : 0; // beskonačna linija kroz PIN i BOAT (kao Velocitek/Vakaros)
     var cx = b.x * t, cy = b.y * t;
     var dist = Math.sqrt((x.x - cx) * (x.x - cx) + (x.y - cy) * (x.y - cy));
     var cross = b.x * x.y - b.y * x.x; // > 0 = strana kursa (preko linije)
