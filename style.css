@@ -333,3 +333,4 @@ body:not([data-view="menu"]):not([data-view="settings"]) .version{display:none}
 .trk-tele{grid-template-columns:repeat(5,1fr)}
 .trk-tele b{font-size:20px}
 .trk-page-row .btn{min-width:0}
+.hold{opacity:.55}

@@ -1,7 +1,7 @@
-/* The Race App — v0.9.4 */
+/* The Race App — v0.9.5 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.4';
+  var APP_VERSION = '0.9.5';
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -336,13 +336,36 @@
     return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
   }
   var hs = null, hc = null, lastGeoT = 0;
+  // Android (Chrome/fused location) ume da "zamrzne" poziciju kad telefon miruje u odnosu na brod:
+  // ista pozicija, brzina 0, i do ~30 s. Tada držimo poslednju brzinu/kurs i procenjujemo poziciju (dead reckoning).
+  var FZ = { on: false, since: 0, after: 0, good: null, raw: null, count: 0 };
+  var FZ_MAX = 40000;
   function onFix(p) {
     if (S.sim && !p.__sim) return;
     S.fixes++; S.geoPerm = 'granted'; S.geoError = '';
     var c = p.coords, fix = { lat: c.latitude, lon: c.longitude, t: p.timestamp || now() };
+    var repKn = (c.speed !== null && c.speed !== undefined && !isNaN(c.speed)) ? c.speed * 1.943844 : null;
+    var same = FZ.raw && FZ.raw.lat === c.latitude && FZ.raw.lon === c.longitude;
+    FZ.raw = { lat: c.latitude, lon: c.longitude };
+    var g = FZ.good, tn0 = now();
+    if (g && g.kn > 1.2 && tn0 - g.t < FZ_MAX && ((repKn !== null && repKn < 0.05) || (repKn === null && same))) {
+      if (!FZ.on) { FZ.on = true; FZ.since = tn0; FZ.count++; }
+      var dm = g.kn / 1.943844 * (tn0 - g.t) / 1000;
+      var dr = { lat: g.lat + dm * Math.cos(toRad(g.hdg)) / 111195, lon: g.lon + dm * Math.sin(toRad(g.hdg)) / (111195 * Math.cos(toRad(g.lat))) };
+      S.acc = c.accuracy; S.lastFix = { lat: dr.lat, lon: dr.lon, t: fix.t };
+      S.fixBuf.push({ lat: dr.lat, lon: dr.lon, acc: c.accuracy, t: fix.t, rt: tn0, dr: true }); if (S.fixBuf.length > 20) S.fixBuf.shift();
+      lastGeoT = tn0;
+      renderSog();
+      liftOnFix(null, null, S.heel);
+      logRow(null, null);
+      return;
+    }
+    if (FZ.on) { FZ.on = false; FZ.after = tn0; S.fixBuf = S.fixBuf.filter(function (f) { return !f.dr; }); }
     S.acc = c.accuracy; S.lastFix = fix;
     S.fixBuf.push({ lat: fix.lat, lon: fix.lon, acc: c.accuracy, t: fix.t, rt: now() }); if (S.fixBuf.length > 20) S.fixBuf.shift();
-    var sogMs = (c.speed !== null && c.speed !== undefined && !isNaN(c.speed)) ? c.speed : null;
+    var sogMs = repKn === null ? null : c.speed;
+    // prvi fix posle zamrzavanja zna da prijavi nerealan skok brzine
+    if (sogMs !== null && g && now() - FZ.after < 3000 && repKn > Math.max(8, g.kn * 1.8)) sogMs = null;
     var hdg = (c.heading !== null && c.heading !== undefined && !isNaN(c.heading)) ? c.heading : null;
     // rezerva kad telefon ne da brzinu/kurs: poredi sa očitavanjem od pre 1-4 s
     var ref = null;
@@ -370,6 +393,7 @@
     renderSog();
     var rawKn = sogMs === null ? null : sogMs * 1.943844;
     liftOnFix(hdg, rawKn, S.heel);
+    if (S.sog !== null && S.hdg !== null) FZ.good = { lat: fix.lat, lon: fix.lon, t: now(), kn: S.sog, hdg: S.hdg };
     if (window.Track) window.Track.onFix({ t: fix.t, lat: fix.lat, lon: fix.lon, sog: rawKn, cog: hdg === null ? S.hdg : hdg, heel: S.heel, acc: c.accuracy, sim: !!S.sim });
     logRow(hdg, rawKn);
   }
@@ -380,10 +404,12 @@
   }
   function renderSog() {
     $('sog').textContent = S.sog === null ? '–.–' : S.sog.toFixed(1);
+    $('sog').classList.toggle('hold', FZ.on); $('hdg').classList.toggle('hold', FZ.on);
     $('hdg').textContent = S.hdg === null ? '–––' : ('00' + Math.round(S.hdg) % 360).slice(-3);
     var n = $('gpsNote');
     if (S.geoError) n.textContent = 'GPS error: ' + S.geoError;
     else if (!S.fixes) n.textContent = 'Waiting for GPS…';
+    else if (FZ.on) n.textContent = 'Phone paused GPS · estimating ' + Math.round((now() - FZ.since) / 1000) + ' s';
     else n.textContent = 'GPS ±' + Math.round(S.acc) + ' m' + (S.sog !== null && S.sog <= 0.5 ? ' · heading shown above 0.5 kn' : '');
   }
 
@@ -677,7 +703,7 @@
     LOG.rows.push([new Date().toISOString(), S.lastFix.lat.toFixed(6), S.lastFix.lon.toFixed(6), S.acc === null ? '' : Math.round(S.acc),
       kn === null ? '' : kn.toFixed(2), hdg === null ? '' : Math.round(hdg), S.sog === null ? '' : S.sog.toFixed(2), S.hdg === null ? '' : Math.round(S.hdg),
       S.heel === null ? '' : S.heel.toFixed(1), L.phase, L.leg, L.side || '', L.ref === null ? '' : Math.round(L.ref), lift === '' ? '' : Math.round(lift),
-      T.state, T.state === 'count' ? Math.round((T.end - now()) / 1000) : '', S.sim ? 1 : 0, L.axis === null ? '' : Math.round(L.axis)].join(','));
+      T.state, T.state === 'count' ? Math.round((T.end - now()) / 1000) : '', S.sim ? 1 : 0, L.axis === null ? '' : Math.round(L.axis), FZ.on ? 1 : 0].join(','));
     if (LOG.rows.length % 15 === 0) store.set('log', LOG.rows);
     renderLog();
   }
@@ -694,7 +720,7 @@
   });
   $('logExport').addEventListener('click', function () {
     if (!LOG.rows.length) { toast('No log yet.'); return; }
-    var head = 'time,lat,lon,acc_m,sog_raw_kn,cog_raw,sog_kn,hdg,heel,lift_phase,leg,side,ref,lift_deg,timer_state,tts_s,sim,wind_axis';
+    var head = 'time,lat,lon,acc_m,sog_raw_kn,cog_raw,sog_kn,hdg,heel,lift_phase,leg,side,ref,lift_deg,timer_state,tts_s,sim,wind_axis,gps_hold';
     var blob = new Blob([head + '\n' + LOG.rows.join('\n') + '\n'], { type: 'text/csv' });
     var a = document.createElement('a'), d = new Date();
     a.href = URL.createObjectURL(blob);
@@ -1006,5 +1032,5 @@
   });
 
   window.RA = { toast: toast, store: store, show: show };
-  window.__ra = { S: S, T: T, L: L, cfg: cfg, calibrate: calibrate, show: show };
+  window.__ra = { S: S, T: T, L: L, FZ: FZ, cfg: cfg, calibrate: calibrate, show: show };
 })();
