@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#05070a">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -10,11 +10,11 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/saira-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=0.9.5">
+<link rel="stylesheet" href="style.css?v=0.9.6">
 </head>
 <body class="theme-night">
 
-<div id="version" class="version">v0.9.5</div>
+<div id="version" class="version">v0.9.6</div>
 <div id="update" class="update hidden">New version available. Tap to update</div>
 <div id="toast" class="toast hidden"></div>
 
@@ -41,6 +41,9 @@
   <div class="race-top">
     <button class="icon-btn" data-go="menu" aria-label="Menu">☰</button>
     <div id="heel" class="heel" title="Long press = calibrate"></div>
+    <button class="icon-btn pg-arrow" id="pgPrev" aria-label="Previous page">‹</button>
+    <button class="icon-btn" id="lockBtn" aria-label="Lock screen">🔓</button>
+    <button class="icon-btn pg-arrow" id="pgNext" aria-label="Next page">›</button>
     <button class="icon-btn" id="dndBtn" aria-label="Racing mode">DND</button>
   </div>
 
@@ -83,6 +86,7 @@
         <div class="lift-top"><span class="lbl">LIFT / HEADER</span><button id="legChip" class="leg-chip">▲ UPWIND</button></div>
         <div id="liftVal" class="lift-val">––</div>
         <div id="liftSub" class="lift-sub">Waiting for heading…</div>
+        <div id="lockDelayBox" class="ld-box hidden"><button id="ldMinus" class="ld-btn">−</button><span class="ld-lbl">REF AFTER <b id="ldVal">10 s</b></span><button id="ldPlus" class="ld-btn">+</button></div>
       </div>
       <div class="gps-note" id="gpsNote">Waiting for GPS…</div>
     </div>
@@ -232,10 +236,12 @@
       <p>Tapping the Lift/Header field always sets the current heading as reference, until the next maneuver.</p>
       <div class="row">
         <button class="btn" data-lmode="manual">Manual</button>
+        <button class="btn" data-lmode="timed">Timed</button>
         <button class="btn" data-lmode="smart">Smart <span class="pro">PRO</span></button>
       </div>
       <p class="small" id="lmodeInfo"></p>
       <div class="small" style="margin-top:8px">Race starts: <select id="startLeg"><option value="up">Upwind</option><option value="down">Downwind</option></select></div>
+      <p class="small" style="margin-top:8px">Remote button (Bluetooth shutter/keyboard) sets the reference. Last key received: <b id="lastKey">—</b></p>
       <div class="row" style="margin-top:10px"><button id="simBtn" class="btn">Test: simulate a tack (~2 min)</button></div>
     </div>
 
@@ -276,13 +282,13 @@
   </div>
 </section>
 
-<script src="wxmap.js?v=0.9.5"></script>
-<script src="public-lists.js?v=0.9.5"></script>
-<script src="checklist.js?v=0.9.5"></script>
-<script src="samples/portcup-2026.js?v=0.9.5"></script>
-<script src="courses.js?v=0.9.5"></script>
-<script src="nor.js?v=0.9.5"></script>
-<script src="track.js?v=0.9.5"></script>
-<script src="app.js?v=0.9.5"></script>
+<script src="wxmap.js?v=0.9.6"></script>
+<script src="public-lists.js?v=0.9.6"></script>
+<script src="checklist.js?v=0.9.6"></script>
+<script src="samples/portcup-2026.js?v=0.9.6"></script>
+<script src="courses.js?v=0.9.6"></script>
+<script src="nor.js?v=0.9.6"></script>
+<script src="track.js?v=0.9.6"></script>
+<script src="app.js?v=0.9.6"></script>
 </body>
 </html>

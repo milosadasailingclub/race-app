@@ -1,7 +1,7 @@
-/* The Race App — v0.9.5 */
+/* The Race App — v0.9.6 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.5';
+  var APP_VERSION = '0.9.6';
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -22,6 +22,7 @@
     theme: store.get('theme', 'night'),
     preset: store.get('preset', 5),
     liftMode: store.get('liftMode', 'manual'),
+    lockDelay: store.get('lockDelay', 10),
     startLeg: store.get('startLeg', 'up')
   };
   var TAU = [0, 0.3, 0.7, 1.5, 3, 5]; // sekunde, po nivou dampeninga
@@ -549,6 +550,12 @@
     var t = now();
     L.hist.push({ t: t, hdg: hdg, sog: kn, heel: heel });
     while (L.hist.length && t - L.hist[0].t > 120000) L.hist.shift();
+    // Timed: referenca tačno lockDelay s posle početka okreta (radi i kad GPS zastane)
+    if (L.phase === 'accel' && cfg.liftMode === 'timed' && t - L.turnT >= cfg.lockDelay * 1000) {
+      finishManeuver(t); L.lastT = t;
+      var ht = hdgs(win(t - 3000, t)); lockRef('timed', ht.length ? cmean(ht) : S.hdg);
+      renderLift(); return;
+    }
     if (kn === null || kn < 1.0 || hdg === null) { renderLift(); return; }
 
     // 1) detekcija manevra: zbir promena kursa u zadnjih 20 s (od poslednjeg manevra)
@@ -567,7 +574,7 @@
       }
     }
     // 2) ubrzavanje -> kraj faze: najkasnije HARD s posle okreta
-    if (L.phase === 'accel') {
+    if (L.phase === 'accel' && cfg.liftMode !== 'timed') {
       var st = settledNow(t), since = (t - L.turnT) / 1000, quiet = turnQuiet(t);
       var speedOk = !L.v0 || L.v0 < 1.5 || (st.v !== null && st.v >= LP.SPEED_OK * L.v0);
       if ((since >= LP.MIN_ACC && quiet && (speedOk || st.plateau || since >= LP.SOFT)) || since >= LP.HARD) {
@@ -606,9 +613,17 @@
     var chip = $('legChip'), val = $('liftVal'), sub = $('liftSub');
     chip.textContent = L.leg === 'up' ? '▲ UPWIND' : '▼ DOWNWIND';
     var sideTxt = L.side === 'stbd' ? 'Starboard' : (L.side === 'port' ? 'Port' : 'Tack ?');
-    var modeTxt = L.refSrc === 'manual' ? 'MANUAL' : (L.refSrc === 'smart' ? 'SMART' : (cfg.liftMode === 'smart' ? 'SMART' : 'MANUAL'));
+    var modeTxt = (L.refSrc || cfg.liftMode).toUpperCase() + (cfg.liftMode === 'timed' && L.refSrc !== 'manual' ? ' ' + cfg.lockDelay + 's' : '');
+    $('lockDelayBox').classList.toggle('hidden', cfg.liftMode !== 'timed');
+    $('ldVal').textContent = cfg.lockDelay + ' s';
     val.className = 'lift-val';
-    if (L.phase === 'accel') { val.textContent = 'ACCELERATING…'; val.classList.add('wait'); sub.textContent = 'Waiting for speed and heading to settle · tap = manual reference'; return; }
+    if (L.phase === 'accel') {
+      val.classList.add('wait');
+      if (cfg.liftMode === 'timed') { val.textContent = 'REF IN ' + Math.max(0, Math.ceil(cfg.lockDelay - (now() - L.turnT) / 1000)) + ' s'; sub.textContent = 'Timed reference · tap = set now'; }
+      else if (cfg.liftMode === 'manual') { val.textContent = 'TAP'; sub.textContent = 'Maneuver · tap when settled on course'; }
+      else { val.textContent = 'ACCELERATING…'; sub.textContent = 'Waiting for speed and heading to settle · tap = manual reference'; }
+      return;
+    }
     if (L.phase === 'locking') { val.textContent = 'LOCKING…'; val.classList.add('wait'); sub.textContent = (L.note ? L.note + ' · ' : '') + sideTxt; return; }
     if (L.ref === null || S.hdg === null) {
       val.textContent = 'TAP'; val.classList.add('wait');
@@ -645,11 +660,39 @@
     document.querySelectorAll('[data-lmode]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-lmode') === cfg.liftMode); });
     $('lmodeInfo').textContent = cfg.liftMode === 'smart'
       ? 'Smart: after each maneuver the app sets the reference automatically once the boat is up to speed and the heading settles. (Pro feature, unlocked for testing.)'
-      : 'Manual: after each maneuver, tap the Lift/Header field once you are settled on course.';
+      : cfg.liftMode === 'timed'
+        ? 'Timed: the reference is set a fixed time after each maneuver (' + cfg.lockDelay + ' s). Adjust with − / + on the SOG screen: more time in light air, less in breeze.'
+        : 'Manual: after each maneuver, tap the Lift/Header field once you are settled on course.';
   }
   document.querySelectorAll('[data-lmode]').forEach(function (b) {
     b.addEventListener('click', function () { cfg.liftMode = b.getAttribute('data-lmode'); store.set('liftMode', cfg.liftMode); renderLmode(); renderLift(); });
   });
+  function setDelay(d) { cfg.lockDelay = Math.max(3, Math.min(40, cfg.lockDelay + d)); store.set('lockDelay', cfg.lockDelay); renderLmode(); renderLift(); }
+  $('ldMinus').addEventListener('click', function (e) { e.stopPropagation(); setDelay(-1); buzz(20); });
+  $('ldPlus').addEventListener('click', function (e) { e.stopPropagation(); setDelay(1); buzz(20); });
+  $('lockDelayBox').addEventListener('click', function (e) { e.stopPropagation(); });
+
+  // Daljinski taster (Bluetooth okidač/tastatura): postavi referencu
+  var REMOTE_KEYS = ['Enter', ' ', 'NumpadEnter', 'AudioVolumeUp', 'AudioVolumeDown', 'VolumeUp', 'VolumeDown', 'MediaPlayPause', 'MediaTrackNext', 'MediaTrackPrevious', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Camera'];
+  document.addEventListener('keydown', function (e) {
+    var k = e.key || e.code; if ($('lastKey')) $('lastKey').textContent = k + (e.code && e.code !== k ? ' (' + e.code + ')' : '');
+    if (currentView !== 'race' || e.repeat || REMOTE_KEYS.indexOf(k) < 0) return;
+    e.preventDefault(); manualRef();
+  });
+  if ('mediaSession' in navigator) {
+    ['play', 'pause', 'nexttrack', 'previoustrack'].forEach(function (a) { try { navigator.mediaSession.setActionHandler(a, function () { if ($('lastKey')) $('lastKey').textContent = 'media: ' + a; if (currentView === 'race') manualRef(); }); } catch (e) {} });
+  }
+  // Zaštita od kapi vode: bez zumiranja i višeprstnih gestova
+  document.addEventListener('touchmove', function (e) { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  document.addEventListener('touchstart', function (e) { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  ['gesturestart', 'gesturechange', 'dblclick'].forEach(function (n) { document.addEventListener(n, function (e) { e.preventDefault(); }, { passive: false }); });
+  var swipeLock = store.get('swipeLock', false);
+  function renderSwipeLock() { document.body.classList.toggle('swipe-lock', swipeLock); $('lockBtn').textContent = swipeLock ? '🔒' : '🔓'; }
+  $('lockBtn').addEventListener('click', function () { swipeLock = !swipeLock; store.set('swipeLock', swipeLock); renderSwipeLock(); toast(swipeLock ? 'Screen locked: only buttons work. Use ‹ › to change page.' : 'Screen unlocked: swipe to change page'); });
+  $('pgPrev').addEventListener('click', function () { goPage(Math.max(0, pageIdx - 1)); });
+  $('pgNext').addEventListener('click', function () { goPage(Math.min(pager.children.length - 1, pageIdx + 1)); });
+  renderSwipeLock();
+
   $('startLeg').value = cfg.startLeg || 'up';
   $('startLeg').addEventListener('change', function (e) { cfg.startLeg = e.target.value; store.set('startLeg', cfg.startLeg); L.leg = cfg.startLeg; renderLift(); });
   renderLmode();
