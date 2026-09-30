@@ -1,7 +1,7 @@
-/* The Race App — v0.9.7 */
+/* The Race App — v0.9.8 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.7';
+  var APP_VERSION = '0.9.8';
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -158,7 +158,7 @@
       var sec = Math.ceil(rem / 1000);
       if (rem <= 0) {
         T.state = 'race'; signal('gun');
-        (function () { var la = lineAxis(); L.axis = la; L.leg = cfg.startLeg || 'up'; if (la !== null && S.hdg !== null) L.side = sideFromAxis(S.hdg); })();
+        (function () { var la = startAxis(); L.axis = la; L.leg = cfg.startLeg || 'up'; if (la !== null && S.hdg !== null) L.side = sideFromAxis(S.hdg); })();
         if (window.Track) window.Track.autoStart();
         if (!T.autoSwitched) { T.autoSwitched = true; goPage(1); }
       } else if (sec !== T.lastSec) {
@@ -522,10 +522,16 @@
     return (bearing(line.pin, line.boat) + 270) % 360;
   }
   function prestart() { return T.state !== 'race'; }
+  // pre starta: sveže naučen vetar (LEARN, < 20 min) ima prednost, inače raspored PIN/BOAT
+  function startAxis() {
+    if (typeof LW !== 'undefined' && LW && LW.res && LW.res.t && Date.now() - Date.parse(LW.res.t) < 1200000) return LW.res.axis;
+    return lineAxis();
+  }
   function finishManeuver(t) {
+    if (typeof LW !== 'undefined' && LW.phase !== 'off') { L.leg = 'up'; var hq = hdgs(win(t - 3000, t)); L.side = sideFromAxis(hq.length ? cmean(hq) : S.hdg) || L.side; L.note = 'Learning'; return; }
     if (prestart()) {
       // pre starta kretanje je nepredvidivo: leg i osa se ne uče iz manevara
-      var la = lineAxis(); if (la !== null) L.axis = la;
+      var la = startAxis(); if (la !== null) L.axis = la;
       L.leg = cfg.startLeg || 'up';
       var hB = hdgs(win(t - 3000, t));
       L.side = sideFromAxis(hB.length ? cmean(hB) : S.hdg) || L.side;
@@ -566,7 +572,8 @@
     var t = now();
     L.hist.push({ t: t, hdg: hdg, sog: kn, heel: heel });
     while (L.hist.length && t - L.hist[0].t > 120000) L.hist.shift();
-    if (prestart()) { var la0 = lineAxis(); if (la0 !== null) L.axis = la0; L.leg = cfg.startLeg || 'up'; if (L.axis !== null && hdg !== null) L.side = sideFromAxis(hdg); }
+    learnTick(t);
+    if (prestart() && LW.phase === 'off') { var la0 = startAxis(); if (la0 !== null) L.axis = la0; L.leg = cfg.startLeg || 'up'; if (L.axis !== null && hdg !== null) L.side = sideFromAxis(hdg); }
     // Timed: referenca tačno lockDelay s posle početka okreta (radi i kad GPS zastane)
     if (L.phase === 'accel' && cfg.liftMode === 'timed' && t - L.turnT >= cfg.lockDelay * 1000) {
       finishManeuver(t); L.lastT = t;
@@ -626,7 +633,64 @@
     e.stopPropagation(); L.leg = L.leg === 'up' ? 'down' : 'up'; renderLift();
   });
 
+  /* ---------- LEARN WIND: dva uzvetrena borda po ~20 s ---------- */
+  var LW = { phase: 'off', t0: 0, h1: null, v1: null, side1: null, res: store.get('learnWind', null) };
+  var LW_DUR = 20000, LW_TIMEOUT = 240000;
+  function learnStart() {
+    if (LW.phase !== 'off') { LW.phase = 'off'; toast('Learn cancelled'); renderLearn(); return; }
+    if (S.sog === null || S.sog < 1.5) { toast('Learn needs speed above 1.5 kn. Sail upwind first.'); return; }
+    LW.phase = 'a'; LW.t0 = now(); LW.tStart = now(); buzz(60);
+    toast('Learn: hold a steady upwind course for 20 s', null, null, 4000); renderLearn();
+  }
+  function learnTick(t) {
+    if (LW.phase === 'off') return;
+    if (t - LW.tStart > LW_TIMEOUT) { LW.phase = 'off'; toast('Learn timed out. Try again.'); renderLearn(); return; }
+    var w = win(LW.t0, t).filter(function (e) { return e.hdg !== null && e.sog !== null; });
+    var hs2 = w.map(function (e) { return e.hdg; });
+    if (LW.phase === 'a' || LW.phase === 'b') {
+      // borda mora biti mirna; ako se kurs mnogo menja, počni merenje iznova
+      if (hs2.length >= 4 && cstd(hs2) > 8) { LW.t0 = t; return; }
+      if (t - LW.t0 >= LW_DUR && hs2.length >= 10) {
+        var h = cmean(hs2), v = avg(w, 'sog');
+        if (LW.phase === 'a') { LW.h1 = h; LW.v1 = v; LW.phase = 'tack'; buzz(200); toast('Now TACK and hold the other upwind course', null, null, 5000); }
+        else { learnFinish(h, v); }
+        renderLearn();
+      }
+    } else if (LW.phase === 'tack') {
+      var h3 = hdgs(win(t - 5000, t));
+      if (h3.length >= 4 && cstd(h3) < 6 && Math.abs(nrm(cmean(h3) - LW.h1)) > 60) { LW.phase = 'b'; LW.t0 = t; renderLearn(); }
+    }
+  }
+  function learnFinish(h2, v2) {
+    var ta = Math.abs(nrm(h2 - LW.h1));
+    LW.phase = 'off';
+    if (ta < 60 || ta > 130) { toast('Tack angle ' + Math.round(ta) + '° looks wrong. Try again.', null, null, 5000); renderLearn(); return; }
+    var axis = cmean([LW.h1, h2]), vAvg = (LW.v1 + v2) / 2, vmg = vAvg * Math.cos(toRad(ta / 2));
+    L.axis = axis; L.leg = 'up';
+    var sideA = sideFromAxis(LW.h1), sideB = sideFromAxis(h2);
+    L.lastRef[sideA] = LW.h1;
+    L.side = sideB; lockRef('learn', h2); L.lastRef[sideB] = h2;
+    LW.res = { axis: Math.round(axis), ta: Math.round(ta), vmg: +vmg.toFixed(2), v: +vAvg.toFixed(2), t: new Date().toISOString() };
+    store.set('learnWind', LW.res); buzz(300);
+    toast('Wind ~' + ('00' + LW.res.axis % 360).slice(-3) + '° · tack angle ' + LW.res.ta + '° · VMG ' + vmg.toFixed(1) + ' kn', null, null, 7000);
+    renderLearn(); renderLift();
+  }
+  function renderLearn() {
+    if (typeof LW === 'undefined' || !LW) return;
+    var b = $('learnBtn'); if (!b) return;
+    b.classList.toggle('on', LW.phase !== 'off');
+    b.textContent = LW.phase === 'off' ? 'LEARN' : (LW.phase === 'tack' ? 'TACK!' : 'LEARN ' + Math.max(0, Math.ceil((LW_DUR - (now() - LW.t0)) / 1000)) + 's');
+    var v = $('vmg');
+    if (L.axis !== null && S.sog !== null && S.hdg !== null && S.sog > 0.8) {
+      var rel = nrm(S.hdg - L.axis), vm = S.sog * Math.cos(toRad(rel));
+      var ta = LW.res ? ' · TA ' + LW.res.ta + '°' : '';
+      v.textContent = 'VMG ' + Math.abs(vm).toFixed(1) + ' kn · wind ~' + ('00' + Math.round(L.axis) % 360).slice(-3) + '°' + ta;
+    } else v.textContent = '';
+  }
+  $('learnBtn').addEventListener('click', function (e) { e.stopPropagation(); learnStart(); });
+
   function renderLift() {
+    renderLearn();
     var chip = $('legChip'), val = $('liftVal'), sub = $('liftSub');
     chip.textContent = L.leg === 'up' ? '▲ UPWIND' : '▼ DOWNWIND';
     var sideTxt = L.side === 'stbd' ? 'Starboard' : (L.side === 'port' ? 'Port' : 'Tack ?');
@@ -1094,5 +1158,5 @@
   });
 
   window.RA = { toast: toast, store: store, show: show };
-  window.__ra = { S: S, T: T, L: L, FZ: FZ, cfg: cfg, calibrate: calibrate, show: show };
+  window.__ra = { S: S, T: T, L: L, FZ: FZ, LW: LW, cfg: cfg, calibrate: calibrate, show: show };
 })();

@@ -343,3 +343,7 @@ html,body{touch-action:pan-x pan-y}
 .ld-btn{width:52px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg);font:inherit;font-size:24px;font-weight:700}
 .ld-lbl{font-size:13px;letter-spacing:.06em;opacity:.8}
 .ld-lbl b{font-size:18px;opacity:1}
+
+.lift-chips{display:flex;gap:8px}
+.learn-chip.on{background:var(--turq);color:#001a17;border-color:var(--turq)}
+.vmg{font-family:var(--f-num);font-size:15px;letter-spacing:.06em;opacity:.8;min-height:18px;margin-top:2px;text-align:center}

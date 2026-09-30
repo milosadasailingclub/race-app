@@ -10,11 +10,11 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/saira-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=0.9.7">
+<link rel="stylesheet" href="style.css?v=0.9.8">
 </head>
 <body class="theme-night">
 
-<div id="version" class="version">v0.9.7</div>
+<div id="version" class="version">v0.9.8</div>
 <div id="update" class="update hidden">New version available. Tap to update</div>
 <div id="toast" class="toast hidden"></div>
 
@@ -81,9 +81,10 @@
       <div class="big-block">
         <div class="lbl">HEADING <span class="unit">°</span></div>
         <div class="big" id="hdg">–––</div>
+        <div class="vmg" id="vmg"></div>
       </div>
       <div class="lift-block" id="liftBox" role="button" aria-label="Tap to set reference heading">
-        <div class="lift-top"><span class="lbl">LIFT / HEADER</span><button id="legChip" class="leg-chip">▲ UPWIND</button></div>
+        <div class="lift-top"><span class="lbl">LIFT / HEADER</span><span class="lift-chips"><button id="learnBtn" class="leg-chip learn-chip">LEARN</button><button id="legChip" class="leg-chip">▲ UPWIND</button></span></div>
         <div id="liftVal" class="lift-val">––</div>
         <div id="liftSub" class="lift-sub">Waiting for heading…</div>
         <div id="lockDelayBox" class="ld-box hidden"><button id="ldMinus" class="ld-btn">−</button><span class="ld-lbl">REF AFTER <b id="ldVal">10 s</b></span><button id="ldPlus" class="ld-btn">+</button></div>
@@ -282,13 +283,13 @@
   </div>
 </section>
 
-<script src="wxmap.js?v=0.9.7"></script>
-<script src="public-lists.js?v=0.9.7"></script>
-<script src="checklist.js?v=0.9.7"></script>
-<script src="samples/portcup-2026.js?v=0.9.7"></script>
-<script src="courses.js?v=0.9.7"></script>
-<script src="nor.js?v=0.9.7"></script>
-<script src="track.js?v=0.9.7"></script>
-<script src="app.js?v=0.9.7"></script>
+<script src="wxmap.js?v=0.9.8"></script>
+<script src="public-lists.js?v=0.9.8"></script>
+<script src="checklist.js?v=0.9.8"></script>
+<script src="samples/portcup-2026.js?v=0.9.8"></script>
+<script src="courses.js?v=0.9.8"></script>
+<script src="nor.js?v=0.9.8"></script>
+<script src="track.js?v=0.9.8"></script>
+<script src="app.js?v=0.9.8"></script>
 </body>
 </html>
