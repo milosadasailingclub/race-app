@@ -1,7 +1,7 @@
-/* The Race App — v0.9.8 */
+/* The Race App — v0.9.9 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.8';
+  var APP_VERSION = '0.9.9';
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -476,7 +476,7 @@
   var L = {
     hist: [], phase: 'idle', leg: cfg.startLeg || 'up', side: null,
     ref: null, refSrc: null, lastT: 0, turnT: 0, turnDir: 0, v0: null, heelBefore: null,
-    lockStart: 0, lastRef: { stbd: null, port: null }, note: '', axis: null, hdgBefore: null, heelPre: null
+    lockStart: 0, lastRef: { stbd: null, port: null }, note: '', taS: [], ta: null, axis: null, hdgBefore: null, heelPre: null
   };
   function nrm(d) { d = ((d % 360) + 540) % 360 - 180; return d; }
   function cmean(arr) {
@@ -521,11 +521,18 @@
     if (typeof line === 'undefined' || !line.pin || !line.boat) return null;
     return (bearing(line.pin, line.boat) + 270) % 360;
   }
-  function prestart() { return T.state !== 'race'; }
-  // pre starta: sveže naučen vetar (LEARN, < 20 min) ima prednost, inače raspored PIN/BOAT
+  function prestart() { return T.state === 'count'; } // samo dok teče odbrojavanje; bez tajmera (trening) učenje radi normalno
+  // Pre starta: PIN levo / BOAT desno je iznad svega (pravila) i uvek određuje gde je uz vetar.
+  // Sveže naučen vetar (LEARN) samo precizira smer, i to samo ako se slaže sa linijom (±45° od normale linije).
   function startAxis() {
-    if (typeof LW !== 'undefined' && LW && LW.res && LW.res.t && Date.now() - Date.parse(LW.res.t) < 1200000) return LW.res.axis;
-    return lineAxis();
+    var la = lineAxis(), lr = (typeof LW !== 'undefined' && LW && LW.res && LW.res.t && Date.now() - Date.parse(LW.res.t) < 1200000) ? LW.res.axis : null;
+    if (la === null) return lr;
+    if (lr !== null && Math.abs(nrm(lr - la)) <= 45) return lr;
+    return la;
+  }
+  function pushTA(ta) {
+    L.taS.push(ta); if (L.taS.length > 7) L.taS.shift();
+    var a = L.taS.slice().sort(function (x, y) { return x - y; }); L.ta = a[Math.floor(a.length / 2)]; // medijana: otporna na šiftove
   }
   function finishManeuver(t) {
     if (typeof LW !== 'undefined' && LW.phase !== 'off') { L.leg = 'up'; var hq = hdgs(win(t - 3000, t)); L.side = sideFromAxis(hq.length ? cmean(hq) : S.hdg) || L.side; L.note = 'Learning'; return; }
@@ -560,7 +567,7 @@
     } else if (before !== null && after !== null) {
       // učenje ose vetra iz halsa / gybe-a
       var diff = Math.abs(nrm(after - before)), mid = cmean([before, after]), ax = null;
-      if (L.leg === 'up' && diff >= 60 && diff <= 130) ax = mid;
+      if (L.leg === 'up' && diff >= 60 && diff <= 130) { ax = mid; pushTA(diff); }
       if (L.leg === 'down' && diff >= 35 && diff <= 130) ax = (mid + 180) % 360;
       if (ax !== null) L.axis = (L.axis !== null && Math.abs(nrm(ax - L.axis)) < 30) ? cmean([L.axis, ax]) : ax;
     }
@@ -666,7 +673,7 @@
     LW.phase = 'off';
     if (ta < 60 || ta > 130) { toast('Tack angle ' + Math.round(ta) + '° looks wrong. Try again.', null, null, 5000); renderLearn(); return; }
     var axis = cmean([LW.h1, h2]), vAvg = (LW.v1 + v2) / 2, vmg = vAvg * Math.cos(toRad(ta / 2));
-    L.axis = axis; L.leg = 'up';
+    L.axis = axis; L.leg = 'up'; pushTA(ta);
     var sideA = sideFromAxis(LW.h1), sideB = sideFromAxis(h2);
     L.lastRef[sideA] = LW.h1;
     L.side = sideB; lockRef('learn', h2); L.lastRef[sideB] = h2;
@@ -683,7 +690,7 @@
     var v = $('vmg');
     if (L.axis !== null && S.sog !== null && S.hdg !== null && S.sog > 0.8) {
       var rel = nrm(S.hdg - L.axis), vm = S.sog * Math.cos(toRad(rel));
-      var ta = LW.res ? ' · TA ' + LW.res.ta + '°' : '';
+      var ta = L.ta !== null ? ' · TA ' + Math.round(L.ta) + '°' : '';
       v.textContent = 'VMG ' + Math.abs(vm).toFixed(1) + ' kn · wind ~' + ('00' + Math.round(L.axis) % 360).slice(-3) + '°' + ta;
     } else v.textContent = '';
   }
