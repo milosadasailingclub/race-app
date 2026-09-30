@@ -1,7 +1,7 @@
-/* The Race App — v0.9.6 */
+/* The Race App — v0.9.7 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.6';
+  var APP_VERSION = '0.9.7';
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -158,6 +158,7 @@
       var sec = Math.ceil(rem / 1000);
       if (rem <= 0) {
         T.state = 'race'; signal('gun');
+        (function () { var la = lineAxis(); L.axis = la; L.leg = cfg.startLeg || 'up'; if (la !== null && S.hdg !== null) L.side = sideFromAxis(S.hdg); })();
         if (window.Track) window.Track.autoStart();
         if (!T.autoSwitched) { T.autoSwitched = true; goPage(1); }
       } else if (sec !== T.lastSec) {
@@ -515,7 +516,22 @@
     L.ref = value; L.refSrc = src; L.phase = 'locked';
     if (L.side && src === 'smart') { /* zapamti za poređenje posle sledećeg okreta na isti hals */ }
   }
+  // Osa vetra iz startne linije: gledano u vetar PIN je levo, BOAT desno -> uz vetar = smer PIN->BOAT minus 90°
+  function lineAxis() {
+    if (typeof line === 'undefined' || !line.pin || !line.boat) return null;
+    return (bearing(line.pin, line.boat) + 270) % 360;
+  }
+  function prestart() { return T.state !== 'race'; }
   function finishManeuver(t) {
+    if (prestart()) {
+      // pre starta kretanje je nepredvidivo: leg i osa se ne uče iz manevara
+      var la = lineAxis(); if (la !== null) L.axis = la;
+      L.leg = cfg.startLeg || 'up';
+      var hB = hdgs(win(t - 3000, t));
+      L.side = sideFromAxis(hB.length ? cmean(hB) : S.hdg) || L.side;
+      L.note = 'Pre-start';
+      return;
+    }
     var hA = hdgs(win(t - 3000, t)), after = hA.length ? cmean(hA) : S.hdg, before = L.hdgBefore;
     var kind = L.leg === 'up' ? 'Tack' : 'Gybe', newLeg = L.leg;
     var turnSide = L.leg === 'up' ? (L.turnDir < 0 ? 'stbd' : 'port') : (L.turnDir > 0 ? 'stbd' : 'port');
@@ -550,6 +566,7 @@
     var t = now();
     L.hist.push({ t: t, hdg: hdg, sog: kn, heel: heel });
     while (L.hist.length && t - L.hist[0].t > 120000) L.hist.shift();
+    if (prestart()) { var la0 = lineAxis(); if (la0 !== null) L.axis = la0; L.leg = cfg.startLeg || 'up'; if (L.axis !== null && hdg !== null) L.side = sideFromAxis(hdg); }
     // Timed: referenca tačno lockDelay s posle početka okreta (radi i kad GPS zastane)
     if (L.phase === 'accel' && cfg.liftMode === 'timed' && t - L.turnT >= cfg.lockDelay * 1000) {
       finishManeuver(t); L.lastT = t;
@@ -821,7 +838,7 @@
     var cx = b.x * t, cy = b.y * t;
     var dist = Math.sqrt((x.x - cx) * (x.x - cx) + (x.y - cy) * (x.y - cy));
     var cross = b.x * x.y - b.y * x.x; // > 0 = strana kursa (preko linije)
-    return { len: L, dist: dist, over: cross > 0 };
+    return { len: L, dist: dist, over: cross > 0, nx: L ? -b.y / L : 0, ny: L ? b.x / L : 0 }; // n = normala ka strani kursa (uz vetar)
   }
   function renderLine() {
     var both = !!(line.pin && line.boat);
@@ -846,8 +863,10 @@
       if (r.over) { cls = 'ocs'; txt = '−' + Math.round(r.dist); }
       else {
         txt = String(Math.round(r.dist));
-        var v = (S.sog || 0) / 1.943844;
-        var ttl = v > 0.26 ? r.dist / v : Infinity;
+        // brzina PRILAZA liniji = komponenta brzine upravna na liniju (zavisi od ugla kretanja)
+        var v = (S.sog || 0) / 1.943844, vn = 0;
+        if (S.hdg !== null && r.len > 0) vn = v * (Math.sin(toRad(S.hdg)) * r.nx + Math.cos(toRad(S.hdg)) * r.ny);
+        var ttl = vn > 0.15 ? r.dist / vn : Infinity;
         var margin = ttl - tts;
         cls = margin > LINE_TOL ? 'late' : (margin < -LINE_TOL ? 'early' : 'ok');
       }
