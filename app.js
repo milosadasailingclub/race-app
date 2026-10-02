@@ -1,7 +1,7 @@
-/* The Race App — v0.9.10 */
+/* The Race App — v0.9.11 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.10';
+  var APP_VERSION = '0.9.11';
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -15,13 +15,13 @@
   };
   var cfg = {
     damp: store.get('damp', 2),
-    heelInvert: store.get('heelInvert', false),
+    ledMirror: store.get('ledMirror', false),
     heelStep: store.get('heelStep', 3),
     calOffset: store.get('calOffset', null),
     calTime: store.get('calTime', null),
     theme: store.get('theme', 'night'),
     preset: store.get('preset', 5),
-    liftMode: store.get('liftMode', 'manual'),
+    liftMode: store.get('liftMode', 'smart'),
     lockDelay: store.get('lockDelay', 10),
     startLeg: store.get('startLeg', 'up')
   };
@@ -260,7 +260,7 @@
     var val = raw - (cfg.calOffset || 0);
     // Telefon je uvek ekranom ka posadi (ka krmi). Izmereno na vodi 2.10.: sirovi znak je bio obrnut,
     // pa je podrazumevano obrnuto: + = nagib na desno (starboard), LED-ovi svetle na strani na koju je brod nagnut.
-    if (!cfg.heelInvert) val = -val;
+    val = -val; // senzor: + = nagib na desno (starboard), uvek za telefon okrenut ka posadi
     var t = now(), dt = S.lastT ? (t - S.lastT) / 1000 : 0; S.lastT = t;
     var tau = TAU[cfg.damp] || 0;
     if (S.heel === null || tau === 0 || dt <= 0) S.heel = val;
@@ -279,6 +279,7 @@
     var h = S.heel, step = cfg.heelStep;
     var n = h === null ? null : Math.min(6, Math.round(Math.abs(h) / step));
     var side = h === null ? 0 : (h > 0 ? 1 : -1);
+    if (cfg.ledMirror) side = -side; // samo prikaz: LED-ovi na suprotnoj strani
     el.querySelectorAll('i').forEach(function (d) {
       var k = +d.getAttribute('data-k'), cls = k === 0 ? 'c' : '';
       if (n !== null) {
@@ -398,7 +399,9 @@
     var rawKn = sogMs === null ? null : sogMs * 1.943844;
     liftOnFix(hdg, rawKn, S.heel);
     if (S.sog !== null && S.hdg !== null) FZ.good = { lat: fix.lat, lon: fix.lon, t: now(), kn: S.sog, hdg: S.hdg };
-    if (window.Track) window.Track.onFix({ t: fix.t, lat: fix.lat, lon: fix.lon, sog: rawKn, cog: hdg === null ? S.hdg : hdg, heel: S.heel, acc: c.accuracy, sim: !!S.sim });
+    var liftNow = (L.ref !== null && S.hdg !== null && L.side) ? Math.round((L.side === 'stbd' ? 1 : -1) * nrm(S.hdg - L.ref)) : null;
+    if (window.Track) window.Track.onFix({ t: fix.t, lat: fix.lat, lon: fix.lon, sog: rawKn, cog: hdg === null ? S.hdg : hdg, heel: S.heel, acc: c.accuracy, sim: !!S.sim,
+      x: [L.phase, L.leg, L.side || '', L.ref === null ? '' : Math.round(L.ref), liftNow === null ? '' : liftNow, L.axis === null ? '' : Math.round(L.axis), cfg.liftMode, L.refSrc || '', T.state] });
     logRow(hdg, rawKn);
   }
   function onGeoErr(e) {
@@ -480,6 +483,8 @@
     ref: null, refSrc: null, lastT: 0, turnT: 0, turnDir: 0, v0: null, heelBefore: null,
     lockStart: 0, lastRef: { stbd: null, port: null }, note: '', taS: [], ta: null, axis: null, hdgBefore: null, heelPre: null
   };
+  // v0.9.11: automatski mod je podrazumevan; stari default 'manual' prebaci jednom na 'smart'
+  if (!store.get('liftModeMig', false)) { if (cfg.liftMode === 'manual') { cfg.liftMode = 'smart'; store.set('liftMode', 'smart'); } store.set('liftModeMig', true); }
   function nrm(d) { d = ((d % 360) + 540) % 360 - 180; return d; }
   function cmean(arr) {
     var sx = 0, cx = 0; arr.forEach(function (h) { sx += Math.sin(toRad(h)); cx += Math.cos(toRad(h)); });
@@ -710,7 +715,8 @@
     var chip = $('legChip'), val = $('liftVal'), sub = $('liftSub');
     chip.textContent = L.leg === 'up' ? '▲ UPWIND' : '▼ DOWNWIND';
     var sideTxt = L.side === 'stbd' ? 'Starboard' : (L.side === 'port' ? 'Port' : 'Tack ?');
-    var modeTxt = (L.refSrc || cfg.liftMode).toUpperCase() + (cfg.liftMode === 'timed' && L.refSrc !== 'manual' ? ' ' + cfg.lockDelay + 's' : '');
+    var MN = { smart: 'AUTO', timed: 'AUTO', manual: 'MANUAL', learn: 'LEARN' };
+    var modeTxt = (MN[L.refSrc || cfg.liftMode] || '').toUpperCase() + (cfg.liftMode === 'timed' && L.refSrc !== 'manual' ? ' ' + cfg.lockDelay + 's' : '');
     $('lockDelayBox').classList.toggle('hidden', cfg.liftMode !== 'timed');
     $('ldVal').textContent = cfg.lockDelay + ' s';
     val.className = 'lift-val';
@@ -756,10 +762,10 @@
   function renderLmode() {
     document.querySelectorAll('[data-lmode]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-lmode') === cfg.liftMode); });
     $('lmodeInfo').textContent = cfg.liftMode === 'smart'
-      ? 'Smart: after each maneuver the app sets the reference automatically once the boat is up to speed and the heading settles. (Pro feature, unlocked for testing.)'
+      ? 'Auto (default): after each maneuver the app sets the reference by itself once the boat is up to speed and the heading settles (max ~15 s). A tap sets your own reference and it stays until the next maneuver; then Auto takes over again.'
       : cfg.liftMode === 'timed'
-        ? 'Timed: the reference is set a fixed time after each maneuver (' + cfg.lockDelay + ' s). Adjust with − / + on the SOG screen: more time in light air, less in breeze.'
-        : 'Manual: after each maneuver, tap the Lift/Header field once you are settled on course.';
+        ? 'Auto timed: the reference is set a fixed time after each maneuver (' + cfg.lockDelay + ' s). Adjust with − / + on the SOG screen. A tap overrides until the next maneuver.'
+        : 'Manual only: no automatic reference. After each maneuver, tap the Lift/Header field once you are settled on course.';
   }
   document.querySelectorAll('[data-lmode]').forEach(function (b) {
     b.addEventListener('click', function () { cfg.liftMode = b.getAttribute('data-lmode'); store.set('liftMode', cfg.liftMode); renderLmode(); renderLift(); });
@@ -960,8 +966,8 @@
   var damp = $('damp');
   damp.value = cfg.damp;
   damp.addEventListener('input', function () { cfg.damp = +damp.value; store.set('damp', cfg.damp); renderSettings(); });
-  $('heelInvert').checked = cfg.heelInvert;
-  $('heelInvert').addEventListener('change', function (e) { cfg.heelInvert = e.target.checked; store.set('heelInvert', cfg.heelInvert); S.heel = null; });
+  $('ledMirror').checked = cfg.ledMirror;
+  $('ledMirror').addEventListener('change', function (e) { cfg.ledMirror = e.target.checked; store.set('ledMirror', cfg.ledMirror); });
   $('heelStep').value = String(cfg.heelStep);
   $('heelStep').addEventListener('change', function (e) { cfg.heelStep = +e.target.value; store.set('heelStep', cfg.heelStep); });
   function renderSettings() {

@@ -56,7 +56,7 @@
   function onFix(f) {
     live.last = f;
     if (rec && !f.sim) {
-      rec.points.push([f.t, +f.lat.toFixed(6), +f.lon.toFixed(6), f.sog === null ? null : +f.sog.toFixed(2), f.cog === null || f.cog === undefined ? null : Math.round(f.cog), f.heel === null || f.heel === undefined ? null : +f.heel.toFixed(1), f.acc === null ? null : Math.round(f.acc)]);
+      rec.points.push([f.t, +f.lat.toFixed(6), +f.lon.toFixed(6), f.sog === null ? null : +f.sog.toFixed(2), f.cog === null || f.cog === undefined ? null : Math.round(f.cog), f.heel === null || f.heel === undefined ? null : +f.heel.toFixed(1), f.acc === null ? null : Math.round(f.acc), f.x || null]);
       if (Date.now() - lastSave > 15000) { lastSave = Date.now(); rec.stats = stats(rec.points); putTrack(rec); }
     }
     updateLive();
@@ -223,8 +223,8 @@
     toast('GPX saved to Downloads');
   }
   function csv(t) {
-    var x = 'time,lat,lon,sog_kn,cog,heel,acc_m\n';
-    t.points.forEach(function (q) { x += [new Date(q[0]).toISOString(), q[1], q[2], q[3] === null ? '' : q[3], q[4] === null ? '' : q[4], q[5] === null ? '' : q[5], q[6] === null ? '' : q[6]].join(',') + '\n'; });
+    var x = 'time,lat,lon,sog_kn,cog,heel,acc_m,lift_phase,leg,side,ref,lift_deg,wind_axis,lift_mode,ref_src,timer\n';
+    t.points.forEach(function (q) { var d = q[7] || []; x += [new Date(q[0]).toISOString(), q[1], q[2], q[3] === null ? '' : q[3], q[4] === null ? '' : q[4], q[5] === null ? '' : q[5], q[6] === null ? '' : q[6]].concat(d.length ? d : ['', '', '', '', '', '', '', '', '']).join(',') + '\n'; });
     var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([x], { type: 'text/csv' }));
     a.download = t.name.replace(/[^\w\- ]+/g, '').replace(/\s+/g, '_') + '.csv'; document.body.appendChild(a); a.click(); a.remove();
     toast('CSV saved to Downloads');

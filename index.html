@@ -10,11 +10,11 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/saira-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=0.9.10">
+<link rel="stylesheet" href="style.css?v=0.9.11">
 </head>
 <body class="theme-night">
 
-<div id="version" class="version">v0.9.10</div>
+<div id="version" class="version">v0.9.11</div>
 <div id="update" class="update hidden">New version available. Tap to update</div>
 <div id="toast" class="toast hidden"></div>
 
@@ -236,9 +236,9 @@
       <h3>Lift / Header</h3>
       <p>Tapping the Lift/Header field always sets the current heading as reference, until the next maneuver.</p>
       <div class="row">
-        <button class="btn" data-lmode="manual">Manual</button>
-        <button class="btn" data-lmode="timed">Timed</button>
-        <button class="btn" data-lmode="smart">Smart <span class="pro">PRO</span></button>
+        <button class="btn" data-lmode="smart">Auto</button>
+        <button class="btn" data-lmode="timed">Auto timed</button>
+        <button class="btn" data-lmode="manual">Manual only</button>
       </div>
       <p class="small" id="lmodeInfo"></p>
       <div class="small" style="margin-top:8px">Race starts: <select id="startLeg"><option value="up">Upwind</option><option value="down">Downwind</option></select></div>
@@ -258,7 +258,7 @@
 
     <div class="card">
       <h3>Heel indicator</h3>
-      <label class="check"><input type="checkbox" id="heelInvert"> Invert side (if the wrong side lights up)</label>
+      <label class="check"><input type="checkbox" id="ledMirror"> Mirror LEDs (light the opposite side of the heel). Display only, the sensor is not changed.</label>
       <div class="small">One LED = <select id="heelStep"><option>2</option><option>3</option><option>5</option></select>°</div>
     </div>
 
@@ -283,13 +283,13 @@
   </div>
 </section>
 
-<script src="wxmap.js?v=0.9.10"></script>
-<script src="public-lists.js?v=0.9.10"></script>
-<script src="checklist.js?v=0.9.10"></script>
-<script src="samples/portcup-2026.js?v=0.9.10"></script>
-<script src="courses.js?v=0.9.10"></script>
-<script src="nor.js?v=0.9.10"></script>
-<script src="track.js?v=0.9.10"></script>
-<script src="app.js?v=0.9.10"></script>
+<script src="wxmap.js?v=0.9.11"></script>
+<script src="public-lists.js?v=0.9.11"></script>
+<script src="checklist.js?v=0.9.11"></script>
+<script src="samples/portcup-2026.js?v=0.9.11"></script>
+<script src="courses.js?v=0.9.11"></script>
+<script src="nor.js?v=0.9.11"></script>
+<script src="track.js?v=0.9.11"></script>
+<script src="app.js?v=0.9.11"></script>
 </body>
 </html>
