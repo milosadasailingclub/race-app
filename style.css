@@ -366,3 +366,8 @@ html,body{touch-action:pan-x pan-y}
 
 .line-fav{font-family:var(--f-num);font-weight:800;letter-spacing:.08em;font-size:16px;text-align:center;min-height:20px;margin-top:4px}
 .line-fav.pin,.line-fav.boat{color:var(--turq)} .line-fav.even{color:var(--muted)}
+
+.tac-info{font-family:var(--f-num);font-weight:700;letter-spacing:.06em;font-size:15px;text-align:center;min-height:20px;color:var(--fg)}
+.tac-row{display:flex;gap:8px}
+.tac-row .trk-rec{flex:1}
+.tac-mark{flex:0 0 96px;font-family:var(--f-num);font-weight:800;letter-spacing:.1em;border-color:#ffb300;color:#ffb300}

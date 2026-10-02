@@ -1,7 +1,7 @@
-/* The Race App — v0.9.13 */
+/* The Race App — v0.9.14 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.13';
+  var APP_VERSION = '0.9.14';
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -157,7 +157,7 @@
       var rem = T.end - now();
       var sec = Math.ceil(rem / 1000);
       if (rem <= 0) {
-        T.state = 'race'; signal('gun');
+        T.state = 'race'; signal('gun'); TAC.marks = { top: null, bottom: null }; TAC.axHist = [];
         (function () { var la = startAxis(); L.axis = la; L.leg = cfg.startLeg || 'up'; if (la !== null && S.hdg !== null) L.side = sideFromAxis(S.hdg); })();
         if (window.Track) window.Track.autoStart();
         if (!T.autoSwitched) { T.autoSwitched = true; goPage(1); }
@@ -537,6 +537,18 @@
     if (lr !== null && Math.abs(nrm(lr - la)) <= 45) return lr;
     return la;
   }
+  // Taktika L1: bove naučene iz zaobilaženja (bear-away = gornja, round-up = donja) + istorija vetra
+  var TAC = { marks: { top: null, bottom: null }, axHist: [] };
+  setInterval(function () { if (L.axis !== null) { TAC.axHist.push({ t: now(), a: L.axis }); while (TAC.axHist.length && now() - TAC.axHist[0].t > 1800000) TAC.axHist.shift(); } }, 10000);
+  function tacInfo() {
+    var mean = TAC.axHist.length >= 6 ? cmean(TAC.axHist.map(function (e) { return e.a; })) : null;
+    return { axis: L.axis, ta: L.ta || (LW.res ? LW.res.ta : null), leg: L.leg, side: L.side, marks: TAC.marks, shift: mean !== null && L.axis !== null ? nrm(L.axis - mean) : null };
+  }
+  function setMarkHere() {
+    var f = S.lastFix; if (!f) { toast('No GPS position yet.'); return; }
+    var k = L.leg === 'up' ? 'top' : 'bottom'; TAC.marks[k] = { lat: f.lat, lon: f.lon, auto: false };
+    buzz(80); toast((k === 'top' ? 'Windward' : 'Leeward') + ' mark set here');
+  }
   function pushTA(ta) {
     L.taS.push(ta); if (L.taS.length > 7) L.taS.shift();
     var a = L.taS.slice().sort(function (x, y) { return x - y; }); L.ta = a[Math.floor(a.length / 2)]; // medijana: otporna na šiftove
@@ -569,6 +581,7 @@
     }
     if (newLeg !== L.leg) {
       var was = L.leg; L.leg = newLeg;
+      if (L.turnPos) { if (newLeg === 'down') TAC.marks.top = { lat: L.turnPos.lat, lon: L.turnPos.lon, auto: true }; else TAC.marks.bottom = { lat: L.turnPos.lat, lon: L.turnPos.lon, auto: true }; }
       kind = newLeg === 'down' ? 'Bear-away (downwind)' : 'Round-up (upwind)';
       toast(newLeg === 'down' ? 'Detected: downwind' : 'Detected: upwind', newLeg === 'down' ? 'No, upwind' : 'No, downwind', function () { L.leg = was; renderLift(); }, 6000);
     } else if (before !== null && after !== null) {
@@ -614,6 +627,7 @@
         L.v0 = avg(pre, 'sog'); L.heelBefore = avg(pre, 'heel'); L.heelPre = heelStat(pre); L.hdgBefore = ph.length ? cmean(ph) : null;
         if (L.phase === 'locked' && L.ref !== null && L.side) L.lastRef[L.side] = L.ref;
         L.turnDir = sum > 0 ? 1 : -1; L.turnSum = sum; L.turnT = t; L.lastT = t;
+        var pf = S.fixBuf.filter(function (f) { return !f.dr; }); L.turnPos = pf.length ? { lat: pf[0].lat, lon: pf[0].lon } : (S.lastFix ? { lat: S.lastFix.lat, lon: S.lastFix.lon } : null);
         L.phase = 'accel'; L.ref = null; L.refSrc = null; L.note = '';
         buzz(80);
       }
@@ -1191,6 +1205,6 @@
     }, 4000);
   });
 
-  window.RA = { toast: toast, store: store, show: show };
+  window.RA = { tac: function () { return tacInfo(); }, setMark: function () { setMarkHere(); }, toast: toast, store: store, show: show };
   window.__ra = { S: S, T: T, L: L, FZ: FZ, LW: LW, cfg: cfg, calibrate: calibrate, show: show };
 })();

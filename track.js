@@ -110,12 +110,63 @@
     live.marker.setLngLat([f.lon, f.lat]);
     if (live.ready && live.map.getSource('live') && rec && rec.points.length > 1) live.map.getSource('live').setData(lineGeo(rec.points));
     if (live.follow) live.map.easeTo({ center: [f.lon, f.lat], duration: 600 });
+    drawTactics(f);
+  }
+  /* ---- Taktika L1: bove, layline-ovi, povoljna strana ---- */
+  function rad(d) { return d * Math.PI / 180; }
+  function off(o, brg, m) { return [o.lon + m * Math.sin(rad(brg)) / (111195 * Math.cos(rad(o.lat))), o.lat + m * Math.cos(rad(brg)) / 111195]; }
+  function lxy(o, p) { return { x: rad(p.lon - o.lon) * 6371000 * Math.cos(rad(o.lat)), y: rad(p.lat - o.lat) * 6371000 }; }
+  function brgTo(a, b) { var v = lxy(a, b); return (Math.atan2(v.x, v.y) * 180 / Math.PI + 360) % 360; }
+  function rayToLine(o, mk, dirLine, hdg) {
+    // udaljenost od broda (o) duž kursa hdg do linije kroz mk u pravcu dirLine
+    var p = lxy(mk, o), d = { x: Math.sin(rad(dirLine)), y: Math.cos(rad(dirLine)) }, h = { x: Math.sin(rad(hdg)), y: Math.cos(rad(hdg)) };
+    var den = h.x * d.y - h.y * d.x; if (Math.abs(den) < 1e-6) return null;
+    var tt = (p.y * d.x - p.x * d.y) / den; // p + h*tt na liniji
+    return tt;
+  }
+  var TAC_EMPTY = { type: 'FeatureCollection', features: [] };
+  function drawTactics(f) {
+    var m = live.map, box = $('tacInfo'); if (!m || !live.ready || !window.RA || !window.RA.tac) return;
+    var ti = window.RA.tac(), mk = ti.marks || {}, feats = [], area = [], info = '';
+    ['top', 'bottom'].forEach(function (k) { if (mk[k]) feats.push({ type: 'Feature', properties: { k: k === 'top' ? 'W' : 'L', kind: 'mark' }, geometry: { type: 'Point', coordinates: [mk[k].lon, mk[k].lat] } }); });
+    var target = ti.leg === 'up' ? mk.top : mk.bottom;
+    if (target && f) {
+      var dm = Math.sqrt(Math.pow(lxy(f, target).x, 2) + Math.pow(lxy(f, target).y, 2));
+      info = (ti.leg === 'up' ? 'WINDWARD MARK ' : 'LEEWARD MARK ') + Math.round(dm) + ' m · ' + ('00' + Math.round(brgTo(f, target)) % 360).slice(-3) + '°';
+    }
+    if (ti.leg === 'up' && mk.top && ti.axis !== null && ti.ta) {
+      var dS = (ti.axis - ti.ta / 2 + 180 + 360) % 360, dP = (ti.axis + ti.ta / 2 + 180) % 360, R = 2500;
+      var eS = off(mk.top, dS, R), eP = off(mk.top, dP, R), eC = off(mk.top, (ti.axis + 180) % 360, R * Math.cos(rad(ti.ta / 2))), c0 = [mk.top.lon, mk.top.lat];
+      feats.push({ type: 'Feature', properties: { kind: 'lay', s: 'stbd' }, geometry: { type: 'LineString', coordinates: [c0, eS] } });
+      feats.push({ type: 'Feature', properties: { kind: 'lay', s: 'port' }, geometry: { type: 'LineString', coordinates: [c0, eP] } });
+      if (ti.shift !== null && Math.abs(ti.shift) >= 4) {
+        var right = ti.shift > 0; // veer (desni šift) -> desna strana (gledano uz vetar) povoljna
+        area.push({ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [[c0, right ? eS : eP, eC, c0]] } });
+        info += (info ? ' · ' : '') + (right ? 'RIGHT' : 'LEFT') + ' +' + Math.round(Math.abs(ti.shift)) + '°';
+      }
+      if (f && f.cog !== null && f.cog !== undefined && ti.side) {
+        var lay = ti.side === 'stbd' ? dP : dS, dist = rayToLine(f, mk.top, lay, f.cog);
+        if (dist !== null && dist > 0 && dist < 5000) info += (info ? ' · ' : '') + 'LAYLINE ' + Math.round(dist) + ' m';
+        else if (dist !== null && dist <= 0) info += (info ? ' · ' : '') + 'PAST LAYLINE';
+      }
+    }
+    if (!m.getSource('tac')) {
+      m.addSource('tacA', { type: 'geojson', data: TAC_EMPTY });
+      m.addLayer({ id: 'tacA', type: 'fill', source: 'tacA', paint: { 'fill-color': '#00e0c6', 'fill-opacity': 0.14 } }, m.getLayer('live') ? 'live' : undefined);
+      m.addSource('tac', { type: 'geojson', data: TAC_EMPTY });
+      m.addLayer({ id: 'tacL', type: 'line', source: 'tac', filter: ['==', ['get', 'kind'], 'lay'], paint: { 'line-color': ['match', ['get', 's'], 'stbd', '#00e0c6', '#ff2e93'], 'line-width': 2, 'line-dasharray': [2, 2] } });
+      m.addLayer({ id: 'tacM', type: 'circle', source: 'tac', filter: ['==', ['get', 'kind'], 'mark'], paint: { 'circle-radius': 9, 'circle-color': '#ffb300', 'circle-stroke-width': 2, 'circle-stroke-color': '#05070a' } });
+    }
+    m.getSource('tac').setData({ type: 'FeatureCollection', features: feats });
+    m.getSource('tacA').setData({ type: 'FeatureCollection', features: area });
+    if (box) box.textContent = info || (ti.leg === 'up' ? 'Windward mark is learned at your first bear-away, or tap MARK when rounding.' : 'Leeward mark is learned at your first round-up, or tap MARK when rounding.');
   }
   function renderRecBtn() {
     var b = $('trkRecBtn'); if (!b) return;
     b.classList.toggle('on', !!rec); b.querySelector('span').textContent = rec ? 'STOP TRACK' : 'START TRACK';
   }
   document.addEventListener('click', function (e) {
+    var mb = e.target.closest && e.target.closest('#tacMark'); if (mb) { if (window.RA && window.RA.setMark) window.RA.setMark(); if (live.last) drawTactics(live.last); return; }
     var b = e.target.closest && e.target.closest('#trkRecBtn'); if (!b) return;
     if (rec) toast('Stop and save this track?', 'Stop', stopRec, 4000); else { live.follow = true; startRec(false); }
   });
