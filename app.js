@@ -1,7 +1,7 @@
-/* The Race App — v0.9.11 */
+/* The Race App — v0.9.12 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.11';
+  var APP_VERSION = '0.9.12';
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -938,7 +938,7 @@
     $('lineBlock').classList.toggle('hidden', !show);
     if (!show) return;
 
-    var el = $('dtl'), info = $('lineInfo'), cls = 'none', txt = '––';
+    var el = $('dtl'), info = $('lineInfo'), cls = 'none', txt = '––', burnTxt = '';
     var lenTxt = 'line ' + Math.round(lineCalc(line.boat).len) + ' m';
     var last = S.fixBuf.length ? S.fixBuf[S.fixBuf.length - 1] : null;
     if (!last || now() - last.rt > 5000) {
@@ -955,8 +955,9 @@
         var ttl = vn > 0.15 ? r.dist / vn : Infinity;
         var margin = ttl - tts;
         cls = margin > LINE_TOL ? 'late' : (margin < -LINE_TOL ? 'early' : 'ok');
+        burnTxt = isFinite(margin) ? (margin >= 0 ? 'late ' : 'early ') + Math.abs(Math.round(margin)) + ' s · ' : 'not approaching · ';
       }
-      info.textContent = (r.over ? 'OCS · ' : '') + lenTxt + ' · GPS ±' + Math.round(last.acc) + ' m';
+      info.textContent = (r.over ? 'OCS · ' : burnTxt) + lenTxt + ' · GPS ±' + Math.round(last.acc) + ' m';
     }
     el.textContent = txt;
     el.className = 'dtl ' + cls;

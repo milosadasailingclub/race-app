@@ -156,6 +156,7 @@
     getTrack(id).then(function (t) {
       if (!t || !t.points || !t.points.length) { toast('Empty track'); return; }
       view.id = id; view.pts = t.points; view.i = 0; view.t = t;
+      view.mnv = window.Maneuvers ? window.Maneuvers.analyze(t.points) : null;
       view.cum = [0]; for (var ci = 1; ci < t.points.length; ci++) view.cum.push(view.cum[ci - 1] + dist(t.points[ci - 1], t.points[ci]) / 1852);
       $('trkTitle').textContent = 'REPLAY'; $('trkMore').classList.remove('hidden');
       var st = t.stats || stats(t.points);
@@ -163,6 +164,7 @@
         '<div class="trk-map" id="trkMap"></div>' +
         '<div class="trk-tele"><div><em>TIME</em><b id="rpT">0:00</b></div><div><em>SOG kn</em><b id="rpS">–.–</b></div><div><em>COG</em><b id="rpC">–––</b></div><div><em>HEEL</em><b id="rpH">–</b></div><div><em>DIST NM</em><b id="rpD">0.00</b></div></div>' +
         '<div class="heel trk-heel" id="rpHeel"></div>' +
+        '<div class="mnv" id="rpMnv"></div>' +
         '<div class="trk-ctrl"><button class="icon-btn" id="rpPlay">▶</button><input type="range" id="rpSlider" min="0" max="' + (t.points.length - 1) + '" value="0"><button class="icon-btn" id="rpSpeed">×10</button></div>' +
         '<div class="wm-legend trk-legend"><i style="background:linear-gradient(90deg,#0a5566,#00b3a4 25%,#00e0c6 42%,#9b3bff 58%,#ff2e93 75%,#ff1fd2)"></i><span>0</span><span>3</span><span>5</span><span>7</span><span>9</span><span>12 kn</span></div>' +
         '<div class="row"><button class="btn" id="rpRename">Rename</button><button class="btn" id="rpGpx">Export GPX</button><button class="btn" id="rpCsv">Export CSV</button><button class="btn danger" id="rpDel">Delete</button></div>';
@@ -177,10 +179,16 @@
           view.map.addSource('trk', { type: 'geojson', data: segGeo(p) });
           var col = ['interpolate', ['linear'], ['get', 's']]; SPD.forEach(function (x) { col.push(x[0], x[1]); });
           view.map.addLayer({ id: 'trk', type: 'line', source: 'trk', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': 4, 'line-color': col } });
+          if (view.mnv && view.mnv.list.length) {
+            view.map.addSource('mnv', { type: 'geojson', data: { type: 'FeatureCollection', features: view.mnv.list.map(function (m, k) { return { type: 'Feature', properties: { c: lossCls(m), k: k + 1 }, geometry: { type: 'Point', coordinates: [m.lon, m.lat] } }; }) } });
+            view.map.addLayer({ id: 'mnv', type: 'circle', source: 'mnv', paint: { 'circle-radius': 7, 'circle-stroke-width': 2, 'circle-stroke-color': '#05070a',
+              'circle-color': ['match', ['get', 'c'], 'good', '#00e0c6', 'ok', '#9b3bff', 'bad', '#ff2e93', '#8a969d'] } });
+          }
         });
         view.marker = new maplibregl.Marker({ element: dotEl('trk-boat') }).setLngLat([p[0][2], p[0][1]]).addTo(view.map);
         setIdx(0);
       }).catch(function () { $('trkMap').innerHTML = '<p class="small" style="padding:16px">Map needs internet.</p>'; setIdx(0); });
+      renderMnv();
       $('rpSlider').addEventListener('input', function (e) { stopPlay(); setIdx(+e.target.value); });
       $('rpPlay').addEventListener('click', function () { if (view.playing) stopPlay(); else play(); });
       $('rpSpeed').addEventListener('click', function () { view.speed = view.speed === 10 ? 30 : view.speed === 30 ? 1 : 10; $('rpSpeed').textContent = '×' + view.speed; });
@@ -188,6 +196,29 @@
       $('rpGpx').addEventListener('click', function () { gpx(t); });
       $('rpCsv').addEventListener('click', function () { csv(t); });
       $('rpDel').addEventListener('click', function () { toast('Delete this track?', 'Delete', function () { delTrack(id).then(openList); }, 4000); });
+    });
+  }
+  var KIND = { tack: 'TACK', gybe: 'GYBE', bearaway: 'BEAR AWAY', roundup: 'ROUND UP', turn: 'TURN' };
+  function lossCls(m) { return m.loss === null ? 'none' : m.loss < 3 ? 'good' : m.loss <= 8 ? 'ok' : 'bad'; }
+  function lossTxt(m) { if (m.loss === null) return ''; var v = Math.round(m.loss); return v > 0 ? '−' + v + ' m' : '+' + Math.abs(v) + ' m'; }
+  function renderMnv() {
+    var box = $('rpMnv'), r = view.mnv; if (!box) return;
+    if (!r || !r.list.length) { box.innerHTML = '<p class="small">No maneuvers found in this track.</p>'; return; }
+    var p0 = view.pts[0][0], S = r.summary || {}, h = '<div class="mnv-head">MANEUVERS' + (r.axis !== null ? '<span>wind ~' + d3(r.axis) + '°</span>' : '') + '</div>';
+    function sm(k, lbl) { var x = S[k]; if (!x) return ''; return '<div class="mnv-sum"><b>' + lbl + ' ' + x.n + '</b><span>avg ' + (x.avgLoss > 0 ? '−' : '+') + Math.abs(Math.round(x.avgLoss)) + ' m' + (x.avgRec ? ' · back to speed ' + Math.round(x.avgRec) + ' s' : '') + '</span></div>'; }
+    h += '<div class="mnv-sums">' + sm('tack', 'TACKS') + sm('gybe', 'GYBES') + '</div>';
+    h += '<p class="small">Meters lost (−) or gained (+) against sailing on at the same VMG. Speeds: in → lowest → out.</p>';
+    r.list.forEach(function (m, k) {
+      h += '<button class="mnv-row ' + lossCls(m) + '" data-mt="' + m.t + '"><span class="mnv-k">' + (k + 1) + '</span><span class="mnv-main"><b>' + KIND[m.kind] + '</b> ' + fmtDur((m.t - p0) / 1000) + ' · ' + Math.round(m.turn) + '°' +
+        '<em>' + (m.vIn ? m.vIn.toFixed(1) : '–') + ' → ' + (m.vMin !== null ? m.vMin.toFixed(1) : '–') + ' → ' + (m.vOut ? m.vOut.toFixed(1) : '–') + ' kn' + (m.rec !== null ? ' · ' + Math.round(m.rec) + ' s' : '') + '</em></span><span class="mnv-loss">' + lossTxt(m) + '</span></button>';
+    });
+    box.innerHTML = h;
+    box.querySelectorAll('[data-mt]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var tt = +b.getAttribute('data-mt') - 8000, p = view.pts, j = 0; while (j < p.length - 1 && p[j][0] < tt) j++;
+        stopPlay(); setIdx(j); if (view.map) view.map.easeTo({ center: [p[j][2], p[j][1]], zoom: Math.max(view.map.getZoom(), 16), duration: 500 });
+        var mp = $('trkMap'); if (mp && mp.scrollIntoView) mp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
     });
   }
   function setIdx(i) {
