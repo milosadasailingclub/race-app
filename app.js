@@ -1,7 +1,7 @@
-/* The Race App — v0.9.9 */
+/* The Race App — v0.9.10 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.9';
+  var APP_VERSION = '0.9.10';
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -258,7 +258,9 @@
     S.rawHeel = raw;
     S.recent.push(raw); if (S.recent.length > 30) S.recent.shift();
     var val = raw - (cfg.calOffset || 0);
-    if (cfg.heelInvert) val = -val;
+    // Telefon je uvek ekranom ka posadi (ka krmi). Izmereno na vodi 2.10.: sirovi znak je bio obrnut,
+    // pa je podrazumevano obrnuto: + = nagib na desno (starboard), LED-ovi svetle na strani na koju je brod nagnut.
+    if (!cfg.heelInvert) val = -val;
     var t = now(), dt = S.lastT ? (t - S.lastT) / 1000 : 0; S.lastT = t;
     var tau = TAU[cfg.damp] || 0;
     if (S.heel === null || tau === 0 || dt <= 0) S.heel = val;
@@ -497,7 +499,7 @@
     if (v.length < 3) return { ok: false, mean: null };
     var m = 0; v.forEach(function (x) { m += x; }); m /= v.length;
     var sd = 0; v.forEach(function (x) { sd += (x - m) * (x - m); }); sd = Math.sqrt(sd / v.length);
-    return { ok: heelOk() && sd < LP.HEEL_STD, mean: m, sd: sd }; // nemiran nagib = telefon nije montiran -> ne koristi
+    return { ok: heelOk() && sd < LP.HEEL_STD && Math.abs(m) < 35, mean: m, sd: sd }; // nemiran ili nerealan (>35°, pao nosač) -> ne koristi
   }
   function sideFromAxis(h) { return L.axis === null || h === null ? null : (nrm(h - L.axis) > 0 ? 'port' : 'stbd'); }
   function turnQuiet(t) { var w = win(t - 3000, t).filter(function (e) { return e.hdg !== null; }), s = 0; for (var i = 1; i < w.length; i++) s += nrm(w[i].hdg - w[i - 1].hdg); return w.length >= 2 && Math.abs(s) < LP.QUIET; }
@@ -569,7 +571,13 @@
       var diff = Math.abs(nrm(after - before)), mid = cmean([before, after]), ax = null;
       if (L.leg === 'up' && diff >= 60 && diff <= 130) { ax = mid; pushTA(diff); }
       if (L.leg === 'down' && diff >= 35 && diff <= 130) ax = (mid + 180) % 360;
-      if (ax !== null) L.axis = (L.axis !== null && Math.abs(nrm(ax - L.axis)) < 30) ? cmean([L.axis, ax]) : ax;
+      // velik skok ose iz jednog manevra je sumnjiv: pomeri samo do pola (sledeći hals potvrđuje)
+      if (ax !== null) {
+        var jump = L.axis === null ? 0 : Math.abs(nrm(ax - L.axis));
+        if (jump < 60) { L.axis = L.axis === null ? ax : cmean([L.axis, ax]); L.axCand = null; }
+        else if (L.axCand !== null && L.axCand !== undefined && Math.abs(nrm(ax - L.axCand)) < 30) { L.axis = cmean([L.axCand, ax]); L.axCand = null; } // dva puta zaredom potvrđeno
+        else L.axCand = ax;
+      }
     }
     L.side = sideFromAxis(after) || (newLeg === 'up' && L.heelPre && L.heelPre.ok && kind.indexOf('Round') === 0 ? sideFromHeel(heelStat(win(t - 5000, t)).mean) : null) || turnSide;
     L.note = kind;
@@ -594,8 +602,9 @@
       var from = Math.max(t - LP.TURN_WIN * 1000, L.lastT), w = win(from, t).filter(function (e) { return e.hdg !== null && e.sog !== null && e.sog >= 1; });
       var sum = 0; for (var i = 1; i < w.length; i++) sum += nrm(w[i].hdg - w[i - 1].hdg);
       if (Math.abs(sum) >= (L.leg === 'down' ? LP.TURN_DOWN : LP.TURN)) {
-        var pre = win(Math.max(t - 40000, L.lastT + 5000), t - 8000);
-        if (hdgs(pre).length < 3) pre = win(t - 40000, t - 8000);
+        // kurs PRE okreta: nikad ne gledaj pre prethodnog manevra (inače meša stari leg, npr. krmu pre round-up-a)
+        var pre = win(Math.max(t - 40000, L.lastT + 3000), t - 6000);
+        if (hdgs(pre).length < 3) pre = win(Math.max(t - 40000, L.lastT), t - 4000);
         var ph = hdgs(pre);
         L.v0 = avg(pre, 'sog'); L.heelBefore = avg(pre, 'heel'); L.heelPre = heelStat(pre); L.hdgBefore = ph.length ? cmean(ph) : null;
         if (L.phase === 'locked' && L.ref !== null && L.side) L.lastRef[L.side] = L.ref;
