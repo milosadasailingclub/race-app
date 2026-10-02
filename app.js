@@ -1,7 +1,7 @@
-/* The Race App — v0.9.12 */
+/* The Race App — v0.9.13 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.12';
+  var APP_VERSION = '0.9.13';
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -926,6 +926,15 @@
     var cross = b.x * x.y - b.y * x.x; // > 0 = strana kursa (preko linije)
     return { len: L, dist: dist, over: cross > 0, nx: L ? -b.y / L : 0, ny: L ? b.x / L : 0 }; // n = normala ka strani kursa (uz vetar)
   }
+  function favoredEnd() {
+    if (!line.pin || !line.boat || typeof LW === 'undefined' || !LW || !LW.res || !LW.res.t || Date.now() - Date.parse(LW.res.t) > 1800000) return null;
+    var la = lineAxis(), W = LW.res.axis; if (la === null || Math.abs(nrm(W - la)) > 45) return null;
+    var b = xy(line.pin, line.boat), L = Math.sqrt(b.x * b.x + b.y * b.y); if (L < 10) return null;
+    var d = b.x * Math.sin(toRad(W)) + b.y * Math.cos(toRad(W)); // > 0: BOAT je bliže vetru
+    var deg = Math.asin(Math.max(-1, Math.min(1, d / L))) * 180 / Math.PI;
+    if (Math.abs(d) < 2) return { end: 'even', txt: 'SQUARE LINE · wind ' + ('00' + Math.round(W) % 360).slice(-3) + '°' };
+    return { end: d > 0 ? 'boat' : 'pin', txt: (d > 0 ? 'BOAT' : 'PIN') + ' FAVORED +' + Math.round(Math.abs(d)) + ' m · ' + Math.abs(deg).toFixed(0) + '°' };
+  }
   function renderLine() {
     var both = !!(line.pin && line.boat);
     $('pinBtn').classList.toggle('set', !!line.pin);
@@ -940,6 +949,8 @@
 
     var el = $('dtl'), info = $('lineInfo'), cls = 'none', txt = '––', burnTxt = '';
     var lenTxt = 'line ' + Math.round(lineCalc(line.boat).len) + ' m';
+    // povoljan kraj: samo uz svež LEARN vetar koji se slaže sa linijom (inače nemamo pravi pravac vetra)
+    var fav = favoredEnd(); $('lineFav').textContent = fav ? fav.txt : ''; $('lineFav').className = 'line-fav' + (fav ? ' ' + fav.end : '');
     var last = S.fixBuf.length ? S.fixBuf[S.fixBuf.length - 1] : null;
     if (!last || now() - last.rt > 5000) {
       info.textContent = lenTxt + ' · no GPS signal';
