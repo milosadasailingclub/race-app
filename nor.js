@@ -71,6 +71,33 @@
     return JSON.parse(s.slice(a, b + 1));
   }
 
+  /* ---- AI sažetak preko našeg servera ---- */
+  var AI_URL_DEFAULT = '';
+  function aiUrl() { return (sget('aiUrl', '') || AI_URL_DEFAULT).replace(/\/+$/, ''); }
+  var busy = false;
+  function toB64(blob) { return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(String(r.result).split(',')[1]); }; r.onerror = function () { rej(r.error); }; r.readAsDataURL(blob); }); }
+  function docType(d) { var t = (d.blob && d.blob.type) || ''; if (t) return t; return /\.pdf$/i.test(d.name) ? 'application/pdf' : 'image/jpeg'; }
+  function summarize(ev, infoEl) {
+    var url = aiUrl();
+    function info(t) { if (infoEl) infoEl.textContent = t; }
+    if (!url) { info('Documents saved. The AI server is not connected yet, so the summary cannot be made automatically.'); toast('AI server not connected yet'); return Promise.resolve(); }
+    busy = true; renderSummary(); info('Reading the documents… this takes about 20–60 s.');
+    return docsFor(ev.id).then(function (d) {
+      if (!d.length) throw new Error('Add the NoR / SI first');
+      return Promise.all(d.map(function (x) { return toB64(x.blob).then(function (b) { return { name: x.name, type: docType(x), data: b }; }); })).then(function (docs) {
+        ev.docNames = d.map(function (x) { return x.name; }).join(', ');
+        return fetch(url + '/summarize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: ev.name, docs: docs }) });
+      });
+    }).then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.summary) throw new Error(j.error || ('Server error ' + r.status)); return j.summary; }); })
+      .then(function (S) {
+        saveEvents(events().map(function (x) { return x.id === ev.id ? Object.assign(x, { summary: S, summaryAt: Date.now(), docNames: ev.docNames }) : x; }));
+        busy = false; info(''); render(); toast('Summary ready');
+      }).catch(function (err) { busy = false; renderSummary(); info('Summary failed: ' + err.message); toast('Summary failed'); });
+  }
+  function addDocs(ev, files) {
+    return Promise.all(files.map(function (f) { return tx('readwrite', function (s) { s.put({ id: 'd' + uid(), eventId: ev.id, name: f.name, size: f.size, added: Date.now(), blob: f }); }); }));
+  }
+
   /* ---- render ---- */
   var manage = false;
   function renderEvents() {
@@ -84,9 +111,9 @@
   function txt(s) { return s && String(s).trim() ? '<p>' + esc(s) + '</p>' : ''; }
   function renderSummary() {
     var c = cur(), box = $('norSummary');
-    if (!c) { box.innerHTML = '<div class="nor-empty"><h2>NoR / SI</h2><p>No event yet. Tap ✎ to create an event, add the NoR/SI PDFs and make the AI summary.</p></div>'; return; }
+    if (!c) { box.innerHTML = '<div class="nor-empty"><h2>NoR / SI</h2><p>No event yet. Tap <b>+</b>, type the event name, add the NoR / SI and tap CREATE SUMMARY.</p></div>'; return; }
     var S = c.summary;
-    if (!S) { box.innerHTML = '<div class="nor-empty"><h2>' + esc(c.name) + '</h2><p>No summary yet. Tap ✎ to add PDFs and create the AI summary.</p></div>'; return; }
+    if (!S) { box.innerHTML = '<div class="nor-empty"><h2>' + esc(c.name) + '</h2><p>' + (busy ? 'Making the summary…' : 'No summary yet. Add the NoR / SI below and tap Refresh summary.') + '</p></div>'; return; }
     var SMP = window.RA_SAMPLE_EVENT, diagrams = (c.diagramUrls || (SMP && c.id === SMP.id ? SMP.diagramUrls : null) || []).map(function (u) { return { src: u, caption: 'From the SI (Addendum B)' }; }).concat(diaCache[c.id] || []);
     var k = S.key || {}, h = '';
     h += '<div class="nor-title"><b>' + esc(S.event || c.name) + '</b><span>' + esc([S.venue, S.dates].filter(Boolean).join(' · ')) + '</span></div>';
@@ -95,9 +122,9 @@
     if (S.changes && S.changes.filter(Boolean).length) h += '<div class="nor-changes"><h3>Amendments</h3>' + list(S.changes) + '</div>';
     if ((S.courses && S.courses.length) || diagrams.length) {
       var C = window.Courses, dh = diagrams.map(function (d) { return '<div class="nor-dia"><img src="' + d.src + '" alt="Course diagram"><span>' + esc(d.caption || 'From the SI / NoR') + '</span></div>'; }).join('');
-      h += sec('Courses', dh + (S.courses || []).map(function (co) {
-        var pn = C && C.pennantFromName(co.name);
-        return '<div class="nor-course"><div class="nor-cname">' + (pn ? C.pennant(pn) : '') + '<b>' + esc(co.name) + '</b></div><div class="nor-seq">' + (co.sequence || []).map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('<i>›</i>') + '</div>' + (co.notes ? '<p>' + esc(co.notes) + '</p>' : '') + '</div>';
+      h += sec('Courses', (S.course_signal ? '<p class="nor-csig">' + esc(S.course_signal) + '</p>' : '') + dh + (S.courses || []).map(function (co) {
+        var pn = C && C.pennantFromName(co.name + ' ' + (co.signal || ''));
+        return '<div class="nor-course"><div class="nor-cname">' + (pn ? C.pennant(pn) : '') + '<b>' + esc(co.name) + '</b>' + (co.signal ? '<span class="nor-cs">' + esc(co.signal) + '</span>' : '') + '</div><div class="nor-seq">' + (co.sequence || []).map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('<i>›</i>') + '</div>' + (co.notes ? '<p>' + esc(co.notes) + '</p>' : '') + '</div>';
       }).join(''));
     }
     if (S.marks && S.marks.length) h += sec('Marks', '<ul>' + S.marks.map(function (m) { return '<li><b>' + esc(m.name) + '</b> ' + esc(m.description) + '</li>'; }).join('') + '</ul>');
@@ -128,6 +155,8 @@
     renderEvents(); renderSummary();
     var cc = cur(); if (cc) loadDiagrams(cc.id).then(function () { renderSummary(); if (manage) renderDiaList(); });
     $('norSummary').classList.toggle('hidden', manage);
+    $('norAmendBox').classList.toggle('hidden', manage || !cur());
+    if (!events().length && !manage) $('norQuick').classList.remove('hidden');
     $('norManage').classList.toggle('hidden', !manage);
     $('norManageBtn').classList.toggle('on', manage);
     if (manage) { renderDocs(); renderDiaList(); }
@@ -233,6 +262,30 @@
       $('norPaste').value = ''; manage = false; render(); toast('Summary saved');
     } catch (err) { $('norInfo').textContent = 'Could not read the answer: ' + err.message + '. Copy Claude\'s whole reply and try again.'; }
   });
+  var qFiles = [];
+  $('norAddBtn').addEventListener('click', function () { var q = $('norQuick'); q.classList.toggle('hidden'); if (!q.classList.contains('hidden')) { manage = false; render(); q.classList.remove('hidden'); $('norQName').focus(); } });
+  $('norQFile').addEventListener('change', function (e) {
+    qFiles = qFiles.concat([].slice.call(e.target.files || [])); e.target.value = '';
+    $('norQList').innerHTML = qFiles.map(function (f) { return '📄 ' + esc(f.name); }).join('<br>');
+  });
+  $('norQGo').addEventListener('click', function () {
+    var n = $('norQName').value.trim();
+    if (!n) { toast('Type the event name first.'); $('norQName').focus(); return; }
+    if (!qFiles.length) { toast('Add the NoR / SI first.'); return; }
+    var e = events(), ev = { id: 'ev' + uid(), name: n }; e.push(ev); saveEvents(e); sset('norCur', ev.id);
+    var files = qFiles; qFiles = []; $('norQList').innerHTML = ''; $('norQName').value = '';
+    $('norQuick').classList.add('hidden'); render();
+    var info = $('norQInfo'); $('norQuick').classList.add('hidden');
+    addDocs(ev, files).then(function () { return summarize(ev, $('norInfo2')); });
+  });
+  $('norAiUrl').value = sget('aiUrl', '') || AI_URL_DEFAULT;
+  $('norAiUrl').addEventListener('change', function (e) { sset('aiUrl', e.target.value.trim()); toast('AI server saved'); });
+  $('norAmend').addEventListener('change', function (e) {
+    var c = cur(), files = [].slice.call(e.target.files || []); e.target.value = '';
+    if (!c || !files.length) return;
+    addDocs(c, files).then(function () { toast(files.length + ' document added'); return summarize(c, $('norInfo2')); });
+  });
+  $('norRedo').addEventListener('click', function () { var c = cur(); if (c) summarize(c, $('norInfo2')); });
   function seedSample() {
     var S = window.RA_SAMPLE_EVENT; if (!S || sget('norSampleSeeded', false)) return Promise.resolve();
     sset('norSampleSeeded', true);

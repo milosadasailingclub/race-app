@@ -10,11 +10,11 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/saira-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=0.9.14">
+<link rel="stylesheet" href="style.css?v=0.9.15">
 </head>
 <body class="theme-night">
 
-<div id="version" class="version">v0.9.14</div>
+<div id="version" class="version">v0.9.15</div>
 <div id="update" class="update hidden">New version available. Tap to update</div>
 <div id="toast" class="toast hidden"></div>
 
@@ -113,9 +113,20 @@
     <div class="page nor-page" id="p-nor">
       <div class="nor-head">
         <select id="norEvent" aria-label="Event"></select>
+        <button class="icon-btn" id="norAddBtn" aria-label="New event">+</button>
         <button class="icon-btn" id="norManageBtn" aria-label="Manage">✎</button>
       </div>
+      <div id="norQuick" class="nor-quick hidden">
+        <h3>NEW EVENT</h3>
+        <input id="norQName" type="text" maxlength="60" placeholder="Event name (e.g. Ada Cup 2026)">
+        <label class="btn nor-file">+ Add documents (PDF or photo)<input type="file" id="norQFile" accept="application/pdf,image/*" multiple hidden></label>
+        <div id="norQList" class="small"></div>
+        <button class="btn primary nor-go" id="norQGo">CREATE SUMMARY</button>
+        <p class="small" id="norQInfo">The app reads the NoR / SI and makes a short summary: courses first, then what you need on the water.</p>
+      </div>
       <div id="norSummary" class="nor-summary"></div>
+      <p class="small" id="norInfo2"></p>
+      <div id="norAmendBox" class="nor-amend hidden"><label class="btn nor-file">+ Add amendment / new document<input type="file" id="norAmend" accept="application/pdf,image/*" multiple hidden></label><button class="btn" id="norRedo">Refresh summary</button></div>
       <div id="norManage" class="nor-manage hidden">
         <div class="card">
           <h3>Event</h3>
@@ -124,9 +135,9 @@
         </div>
         <div class="card">
           <h3>Documents</h3>
-          <p>Add NoR, SI and amendments (PDF). They are stored on this phone and open without internet.</p>
+          <p>Add NoR, SI and amendments (PDF or photo). They are stored on this phone and open without internet.</p>
           <div id="norDocs"></div>
-          <label class="btn primary nor-file">+ Add PDF<input type="file" id="norFile" accept="application/pdf" multiple hidden></label>
+          <label class="btn primary nor-file">+ Add PDF<input type="file" id="norFile" accept="application/pdf,image/*" multiple hidden></label>
         </div>
         <div class="card">
           <h3>Course diagram</h3>
@@ -141,14 +152,15 @@
           </div>
           <label class="btn nor-file">+ Add image<input type="file" id="norDiaImg" accept="image/*" hidden></label>
         </div>
-        <div class="card">
-          <h3>AI summary</h3>
+        <details class="card">
+          <summary><b>Advanced: summary by copy &amp; paste</b> (if the AI server is not available)</summary>
+          <p class="small">AI server address: <input id="norAiUrl" type="text" placeholder="https://…workers.dev" style="width:100%"></p>
           <p><b>1.</b> Tap <b>Copy prompt</b> (the text of your PDFs is included). <b>2.</b> Open Claude, paste, send. <b>3.</b> Copy Claude's whole answer and paste it below.</p>
           <div class="row"><button class="btn primary" id="norCopy">Copy prompt</button><a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener">Open Claude</a></div>
           <textarea id="norPaste" rows="5" placeholder="Paste Claude's answer here"></textarea>
           <div class="row"><button class="btn primary" id="norSave">Save summary</button></div>
           <p class="small" id="norInfo"></p>
-        </div>
+        </details>
       </div>
     </div>
   </div>
@@ -285,14 +297,14 @@
   </div>
 </section>
 
-<script src="wxmap.js?v=0.9.14"></script>
-<script src="public-lists.js?v=0.9.14"></script>
-<script src="checklist.js?v=0.9.14"></script>
-<script src="samples/portcup-2026.js?v=0.9.14"></script>
-<script src="courses.js?v=0.9.14"></script>
-<script src="nor.js?v=0.9.14"></script>
-<script src="maneuvers.js?v=0.9.14"></script>
-<script src="track.js?v=0.9.14"></script>
-<script src="app.js?v=0.9.14"></script>
+<script src="wxmap.js?v=0.9.15"></script>
+<script src="public-lists.js?v=0.9.15"></script>
+<script src="checklist.js?v=0.9.15"></script>
+<script src="samples/portcup-2026.js?v=0.9.15"></script>
+<script src="courses.js?v=0.9.15"></script>
+<script src="nor.js?v=0.9.15"></script>
+<script src="maneuvers.js?v=0.9.15"></script>
+<script src="track.js?v=0.9.15"></script>
+<script src="app.js?v=0.9.15"></script>
 </body>
 </html>
