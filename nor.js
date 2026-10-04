@@ -329,7 +329,7 @@
     }
     h += sec('Start', txt(S.start)) + sec('Finish', txt(S.finish));
     h += '<div class="nor-open" id="norOpenDocs"></div>' + FC;
-    h += '<p class="small nor-foot">AI summary' + (c.usage && c.usage.in ? ' (' + Math.round((c.usage.in + c.usage.out) / 1000) + 'k tokens ≈ $' + (c.usage.usd || 0).toFixed(2) + ')' : '') + ' · ' + new Date(c.summaryAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) + '. Always check the official documents.</p>';
+    h += '<p class="small nor-foot">AI summary' + (c.usage && c.usage.in && sget('dev', false) ? ' (' + Math.round((c.usage.in + c.usage.out) / 1000) + 'k tokens ≈ $' + (c.usage.usd || 0).toFixed(2) + ')' : '') + ' · ' + new Date(c.summaryAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) + '. Always check the official documents.</p>';
     box.innerHTML = h; bindFc(c);
     docsFor(c.id).then(function (d) {
       var o = $('norOpenDocs'); if (!o) return;

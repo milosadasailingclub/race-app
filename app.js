@@ -1,7 +1,15 @@
-/* The Race App — v0.9.27 */
+/* The Race App — v0.9.28 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.27';
+  var APP_VERSION = '0.9.28';
+  // skriveni developer mod: 7 tapova na broj verzije (prikazuje trošak AI obrade samo vlasniku)
+  (function () {
+    var n = 0, t0 = 0, el = document.getElementById('version'); if (!el) return;
+    el.addEventListener('click', function () {
+      var t = Date.now(); if (t - t0 > 1500) n = 0; t0 = t; n++;
+      if (n >= 7) { n = 0; var on = !JSON.parse(localStorage.getItem('ra.dev') || 'false'); localStorage.setItem('ra.dev', JSON.stringify(on)); if (window.RA && RA.toast) RA.toast('Developer mode ' + (on ? 'ON' : 'OFF')); if (window.NorSI) NorSI.render(); }
+    });
+  })();
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
