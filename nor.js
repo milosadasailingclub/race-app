@@ -103,6 +103,31 @@
     var m = 16; x0 = Math.max(0, x0 - m); y0 = Math.max(0, y0 - m); x1 = Math.min(w, x1 + m); y1 = Math.min(h, y1 + m);
     var o = document.createElement('canvas'); o.width = x1 - x0; o.height = y1 - y0; o.getContext('2d').drawImage(cv, x0, y0, o.width, o.height, 0, 0, o.width, o.height); return o;
   }
+  // samo crtež: obriši duže tekstove (naslovi, pasusi, liste kurseva; oznake bova su kratke), pa iseci na crtež.
+  // AI "box" (0–1) koristi se samo za skenirane strane bez tekstualnog sloja.
+  function inkBox(cv) {
+    var g = cv.getContext('2d'), w = cv.width, h = cv.height, d = g.getImageData(0, 0, w, h).data, x0 = w, y0 = h, x1 = 0, y1 = 0;
+    for (var y = 0; y < h; y += 3) for (var x = 0; x < w; x += 3) { var i = (y * w + x) * 4; if (d[i] < 235 || d[i + 1] < 235 || d[i + 2] < 235) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } }
+    return x1 > x0 && y1 > y0 ? [x0, y0, x1, y1] : null;
+  }
+  function cropDrawing(cv, vp, items, box) {
+    var W = cv.width, H = cv.height, g = cv.getContext('2d'), nText = 0;
+    items.forEach(function (it) {
+      var s = String(it.str || '').trim(); if (!s) return; nText++;
+      var long = s.length >= 16 || (s.split(/\s+/).length >= 3 && s.length >= 10);
+      if (!long || !it.transform) return;
+      var t = pdfjsLib.Util.transform(vp.transform, it.transform), fh = Math.hypot(t[2], t[3]) || 12, x = t[4], yb = t[5], tw = (it.width || 0) * vp.scale;
+      g.fillStyle = '#fff'; g.fillRect(x - 2, yb - fh * 1.1, tw + 4, fh * 1.45);
+    });
+    var B = inkBox(cv), A = null;
+    if (box && box.length === 4 && box.every(function (v) { return typeof v === 'number' && v >= 0 && v <= 1; }) && box[2] > box[0] + 0.05 && box[3] > box[1] + 0.05) {
+      var m = 0.03; A = [Math.max(0, box[0] - m) * W, Math.max(0, box[1] - m) * H, Math.min(1, box[2] + m) * W, Math.min(1, box[3] + m) * H];
+    }
+    var R = (A && (!B || nText < 5)) ? A : B; // AI okvir samo za skenirane strane (bez teksta); inače je brisanje teksta pouzdanije
+    if (!R) return cv;
+    var x0 = Math.max(0, Math.floor(R[0]) - 8), y0 = Math.max(0, Math.floor(R[1]) - 8), x1 = Math.min(W, Math.ceil(R[2]) + 8), y1 = Math.min(H, Math.ceil(R[3]) + 8);
+    var o = document.createElement('canvas'); o.width = x1 - x0; o.height = y1 - y0; o.getContext('2d').drawImage(cv, x0, y0, o.width, o.height, 0, 0, o.width, o.height); return o;
+  }
   function autoDiagrams(ev, S) {
     var want = (S.diagram_pages || []).filter(function (p) { return p && p.page; }).slice(0, 6);
     if (!want.length) return Promise.resolve(0);
@@ -121,7 +146,9 @@
                 var vp = pg.getViewport({ scale: 2 }), cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height;
                 var g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
                 return pg.render({ canvasContext: g, viewport: vp }).promise.then(function () {
-                  return new Promise(function (res) { trimCanvas(cv).toBlob(res, 'image/png'); });
+                  return pg.getTextContent().catch(function () { return { items: [] }; });
+                }).then(function (tc) {
+                  return new Promise(function (res) { trimCanvas(cropDrawing(cv, vp, tc.items || [], w.box)).toBlob(res, 'image/png'); });
                 }).then(function (blob) {
                   n++;
                   return tx('readwrite', function (st) { st.put({ id: 'g' + uid(), eventId: ev.id, kind: 'diagram', auto: true, name: (w.what || 'Course diagram') + ' · ' + doc.name + ', page ' + pn, size: blob.size, added: Date.now(), blob: blob }); });
@@ -209,14 +236,14 @@
     if (vhf || fw) h += '<div class="nor-keys">' + (vhf ? '<div class="nor-vhf"><span>VHF</span><b>' + esc(vhf) + '</b></div>' : '') + (fw ? '<div class="nor-fw"><span>FIRST WARNING</span><b>' + esc(fw).replace(/ · /g, '<br>') + '</b></div>' : '') + '</div>';
     if ((S.courses && S.courses.length) || diagrams.length) {
       var C = window.Courses, dh = diagrams.map(function (d, di) { return '<div class="nor-dia" data-zoom="' + di + '"><img src="' + d.src + '" alt="Course diagram"></div>'; }).join('');
-      h += sec('Courses', dh + (S.course_signal ? '<p class="nor-csig">' + esc(S.course_signal) + '</p>' : '') + (S.courses || []).map(function (co) {
+      h += sec('Courses', dh + ((S.courses || []).length ? '<h4 class="nor-mo">MARK ORDER</h4>' : '') + (S.courses || []).map(function (co) {
         var pn = C && C.pennantFromName(co.name + ' ' + (co.signal || ''));
         return '<div class="nor-course"><div class="nor-cname">' + (pn ? C.pennant(pn) : '') + '<b>' + esc(co.name) + '</b>' + (co.signal ? '<span class="nor-cs">' + esc(co.signal) + '</span>' : '') + '</div><div class="nor-seq">' + (co.sequence || []).map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('<i>›</i>') + '</div>' + (co.notes ? '<p>' + esc(co.notes) + '</p>' : '') + '</div>';
       }).join(''));
     }
     h += sec('Start', txt(S.start)) + sec('Finish', txt(S.finish));
     h += '<div class="nor-open" id="norOpenDocs"></div>' + FC;
-    h += '<p class="small nor-foot">AI summary from ' + esc(c.docNames || 'your documents') + ' · ' + new Date(c.summaryAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) + '. Always check the official documents.</p>';
+    h += '<p class="small nor-foot">AI summary · ' + new Date(c.summaryAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) + '. Always check the official documents.</p>';
     box.innerHTML = h; bindFc(c);
     docsFor(c.id).then(function (d) {
       var o = $('norOpenDocs'); if (!o) return;
@@ -229,8 +256,20 @@
     var ov = document.createElement('div'); ov.className = 'nor-zoom';
     ov.innerHTML = '<div class="nor-zoom-bar"><button class="btn" data-z="1">FIT</button><button class="btn" data-z="2">2×</button><button class="btn" data-z="3">3×</button><button class="btn" data-z="x">✕</button></div><div class="nor-zoom-sc"><img src="' + src + '"></div>';
     document.body.appendChild(ov);
-    var img = ov.querySelector('img');
-    ov.addEventListener('click', function (e) { var z = e.target.getAttribute && e.target.getAttribute('data-z'); if (!z) return; if (z === 'x') ov.remove(); else img.style.width = (100 * +z) + '%'; });
+    var img = ov.querySelector('img'), sc = ov.querySelector('.nor-zoom-sc'), zoom = 1, p0 = null;
+    function setZ(z, cx, cy) {
+      z = Math.max(1, Math.min(6, z)); var r = sc.getBoundingClientRect(), px = (cx === undefined ? r.width / 2 : cx - r.left), py = (cy === undefined ? r.height / 2 : cy - r.top);
+      var fx = (sc.scrollLeft + px) / zoom, fy = (sc.scrollTop + py) / zoom; zoom = z; img.style.width = (100 * z) + '%';
+      sc.scrollLeft = fx * z - px; sc.scrollTop = fy * z - py;
+    }
+    ov.addEventListener('click', function (e) { var z = e.target.getAttribute && e.target.getAttribute('data-z'); if (!z) return; if (z === 'x') ov.remove(); else setZ(+z); });
+    // pinch zoom (dva prsta)
+    function dist(t) { return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); }
+    sc.addEventListener('touchstart', function (e) { if (e.touches.length === 2) { p0 = { d: dist(e.touches), z: zoom }; e.preventDefault(); } }, { passive: false });
+    sc.addEventListener('touchmove', function (e) { if (p0 && e.touches.length === 2) { e.preventDefault(); setZ(p0.z * dist(e.touches) / p0.d, (e.touches[0].clientX + e.touches[1].clientX) / 2, (e.touches[0].clientY + e.touches[1].clientY) / 2); } }, { passive: false });
+    sc.addEventListener('touchend', function (e) { if (e.touches.length < 2) p0 = null; });
+    // dupli tap = 2× / nazad
+    var lastTap = 0; sc.addEventListener('touchend', function (e) { if (e.touches.length || e.changedTouches.length !== 1) return; var t = Date.now(); if (t - lastTap < 300) { var c = e.changedTouches[0]; setZ(zoom > 1.2 ? 1 : 2.5, c.clientX, c.clientY); lastTap = 0; } else lastTap = t; });
   }
   function bindFc(c) {
     var sel = $('norFcModel'); if (!sel) return;

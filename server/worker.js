@@ -16,7 +16,7 @@ const SCHEMA = `{
   "courses": [{"name": "", "signal": "", "sequence": ["Start", "1 (port)", "2 (port)", "Finish"], "notes": ""}],
   "start": "",
   "finish": "",
-  "diagram_pages": [{"doc": "", "page": 1, "what": ""}],
+  "diagram_pages": [{"doc": "", "page": 1, "what": "", "box": [0, 0, 1, 1]}],
   "changes": [""]
 }`;
 

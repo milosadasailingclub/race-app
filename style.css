@@ -276,7 +276,7 @@ body:not([data-view="menu"]):not([data-view="settings"]) .version{display:none}
 .nor-seq{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:6px 0}
 .nor-seq span{background:var(--deep);color:#fff;border-radius:6px;padding:3px 8px;font-family:var(--f-num);font-weight:700;font-size:16px}
 .nor-seq i{color:var(--turq);font-style:normal;font-weight:800}
-.nor-foot{margin:4px 0 20px}
+.nor-foot{margin:4px 0 20px;overflow-wrap:anywhere}
 .nor-manage{display:flex;flex-direction:column;gap:10px}
 .nor-doc{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line)}
 .nor-doc span{flex:1;font-size:14px;word-break:break-word}
@@ -290,7 +290,7 @@ body:not([data-view="menu"]):not([data-view="settings"]) .version{display:none}
 .nor-dia{background:#05070a;border:1px solid var(--line);border-radius:8px;margin:8px 0 4px;padding:4px}
 .nor-dia svg{display:block;width:100%;height:auto;max-height:300px}
 .nor-dia{background:#05070a;border:1px solid var(--line);border-radius:8px;margin:4px 0 8px;padding:8px;text-align:center}
-.nor-dia img{display:block;width:100%;height:auto;filter:invert(1) hue-rotate(180deg) brightness(.95) contrast(1.1);mix-blend-mode:screen}
+.nor-dia img{display:block;width:auto;max-width:100%;max-height:75vh;margin:0 auto;height:auto;filter:invert(1) hue-rotate(180deg) brightness(.95) contrast(1.1);mix-blend-mode:screen}
 .nor-dia span{display:block;font-size:11px;color:var(--muted);margin-top:4px}
 .theme-day .nor-dia{background:#fff} .theme-day .nor-dia img{filter:none;mix-blend-mode:normal}
 .nor-thumb{width:48px;height:40px;object-fit:contain;background:#fff;border-radius:4px}
@@ -379,6 +379,7 @@ html,body{touch-action:pan-x pan-y}
 .nor-amend{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0;flex-shrink:0}
 .nor-busy{opacity:.6;pointer-events:none}
 .nor-csig{font-weight:700;color:var(--turq)}
+.nor-mo{margin:14px 0 6px;font-size:13px;letter-spacing:.08em;color:var(--turq)}
 .nor-cs{font-size:13px;opacity:.8;margin-left:8px}
 
 .nor-dates{display:flex;gap:8px}
@@ -415,5 +416,5 @@ html,body{touch-action:pan-x pan-y}
 .nor-read{font-family:var(--f-num);font-weight:800;letter-spacing:.08em}
 .nor-zoom{position:fixed;inset:0;z-index:200;background:#05070a;display:flex;flex-direction:column}
 .nor-zoom-bar{display:flex;gap:8px;padding:10px;justify-content:flex-end}
-.nor-zoom-sc{flex:1;overflow:auto;touch-action:pan-x pan-y}
+.nor-zoom-sc{flex:1;overflow:auto;touch-action:pan-x pan-y;-webkit-user-select:none;user-select:none}
 .nor-zoom-sc img{width:100%;display:block;filter:invert(1) hue-rotate(180deg) brightness(.95) contrast(1.1)}
