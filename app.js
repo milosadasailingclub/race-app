@@ -1,7 +1,7 @@
-/* The Race App — v0.9.16 */
+/* The Race App — v0.9.17 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.16';
+  var APP_VERSION = '0.9.17';
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -1085,7 +1085,7 @@
       if (!loc) { WX.loading = false; wxStatus('Location not available. Allow location or pick a saved spot.', true); return; }
       var base = 'latitude=' + loc.lat.toFixed(4) + '&longitude=' + loc.lon.toFixed(4) + '&timezone=auto&forecast_hours=24';
       var fu = 'https://api.open-meteo.com/v1/forecast?' + base +
-        '&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m,temperature_2m,precipitation_probability,weather_code&wind_speed_unit=kn' +
+        '&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m,temperature_2m,precipitation_probability,precipitation,weather_code&wind_speed_unit=kn' +
         (WX.model !== 'best_match' ? '&models=' + WX.model : '');
       var mu = 'https://marine-api.open-meteo.com/v1/marine?' + base +
         '&hourly=wave_height,wave_direction,wave_period,swell_wave_height,swell_wave_direction,swell_wave_period,wind_wave_height,wind_wave_direction,ocean_current_velocity,ocean_current_direction';
@@ -1105,11 +1105,18 @@
   }
   function arrow(dir) { return '<span class="wx-arrow" style="transform:rotate(' + Math.round((dir + 180) % 360) + 'deg)">↑</span>'; }
   function d3(v) { return ('00' + Math.round(v) % 360).slice(-3); }
+  function rainTxt(p, mm) {
+    var hasP = p !== null && p !== undefined && p > 0, hasM = mm !== null && mm !== undefined && mm >= 0.1;
+    if (!hasP && !hasM) return '';
+    var wet = (hasP && p >= 50) || (mm || 0) >= 0.5;
+    return '<br><span class="wx-rain' + (wet ? ' wet' : '') + '">' + (hasP ? '☂' + p + '%' : '☂') + (hasM ? '<small>' + (mm >= 10 ? Math.round(mm) : mm.toFixed(1)) + ' mm</small>' : '') + '</span>';
+  }
+  window.RA_rainTxt = rainTxt;
   function wxRender(stale) {
     var L = WX.last; if (!L) return;
     var h = L.f.hourly, times = h.time || [];
     var ws = pick(h, 'wind_speed_10m') || [], wg = pick(h, 'wind_gusts_10m') || [], wd = pick(h, 'wind_direction_10m') || [];
-    var tp = pick(h, 'temperature_2m') || [], pp = pick(h, 'precipitation_probability') || [];
+    var tp = pick(h, 'temperature_2m') || [], pp = pick(h, 'precipitation_probability') || [], pr = pick(h, 'precipitation') || [];
     var mh = L.m && L.m.hourly ? L.m.hourly : null, mi = {};
     if (mh && mh.time) mh.time.forEach(function (t, i) { mi[t] = i; });
     var curU = L.m && L.m.hourly_units ? (L.m.hourly_units.ocean_current_velocity || 'km/h') : 'km/h';
@@ -1136,7 +1143,7 @@
     var dayLbl = function (iso) { var d = new Date(iso.slice(0, 10) + 'T12:00:00Z'); return DAYS[d.getUTCDay()] + ' ' + d.getUTCDate() + ' ' + MON[d.getUTCMonth()]; };
     var num = function (x) { return x === null || x === undefined ? '–' : Math.round(x); };
     var rows = '<div class="wx-day">' + dayLbl(times[0]) + '</div>' +
-      '<div class="wx-row head"><span>TIME</span><span class="wx-wg-h"><span>WIND</span><span>GUST</span></span><span style="text-align:right">DIR</span><span style="text-align:right">°C</span></div>', prevDay = times[0].slice(0, 10);
+      '<div class="wx-row head"><span>TIME</span><span class="wx-wg-h"><span>WIND</span><span>GUST</span></span><span style="text-align:right">DIR</span><span style="text-align:right">°C · RAIN</span></div>', prevDay = times[0].slice(0, 10);
     for (var i = 0; i < N; i++) {
       var day = times[i].slice(0, 10);
       if (day !== prevDay) { rows += '<div class="wx-day">' + dayLbl(times[i]) + '</div>'; prevDay = day; }
@@ -1145,7 +1152,7 @@
       rows += '<div class="wx-row"><span class="t">' + times[i].slice(11, 13) + ':00</span>' +
         '<span class="wx-wg" style="--r:' + Math.round(ratio * 100) + '%"><b>' + num(a) + '</b><b>' + num(gg) + '</b></span>' +
         '<span class="wx-dir">' + (wd[i] === null || wd[i] === undefined ? '–' : d3(wd[i]) + arrow(wd[i])) + '</span>' +
-        '<span class="wx-misc">' + num(tp[i]) + (pp[i] ? '<br>' + pp[i] + '%☂' : '') + '</span>';
+        '<span class="wx-misc">' + num(tp[i]) + '°' + rainTxt(pp[i], pr[i]) + '</span>';
       if (hasSea && mi[times[i]] !== undefined) {
         var k = mi[times[i]], v = function (key) { var x = (mh[key] || [])[k]; return x === null || x === undefined ? null : x; }, parts = [];
         if (v('wave_height') !== null) parts.push('Waves <b>' + v('wave_height').toFixed(1) + ' m</b>' + (v('wave_period') !== null ? ' ' + Math.round(v('wave_period')) + 's' : ''));
