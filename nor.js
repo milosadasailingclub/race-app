@@ -90,7 +90,7 @@
       });
     }).then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.summary) throw new Error(j.error || ('Server error ' + r.status)); return j.summary; }); })
       .then(function (S) {
-        saveEvents(events().map(function (x) { return x.id === ev.id ? Object.assign(x, { summary: S, summaryAt: Date.now(), docNames: ev.docNames }) : x; }));
+        saveEvents(events().map(function (x) { return x.id === ev.id ? Object.assign(x, { summary: S, summaryAt: Date.now(), docNames: ev.docNames, diaVer: DIA_VER }) : x; }));
         busy = false; info(''); render(); toast('Summary ready');
         autoDiagrams(ev, S).then(function (n) { if (n) toast(n + ' course diagram' + (n > 1 ? 's' : '') + ' added from the documents'); });
       }).catch(function (err) { busy = false; renderSummary(); info('Summary failed: ' + err.message); toast('Summary failed'); });
@@ -103,31 +103,101 @@
     var m = 16; x0 = Math.max(0, x0 - m); y0 = Math.max(0, y0 - m); x1 = Math.min(w, x1 + m); y1 = Math.min(h, y1 + m);
     var o = document.createElement('canvas'); o.width = x1 - x0; o.height = y1 - y0; o.getContext('2d').drawImage(cv, x0, y0, o.width, o.height, 0, 0, o.width, o.height); return o;
   }
-  // samo crtež: obriši duže tekstove (naslovi, pasusi, liste kurseva; oznake bova su kratke), pa iseci na crtež.
-  // AI "box" (0–1) koristi se samo za skenirane strane bez tekstualnog sloja.
+  // SAMO CRTEŽ: oblici (linije, krugovi, strelice, slike) sa strane PDF-a određuju okvir crteža.
+  // Tekst (naslovi, članovi, liste kurseva) nije oblik, pa ostaje van okvira. Kratke oznake uz crtež (1, 1a, START, CILJ) ostaju.
   function inkBox(cv) {
     var g = cv.getContext('2d'), w = cv.width, h = cv.height, d = g.getImageData(0, 0, w, h).data, x0 = w, y0 = h, x1 = 0, y1 = 0;
     for (var y = 0; y < h; y += 3) for (var x = 0; x < w; x += 3) { var i = (y * w + x) * 4; if (d[i] < 235 || d[i + 1] < 235 || d[i + 2] < 235) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } }
     return x1 > x0 && y1 > y0 ? [x0, y0, x1, y1] : null;
   }
-  function cropDrawing(cv, vp, items, box) {
-    var W = cv.width, H = cv.height, g = cv.getContext('2d'), nText = 0;
-    items.forEach(function (it) {
-      var s = String(it.str || '').trim(); if (!s) return; nText++;
-      var long = s.length >= 16 || (s.split(/\s+/).length >= 3 && s.length >= 10);
-      if (!long || !it.transform) return;
-      var t = pdfjsLib.Util.transform(vp.transform, it.transform), fh = Math.hypot(t[2], t[3]) || 12, x = t[4], yb = t[5], tw = (it.width || 0) * vp.scale;
-      g.fillStyle = '#fff'; g.fillRect(x - 2, yb - fh * 1.1, tw + 4, fh * 1.45);
+  function mul(m, n) { return [m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3], m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]]; }
+  function tbox(m, x0, y0, x1, y1) { // pravougaonik kroz matricu -> [x0,y0,x1,y1] u pikselima
+    var p = [[x0, y0], [x1, y0], [x0, y1], [x1, y1]].map(function (q) { return [m[0] * q[0] + m[2] * q[1] + m[4], m[1] * q[0] + m[3] * q[1] + m[5]]; });
+    return [Math.min.apply(null, p.map(function (q) { return q[0]; })), Math.min.apply(null, p.map(function (q) { return q[1]; })), Math.max.apply(null, p.map(function (q) { return q[0]; })), Math.max.apply(null, p.map(function (q) { return q[1]; }))];
+  }
+  function isWhite(c) {
+    if (!c) return false;
+    if (typeof c === 'string') { var v = parseInt(c.replace('#', ''), 16); return ((v >> 16) & 255) > 240 && ((v >> 8) & 255) > 240 && (v & 255) > 240; }
+    return c.length >= 3 && c[0] > 240 && c[1] > 240 && c[2] > 240;
+  }
+  // oblici sa strane (u pikselima renderovane slike)
+  function pageShapes(pg, vp) {
+    return pg.getOperatorList().then(function (ol) {
+      var O = pdfjsLib.OPS, W = vp.width, H = vp.height, ctm = vp.transform.slice(), st = [], fill = [0, 0, 0], stroke = [0, 0, 0], path = null, out = [];
+      function add(b, kind) {
+        var w = b[2] - b[0], h = b[3] - b[1];
+        if (b[2] < 0 || b[3] < 0 || b[0] > W || b[1] > H) return;
+        if (w > 0.75 * W && h > 0.5 * H) return;          // okvir strane / pozadina / skenirana strana
+        if (w > 0.45 * W && h < 0.012 * H) return;        // horizontalna linija (podvlaka, zaglavlje)
+        if (h > 0.45 * H && w < 0.012 * W) return;        // vertikalna linija (margina)
+        out.push({ b: b, k: kind });
+      }
+      for (var i = 0; i < ol.fnArray.length; i++) {
+        var fn = ol.fnArray[i], a = ol.argsArray[i];
+        if (fn === O.save) st.push([ctm, fill, stroke]);
+        else if (fn === O.restore) { var r = st.pop(); if (r) { ctm = r[0]; fill = r[1]; stroke = r[2]; } }
+        else if (fn === O.transform) ctm = mul(ctm, a);
+        else if (fn === O.paintFormXObjectBegin) { st.push([ctm, fill, stroke]); if (a && a[0]) ctm = mul(ctm, a[0]); }
+        else if (fn === O.paintFormXObjectEnd) { var r2 = st.pop(); if (r2) { ctm = r2[0]; fill = r2[1]; stroke = r2[2]; } }
+        else if (fn === O.setFillRGBColor) fill = a && a.length === 1 ? a[0] : a;
+        else if (fn === O.setStrokeRGBColor) stroke = a && a.length === 1 ? a[0] : a;
+        else if (fn === O.setFillGray) fill = [a[0] * 255, a[0] * 255, a[0] * 255];
+        else if (fn === O.setStrokeGray) stroke = [a[0] * 255, a[0] * 255, a[0] * 255];
+        else if (fn === O.constructPath) { var mm = a[2]; path = mm && isFinite(mm[0]) ? tbox(ctm, mm[0], mm[2], mm[1], mm[3]) : null; }
+        else if (path && (fn === O.stroke || fn === O.closeStroke)) { if (!isWhite(stroke)) add(path, 'p'); path = null; }
+        else if (path && (fn === O.fill || fn === O.eoFill)) { if (!isWhite(fill)) add(path, 'p'); path = null; }
+        else if (path && (fn === O.fillStroke || fn === O.eoFillStroke || fn === O.closeFillStroke || fn === O.closeEOFillStroke)) { if (!isWhite(fill) || !isWhite(stroke)) add(path, 'p'); path = null; }
+        else if (fn === O.endPath) path = null;
+        else if (fn === O.paintImageXObject || fn === O.paintInlineImageXObject || fn === O.paintImageMaskXObject || fn === O.paintSolidColorImageMask) add(tbox(ctm, 0, 0, 1, 1), 'i');
+      }
+      return out;
+    }).catch(function () { return []; });
+  }
+  // tekst spojen u redove; red je "tekst" ako je dug (reči), oznake na crtežu su kratke
+  function textRuns(items, vp) {
+    var t = items.filter(function (it) { return it.transform && String(it.str || '').trim(); }).map(function (it) {
+      var m = pdfjsLib.Util.transform(vp.transform, it.transform), fh = Math.hypot(m[2], m[3]) || 12, w = (it.width || 0) * vp.scale;
+      return { s: String(it.str).trim(), x0: m[4], x1: m[4] + Math.max(w, fh * 0.4), y: m[5], fh: fh };
+    }).sort(function (a, b) { return a.y - b.y || a.x0 - b.x0; });
+    var runs = [];
+    t.forEach(function (it) {
+      var r = runs.filter(function (q) { return Math.abs(q.y - it.y) < q.fh * 0.4 && it.x0 - q.x1 < q.fh * 2.5 && q.x0 - it.x1 < q.fh * 2.5; })[0];
+      if (r) { r.s += ' ' + it.s; r.x0 = Math.min(r.x0, it.x0); r.x1 = Math.max(r.x1, it.x1); r.fh = Math.max(r.fh, it.fh); }
+      else runs.push({ s: it.s, x0: it.x0, x1: it.x1, y: it.y, fh: it.fh });
     });
-    var B = inkBox(cv), A = null;
-    if (box && box.length === 4 && box.every(function (v) { return typeof v === 'number' && v >= 0 && v <= 1; }) && box[2] > box[0] + 0.05 && box[3] > box[1] + 0.05) {
-      var m = 0.03; A = [Math.max(0, box[0] - m) * W, Math.max(0, box[1] - m) * H, Math.min(1, box[2] + m) * W, Math.min(1, box[3] + m) * H];
+    runs.forEach(function (r) { r.b = [r.x0 - 2, r.y - r.fh * 1.05, r.x1 + 2, r.y + r.fh * 0.35]; var s = r.s.replace(/\s+/g, ' '); r.long = s.replace(/\s/g, '').length >= 12 || s.split(' ').length >= 3; });
+    return runs;
+  }
+  function inter(a, b, m) { m = m || 0; return a[0] - m < b[2] && b[0] - m < a[2] && a[1] - m < b[3] && b[1] - m < a[3]; }
+  function cropDrawing(cv, vp, items, box, shapes) {
+    var W = cv.width, H = cv.height, g = cv.getContext('2d'), runs = textRuns(items, vp), R = null;
+    // podvlake naslova (tanka linija tik ispod dugog teksta) nisu deo crteža
+    shapes = (shapes || []).filter(function (s) {
+      if (s.b[3] - s.b[1] > 0.008 * H) return true;
+      return !runs.some(function (r) { var ov = Math.min(s.b[2], r.x1) - Math.max(s.b[0], r.x0); return r.long && Math.abs(s.b[1] - r.y) < r.fh * 0.7 && ov > 0.5 * (s.b[2] - s.b[0]); });
+    });
+    // svaki dugi tekst koji ne dodiruje nijedan oblik se briše (članovi SI, naslovi, liste kurseva, objašnjenja pored crteža)
+    runs.forEach(function (r) {
+      if (r.long && !shapes.some(function (s) { return inter(s.b, r.b, 2); })) { g.fillStyle = '#fff'; g.fillRect(r.b[0], r.b[1], r.b[2] - r.b[0], r.b[3] - r.b[1]); r.gone = true; }
+    });
+    if (shapes.length) {
+      R = shapes.reduce(function (u, s) { return u ? [Math.min(u[0], s.b[0]), Math.min(u[1], s.b[1]), Math.max(u[2], s.b[2]), Math.max(u[3], s.b[3])] : s.b.slice(); }, null);
+      var near = 0.04 * Math.max(W, H); // kratke oznake odmah uz crtež (npr. CILJ ispod linije)
+      runs.forEach(function (r) { if (!r.gone && inter(R, r.b, near)) R = [Math.min(R[0], r.b[0]), Math.min(R[1], r.b[1]), Math.max(R[2], r.b[2]), Math.max(R[3], r.b[3])]; });
     }
-    var R = (A && (!B || nText < 5)) ? A : B; // AI okvir samo za skenirane strane (bez teksta); inače je brisanje teksta pouzdanije
+    if (!R || (R[2] - R[0]) * (R[3] - R[1]) < 0.01 * W * H) {
+      // nema vektorskog crteža: skenirana strana -> AI okvir, inače ono što ostane posle brisanja teksta
+      var A = null;
+      if (box && box.length === 4 && box.every(function (v) { return typeof v === 'number' && v >= 0 && v <= 1; }) && box[2] > box[0] + 0.05 && box[3] > box[1] + 0.05) {
+        var m = 0.03; A = [Math.max(0, box[0] - m) * W, Math.max(0, box[1] - m) * H, Math.min(1, box[2] + m) * W, Math.min(1, box[3] + m) * H];
+      }
+      R = A && runs.length < 5 ? A : inkBox(cv);
+    }
     if (!R) return cv;
-    var x0 = Math.max(0, Math.floor(R[0]) - 8), y0 = Math.max(0, Math.floor(R[1]) - 8), x1 = Math.min(W, Math.ceil(R[2]) + 8), y1 = Math.min(H, Math.ceil(R[3]) + 8);
+    var x0 = Math.max(0, Math.floor(R[0]) - 10), y0 = Math.max(0, Math.floor(R[1]) - 10), x1 = Math.min(W, Math.ceil(R[2]) + 10), y1 = Math.min(H, Math.ceil(R[3]) + 10);
     var o = document.createElement('canvas'); o.width = x1 - x0; o.height = y1 - y0; o.getContext('2d').drawImage(cv, x0, y0, o.width, o.height, 0, 0, o.width, o.height); return o;
   }
+  var DIA_VER = 2;
   function autoDiagrams(ev, S) {
     var want = (S.diagram_pages || []).filter(function (p) { return p && p.page; }).slice(0, 6);
     if (!want.length) return Promise.resolve(0);
@@ -146,9 +216,9 @@
                 var vp = pg.getViewport({ scale: 2 }), cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height;
                 var g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
                 return pg.render({ canvasContext: g, viewport: vp }).promise.then(function () {
-                  return pg.getTextContent().catch(function () { return { items: [] }; });
-                }).then(function (tc) {
-                  return new Promise(function (res) { trimCanvas(cropDrawing(cv, vp, tc.items || [], w.box)).toBlob(res, 'image/png'); });
+                  return Promise.all([pg.getTextContent().catch(function () { return { items: [] }; }), pageShapes(pg, vp)]);
+                }).then(function (r2) {
+                  return new Promise(function (res) { trimCanvas(cropDrawing(cv, vp, r2[0].items || [], w.box, r2[1])).toBlob(res, 'image/png'); });
                 }).then(function (blob) {
                   n++;
                   return tx('readwrite', function (st) { st.put({ id: 'g' + uid(), eventId: ev.id, kind: 'diagram', auto: true, name: (w.what || 'Course diagram') + ' · ' + doc.name + ', page ' + pn, size: blob.size, added: Date.now(), blob: blob }); });
@@ -294,6 +364,11 @@
   function render() {
     renderEvents(); renderSummary();
     var cc = cur(); if (cc) loadDiagrams(cc.id).then(function () { renderSummary(); if (manage) renderDiaList(); });
+    // novi način sečenja dijagrama: ponovo iseci postojeće (bez novog AI poziva)
+    if (cc && cc.summary && (cc.summary.diagram_pages || []).length && cc.diaVer !== DIA_VER) {
+      saveEvents(events().map(function (x) { return x.id === cc.id ? Object.assign(x, { diaVer: DIA_VER }) : x; }));
+      autoDiagrams(cc, cc.summary);
+    }
     $('norSummary').classList.toggle('hidden', manage);
     $('norAmendBox').classList.toggle('hidden', manage || !cur());
     if (!events().length && !manage) $('norQuick').classList.remove('hidden');
