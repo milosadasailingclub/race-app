@@ -115,7 +115,7 @@
     if (to < today) return '<div class="nor-fc">' + head + '<p class="nor-fc-note">The regatta is over.</p></div>';
     if (from > last) return '<div class="nor-fc">' + head + '<p class="nor-fc-note">Forecast opens on ' + new Date(from.getTime() - 15 * 864e5).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' (16 days ahead). ' + esc(ev.loc.name || '') + '</p></div>';
     var fc = ev.fc;
-    if (!fc || !fc.hourly.precipitation || fc.model !== (ev.fcModel || 'best_match') || Date.now() - fc.at > 3600000) { loadFc(ev); if (!fc) return '<div class="nor-fc">' + head + '<p class="nor-fc-note">Loading forecast…</p></div>'; }
+    if (!fc || !fc.hourly.temperature_2m || fc.model !== (ev.fcModel || 'best_match') || Date.now() - fc.at > 3600000) { loadFc(ev); if (!fc) return '<div class="nor-fc">' + head + '<p class="nor-fc-note">Loading forecast…</p></div>'; }
     var H = fc.hourly, rows = '', prev = '';
     for (var i = 0; i < H.time.length; i++) {
       var t = H.time[i], hr = +t.slice(11, 13); if (hr < 8 || hr > 19 || hr % 2) continue;
@@ -124,24 +124,24 @@
       var a = H.wind_speed_10m[i], g = H.wind_gusts_10m[i], d = H.wind_direction_10m[i], ratio = (a !== null && g) ? Math.max(0.15, Math.min(0.85, a / g)) : 0.5;
       rows += '<div class="wx-row"><span class="t">' + t.slice(11, 13) + ':00</span><span class="wx-wg" style="--r:' + Math.round(ratio * 100) + '%"><b>' + (a === null ? '–' : Math.round(a)) + '</b><b>' + (g === null ? '–' : Math.round(g)) + '</b></span>' +
         '<span class="wx-dir">' + (d === null || d === undefined ? '–' : ('00' + Math.round(d) % 360).slice(-3) + fcArrow(d)) + '</span>' +
-        '<span class="wx-misc">' + (window.RA_rainTxt ? window.RA_rainTxt((H.precipitation_probability || [])[i], (H.precipitation || [])[i]).replace('<br>', '') : '') + '</span></div>';
+        '<span class="wx-misc">' + (window.RA_rainTxt ? window.RA_rainTxt((H.precipitation_probability || [])[i], (H.precipitation || [])[i]) : '') + (H.temperature_2m && H.temperature_2m[i] !== null && H.temperature_2m[i] !== undefined ? Math.round(H.temperature_2m[i]) + '°' : '–') + '</span></div>';
     }
     if (!rows) rows = '<p class="nor-fc-note">This model has no data for these days or this place. Try another model.</p>';
     var far = (to - today) / 864e5 > 7 ? ' More than 7 days ahead: treat as a trend, not exact.' : '';
-    return '<div class="nor-fc">' + head + '<div class="wx-row head"><span>TIME</span><span class="wx-wg-h"><span>WIND kn</span><span>GUST</span></span><span style="text-align:right">DIR</span><span style="text-align:right">RAIN</span></div>' + rows +
+    return '<div class="nor-fc">' + head + '<div class="wx-row head"><span>TIME</span><span class="wx-wg-h"><span>WIND kn</span><span>GUST</span></span><span style="text-align:right">DIR</span><span style="text-align:right">°C / 💧</span></div>' + rows +
       '<p class="nor-fc-note">' + esc(ev.loc.name || '') + ' · updated ' + new Date(fc.at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + '.' + far + '</p></div>';
   }
   function loadFc(ev) {
     if (fcBusy[ev.id]) return; fcBusy[ev.id] = true;
     var today = ymd(new Date()), from = ev.dateFrom < today ? today : ev.dateFrom, lastD = ymd(new Date(Date.now() + 15 * 864e5)), to = (ev.dateTo || ev.dateFrom) > lastD ? lastD : (ev.dateTo || ev.dateFrom);
     var m = ev.fcModel || 'best_match';
-    var u = 'https://api.open-meteo.com/v1/forecast?latitude=' + ev.loc.lat.toFixed(4) + '&longitude=' + ev.loc.lon.toFixed(4) + '&timezone=auto&wind_speed_unit=kn&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation_probability,precipitation&start_date=' + from + '&end_date=' + to + (m !== 'best_match' ? '&models=' + m : '');
+    var u = 'https://api.open-meteo.com/v1/forecast?latitude=' + ev.loc.lat.toFixed(4) + '&longitude=' + ev.loc.lon.toFixed(4) + '&timezone=auto&wind_speed_unit=kn&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation_probability,precipitation,temperature_2m&start_date=' + from + '&end_date=' + to + (m !== 'best_match' ? '&models=' + m : '');
     fetch(u, { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) {
       fcBusy[ev.id] = false;
       if (!j || j.error || !j.hourly) throw new Error((j && j.reason) || 'no data');
       // podrži i odgovore sa sufiksom modela (wind_speed_10m_icon_seamless)
-      var H = j.hourly; ['wind_speed_10m', 'wind_gusts_10m', 'wind_direction_10m', 'precipitation_probability', 'precipitation'].forEach(function (k) { if (!H[k]) { for (var kk in H) if (kk.indexOf(k + '_') === 0) H[k] = H[kk]; } if (!H[k]) H[k] = H.time.map(function () { return null; }); });
-      saveEvents(events().map(function (x) { return x.id === ev.id ? Object.assign(x, { fc: { at: Date.now(), model: m, hourly: { time: H.time, wind_speed_10m: H.wind_speed_10m, wind_gusts_10m: H.wind_gusts_10m, wind_direction_10m: H.wind_direction_10m, precipitation_probability: H.precipitation_probability, precipitation: H.precipitation } } }) : x; }));
+      var H = j.hourly; ['wind_speed_10m', 'wind_gusts_10m', 'wind_direction_10m', 'precipitation_probability', 'precipitation', 'temperature_2m'].forEach(function (k) { if (!H[k]) { for (var kk in H) if (kk.indexOf(k + '_') === 0) H[k] = H[kk]; } if (!H[k]) H[k] = H.time.map(function () { return null; }); });
+      saveEvents(events().map(function (x) { return x.id === ev.id ? Object.assign(x, { fc: { at: Date.now(), model: m, hourly: { time: H.time, wind_speed_10m: H.wind_speed_10m, wind_gusts_10m: H.wind_gusts_10m, wind_direction_10m: H.wind_direction_10m, precipitation_probability: H.precipitation_probability, precipitation: H.precipitation, temperature_2m: H.temperature_2m } } }) : x; }));
       renderSummary();
     }).catch(function (e) { fcBusy[ev.id] = false; var b = $('norFcBox'); if (b) b.innerHTML = '<div class="nor-fc"><p class="nor-fc-note">Forecast not available: ' + esc(e.message) + '</p></div>'; });
   }
