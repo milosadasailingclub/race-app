@@ -9,33 +9,45 @@ const ALLOWED = ['https://milosadasailingclub.github.io', 'http://localhost:8765
 const MAX_BYTES = 25 * 1024 * 1024;
 
 const SCHEMA = `{
-  "event": "", "venue": "", "dates": "", "organizer": "",
-  "key": {"first_warning": "", "vhf": "", "time_limit": "", "penalty": ""},
+  "event": "", "dates": "",
+  "vhf": "",
+  "first_warning": "",
   "course_signal": "",
-  "courses": [{"name": "", "signal": "", "sequence": ["Start", "1 (port)", "2", "Finish"], "notes": ""}],
-  "marks": [{"name": "", "description": ""}],
-  "start": "", "finish": "",
-  "schedule": [{"day": "", "items": [""]}],
-  "time_limits": [""], "signals": [""],
-  "penalties": "", "protests": "", "scoring": "",
-  "safety": [""], "other": [""],
+  "courses": [{"name": "", "signal": "", "sequence": ["Start", "1 (port)", "2 (port)", "Finish"], "notes": ""}],
+  "start": "",
+  "finish": "",
+  "diagram_pages": [{"doc": "", "page": 1, "what": ""}],
   "changes": [""]
 }`;
 
-function prompt(name) {
-  return `You are the tactician's assistant for a racing sailor. The attached documents are the Notice of Race, Sailing Instructions and any amendments for "${name}".
-Make a SHORT summary the crew can read quickly ON THE BOAT, during or between races.
-
-Priority order:
-1. COURSES: how the course is signalled (flag, numeral pennant, board, VHF) in "course_signal"; then every course with its signal and the exact order of marks from start to finish, with rounding side (port/starboard), gates and repeats written out (e.g. Start, 1 (port), 2 (port), 1 (port), 2 (port), Finish). Read course diagrams in the documents too.
-2. Marks (colour/shape), start line, finish line.
-3. Key numbers: first warning signal time, VHF channel, time limits, penalty (one-turn / two-turns).
-4. Everything else only if useful on the water; one short line each.
-
-Rules: exact values only (times, numbers, colours). If an amendment changes something, use the new value and add a line to "changes". Leave a field empty if not stated; never guess. Write in the language of the documents, short phrases, no full paragraphs.
-Answer with ONLY one JSON object in exactly this structure, nothing before or after:
-${SCHEMA}`;
+function fill(tpl, name, docNames) { return tpl.split('{{NAME}}').join(name).split('{{DOCS}}').join(docNames.join(' | ')).split('{{SCHEMA}}').join(SCHEMA); }
+function prompt(name, docNames) { return fill(BUILTIN, name, docNames); }
+// Uputstvo se čita sa GitHub-a (server/prompt.txt), pa ga menjamo bez ponovnog postavljanja servera.
+const PROMPT_URL = 'https://raw.githubusercontent.com/milosadasailingclub/race-app/main/server/prompt.txt';
+let promptCache = { t: 0, text: null };
+async function livePrompt(name, docNames) {
+  if (!promptCache.text || Date.now() - promptCache.t > 600000) {
+    try { const r = await fetch(PROMPT_URL, { cf: { cacheTtl: 300 } }); if (r.ok) { const t = await r.text(); if (t.includes('{{SCHEMA}}')) promptCache = { t: Date.now(), text: t }; } } catch (e) {}
+  }
+  return fill(promptCache.text || BUILTIN, name, docNames);
 }
+const BUILTIN = `You help a racing sailor ON THE WATER. The attached documents are the Notice of Race, Sailing Instructions and amendments for "{{NAME}}". Documents in order: {{DOCS}}.
+
+Give ONLY what the crew needs between the warning signal and the finish. Nothing else (no entry fees, protests, scoring, prizes, safety lists, schedules except the first warning time).
+
+Fields:
+- vhf: race committee VHF channel (e.g. "72"). Empty if not stated.
+- first_warning: time of the first warning signal (e.g. "11:55, day 1"). Short.
+- course_signal: one short line: HOW the course is shown to competitors (e.g. "Numeral pennant on the committee boat before the warning signal", "Board with course number", "VHF 72").
+- courses: every course. "name" (e.g. "Course 1" or "Windward-Leeward 2 laps"), "signal" = exactly what is displayed for that course (e.g. "Numeral pennant 1", "Flag W"), "sequence" = the exact order of marks from Start to Finish with rounding side, every lap written out (e.g. ["Start","1 (port)","2 (port)","1 (port)","Finish"]; gates as "2s/2p gate"). "notes" only if essential (max one short line).
+- start: one or two short lines: where the start line is (between what and what), and the start signal system if special.
+- finish: one or two short lines: where the finish line is.
+- diagram_pages: the page(s) where the COURSE DIAGRAMS are drawn. "doc" = the exact document title from the list above, "page" = page number (1 = first page), "what" = e.g. "Course 1 and 2 diagram". Empty list if there are no drawings.
+- changes: only amendments that change one of the fields above, one short line each.
+
+Exact values only, never guess; leave a field empty if not stated. Use amended values when an amendment changes something. Short phrases, language of the documents.
+Answer with ONLY one JSON object in exactly this structure, nothing before or after:
+{{SCHEMA}}`;
 
 // Model: MODEL iz podešavanja, ili automatski najnoviji Sonnet sa liste modela koje tvoj nalog vidi
 let cachedModel = null;
@@ -78,7 +90,7 @@ export default {
       else if (t === 'text/plain') content.push({ type: 'text', text: '===== ' + (d.name || 'document') + ' =====\n' + String(d.data).slice(0, 200000) });
     }
     if (!content.length) return json({ error: 'Unsupported file type (use PDF or a photo)' }, 400, origin);
-    content.push({ type: 'text', text: prompt(name) });
+    content.push({ type: 'text', text: await livePrompt(name, docs.map(d => String(d.name || 'document'))) });
     const call = (model) => fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },

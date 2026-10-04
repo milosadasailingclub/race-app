@@ -92,7 +92,46 @@
       .then(function (S) {
         saveEvents(events().map(function (x) { return x.id === ev.id ? Object.assign(x, { summary: S, summaryAt: Date.now(), docNames: ev.docNames }) : x; }));
         busy = false; info(''); render(); toast('Summary ready');
+        autoDiagrams(ev, S).then(function (n) { if (n) toast(n + ' course diagram' + (n > 1 ? 's' : '') + ' added from the documents'); });
       }).catch(function (err) { busy = false; renderSummary(); info('Summary failed: ' + err.message); toast('Summary failed'); });
+  }
+  // dijagrami kurseva: stranice koje je AI označio -> slika (obrezane bele margine)
+  function trimCanvas(cv) {
+    var g = cv.getContext('2d'), w = cv.width, h = cv.height, d = g.getImageData(0, 0, w, h).data, x0 = w, y0 = h, x1 = 0, y1 = 0;
+    for (var y = 0; y < h; y += 2) for (var x = 0; x < w; x += 2) { var i = (y * w + x) * 4; if (d[i] < 235 || d[i + 1] < 235 || d[i + 2] < 235) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } }
+    if (x1 <= x0 || y1 <= y0) return cv;
+    var m = 16; x0 = Math.max(0, x0 - m); y0 = Math.max(0, y0 - m); x1 = Math.min(w, x1 + m); y1 = Math.min(h, y1 + m);
+    var o = document.createElement('canvas'); o.width = x1 - x0; o.height = y1 - y0; o.getContext('2d').drawImage(cv, x0, y0, o.width, o.height, 0, 0, o.width, o.height); return o;
+  }
+  function autoDiagrams(ev, S) {
+    var want = (S.diagram_pages || []).filter(function (p) { return p && p.page; }).slice(0, 6);
+    if (!want.length) return Promise.resolve(0);
+    return Promise.all([docsFor(ev.id), tx('readonly', function (st) { return st.getAll(); })]).then(function (r) {
+      var docs = r[0], old = (r[1] || []).filter(function (d) { return d.eventId === ev.id && d.kind === 'diagram' && d.auto; });
+      return tx('readwrite', function (st) { old.forEach(function (d) { st.delete(d.id); }); }).then(function () { return loadPdfJs(); }).then(function () {
+        var n = 0;
+        return want.reduce(function (pr, w) {
+          return pr.then(function () {
+            var nm = String(w.doc || '').toLowerCase(), doc = docs.filter(function (d) { return /pdf/i.test(docType(d)) && d.name.toLowerCase() === nm; })[0] ||
+              docs.filter(function (d) { return /pdf/i.test(docType(d)) && nm && (d.name.toLowerCase().indexOf(nm) >= 0 || nm.indexOf(d.name.toLowerCase()) >= 0); })[0] || (docs.filter(function (d) { return /pdf/i.test(docType(d)); }).length === 1 ? docs.filter(function (d) { return /pdf/i.test(docType(d)); })[0] : null);
+            if (!doc) return;
+            return doc.blob.arrayBuffer().then(function (buf) { return pdfjsLib.getDocument({ data: buf }).promise; }).then(function (pdf) {
+              var pn = Math.min(Math.max(1, +w.page), pdf.numPages);
+              return pdf.getPage(pn).then(function (pg) {
+                var vp = pg.getViewport({ scale: 2 }), cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height;
+                var g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
+                return pg.render({ canvasContext: g, viewport: vp }).promise.then(function () {
+                  return new Promise(function (res) { trimCanvas(cv).toBlob(res, 'image/png'); });
+                }).then(function (blob) {
+                  n++;
+                  return tx('readwrite', function (st) { st.put({ id: 'g' + uid(), eventId: ev.id, kind: 'diagram', auto: true, name: (w.what || 'Course diagram') + ' · ' + doc.name + ', page ' + pn, size: blob.size, added: Date.now(), blob: blob }); });
+                });
+              });
+            }).catch(function () {});
+          });
+        }, Promise.resolve()).then(function () { return loadDiagrams(ev.id); }).then(function () { renderSummary(); return n; });
+      });
+    }).catch(function () { return 0; });
   }
   function addDocs(ev, files) {
     return Promise.all(files.map(function (f) { return tx('readwrite', function (s) { s.put({ id: 'd' + uid(), eventId: ev.id, name: f.name, size: f.size, added: Date.now(), blob: f }); }); }));
@@ -165,9 +204,10 @@
     var SMP = window.RA_SAMPLE_EVENT, diagrams = (c.diagramUrls || (SMP && c.id === SMP.id ? SMP.diagramUrls : null) || []).map(function (u) { return { src: u, caption: 'From the SI (Addendum B)' }; }).concat(diaCache[c.id] || []);
     var k = S.key || {}, h = '';
     h += '<div class="nor-title"><b>' + esc(S.event || c.name) + '</b><span>' + esc([S.venue, S.dates].filter(Boolean).join(' · ')) + '</span></div>';
-    var tiles = [['First warning', k.first_warning], ['VHF', k.vhf], ['Time limit', k.time_limit], ['Penalty', k.penalty]].filter(function (x) { return x[1]; });
-    if (tiles.length) h += '<div class="nor-tiles">' + tiles.map(function (x) { return '<div class="nor-tile"><span>' + x[0] + '</span><b>' + esc(x[1]) + '</b></div>'; }).join('') + '</div>';
-    h += FC;
+    // Na vodi: VHF, prvi signal, kursevi (dijagram + redosled + signal), start, cilj. Ostalo sklopljeno.
+    var vhf = S.vhf || k.vhf, fw = S.first_warning || k.first_warning;
+    var tiles = [['VHF', vhf], ['First warning', fw]].filter(function (x) { return x[1]; });
+    if (tiles.length) h += '<div class="nor-tiles">' + tiles.map(function (x) { return '<div class="nor-tile' + (x[0] === 'VHF' ? ' big' : '') + '"><span>' + x[0] + '</span><b>' + esc(x[1]) + '</b></div>'; }).join('') + '</div>';
     if (S.changes && S.changes.filter(Boolean).length) h += '<div class="nor-changes"><h3>Amendments</h3>' + list(S.changes) + '</div>';
     if ((S.courses && S.courses.length) || diagrams.length) {
       var C = window.Courses, dh = diagrams.map(function (d) { return '<div class="nor-dia"><img src="' + d.src + '" alt="Course diagram"><span>' + esc(d.caption || 'From the SI / NoR') + '</span></div>'; }).join('');
@@ -176,13 +216,18 @@
         return '<div class="nor-course"><div class="nor-cname">' + (pn ? C.pennant(pn) : '') + '<b>' + esc(co.name) + '</b>' + (co.signal ? '<span class="nor-cs">' + esc(co.signal) + '</span>' : '') + '</div><div class="nor-seq">' + (co.sequence || []).map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('<i>›</i>') + '</div>' + (co.notes ? '<p>' + esc(co.notes) + '</p>' : '') + '</div>';
       }).join(''));
     }
-    if (S.marks && S.marks.length) h += sec('Marks', '<ul>' + S.marks.map(function (m) { return '<li><b>' + esc(m.name) + '</b> ' + esc(m.description) + '</li>'; }).join('') + '</ul>');
     h += sec('Start', txt(S.start)) + sec('Finish', txt(S.finish));
-    if (S.schedule && S.schedule.length) h += sec('Schedule', S.schedule.map(function (d) { return '<p class="nor-day">' + esc(d.day) + '</p>' + list(d.items); }).join(''));
-    h += sec('Time limits', list(S.time_limits)) + sec('Signals', list(S.signals)) + sec('Penalties', txt(S.penalties)) + sec('Protests', txt(S.protests)) +
+    h += FC;
+    var more = '';
+    if (S.marks && S.marks.length) more += sec('Marks', '<ul>' + S.marks.map(function (m) { return '<li><b>' + esc(m.name) + '</b> ' + esc(m.description) + '</li>'; }).join('') + '</ul>');
+    if (S.schedule && S.schedule.length) more += sec('Schedule', S.schedule.map(function (d) { return '<p class="nor-day">' + esc(d.day) + '</p>' + list(d.items); }).join(''));
+    more += sec('Time limits', list(S.time_limits)) + sec('Signals', list(S.signals)) + sec('Penalties', txt(S.penalties || k.penalty)) + sec('Protests', txt(S.protests)) +
       sec('Scoring', txt(S.scoring)) + sec('Safety / check-in', list(S.safety)) + sec('Equipment', list(S.equipment)) + sec('Other', list(S.other));
+    if (more) h += '<details class="nor-more"><summary>More from the documents</summary>' + more + '</details>';
+    h += '<div class="nor-open" id="norOpenDocs"></div>';
     h += '<p class="small nor-foot">AI summary from ' + esc(c.docNames || 'your documents') + ' · ' + new Date(c.summaryAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) + '. Always check the official documents.</p>';
     box.innerHTML = h; bindFc(c);
+    docsFor(c.id).then(function (d) { var o = $('norOpenDocs'); if (o) o.innerHTML = d.map(function (x) { return '<button class="btn" data-open-doc="' + x.id + '">📄 ' + esc(x.name) + '</button>'; }).join(''); });
   }
   function bindFc(c) {
     var sel = $('norFcModel'); if (!sel) return;

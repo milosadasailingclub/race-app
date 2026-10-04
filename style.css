@@ -399,3 +399,8 @@ html,body{touch-action:pan-x pan-y}
 
 .wx-drops{display:block;font-size:10px;line-height:1;letter-spacing:-1px;margin-bottom:2px}
 .wx-misc{font-family:var(--f-num);font-weight:700;font-size:17px}
+
+.nor-tile.big b{font-size:34px}
+.nor-more{margin:10px 0;border:1px solid var(--line);border-radius:12px;padding:8px 12px;flex-shrink:0}
+.nor-more summary{font-family:var(--f-num);font-weight:800;letter-spacing:.1em;color:var(--muted);padding:6px 0}
+.nor-open{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;flex-shrink:0}
