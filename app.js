@@ -1,7 +1,7 @@
-/* The Race App — v0.9.25 */
+/* The Race App — v0.9.26 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.25';
+  var APP_VERSION = '0.9.26';
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -1054,16 +1054,20 @@
   function wxRenderSpots() {
     var sel = $('wxSpot'), html = '<option value="gps">📍 My location (GPS)</option>';
     WX.spots.forEach(function (s) { html += '<option value="' + esc(s.id) + '">' + esc(s.name) + '</option>'; });
+    if (WX.tmp) html += '<option value="tmp">🔎 ' + esc(WX.tmp.name) + ' (not saved)</option>';
     sel.innerHTML = html;
-    if (WX.spot !== 'gps' && !WX.spots.some(function (s) { return s.id === WX.spot; })) WX.spot = 'gps';
+    if (WX.spot === 'tmp' && !WX.tmp) WX.spot = 'gps';
+    if (WX.spot !== 'gps' && WX.spot !== 'tmp' && !WX.spots.some(function (s) { return s.id === WX.spot; })) WX.spot = 'gps';
     sel.value = WX.spot; $('wxModel').value = WX.model;
-    $('wxDelSpot').classList.toggle('hidden', WX.spot === 'gps');
-    $('wxSpotName').classList.toggle('hidden', WX.spot !== 'gps');
-    $('wxSaveSpot').classList.toggle('hidden', WX.spot !== 'gps');
+    var canSave = WX.spot === 'gps' || WX.spot === 'tmp';
+    $('wxDelSpot').classList.toggle('hidden', canSave);
+    $('wxSpotName').classList.toggle('hidden', !canSave);
+    $('wxSaveSpot').classList.toggle('hidden', !canSave);
   }
   function wxStatus(msg, err) { var el = $('wxStatus'); el.textContent = msg; el.classList.toggle('err', !!err); }
   function wxLocate() {
     return new Promise(function (res) {
+      if (WX.spot === 'tmp' && WX.tmp) return res({ lat: WX.tmp.lat, lon: WX.tmp.lon, name: WX.tmp.name });
       if (WX.spot !== 'gps') { var s = WX.spots.filter(function (x) { return x.id === WX.spot; })[0]; return res({ lat: s.lat, lon: s.lon, name: s.name }); }
       var lf = S.fixBuf.length ? S.fixBuf[S.fixBuf.length - 1] : null;
       if (lf && now() - lf.rt < 5 * 60000) return res({ lat: lf.lat, lon: lf.lon, name: 'My location' });
@@ -1192,16 +1196,18 @@
     if (WX.last && WX.last.key === WX.spot + '|' + WX.model) wxRender(true);
     wxFetch();
   }
-  $('wxSpot').addEventListener('change', function (e) { WX.spot = e.target.value; store.set('wxSpot', WX.spot); wxRenderSpots(); wxFetch(); });
+  $('wxSpot').addEventListener('change', function (e) { WX.spot = e.target.value; if (WX.spot !== 'tmp') store.set('wxSpot', WX.spot); wxRenderSpots(); wxFetch(); });
   $('wxModel').addEventListener('change', function (e) { WX.model = e.target.value; store.set('wxModel', WX.model); wxFetch(); });
   $('wxRefresh').addEventListener('click', wxFetch);
   $('wxSaveSpot').addEventListener('click', function () {
     var name = $('wxSpotName').value.trim();
     var L = WX.last;
     if (!name) { toast('Type a name for this spot first.'); return; }
-    if (!L || L.key.indexOf('gps|') !== 0) { toast('Load the forecast for your location first.'); return; }
+    var src = WX.spot === 'tmp' && WX.tmp ? WX.tmp : (L && L.key.indexOf('gps|') === 0 ? L.loc : null);
+    if (!src) { toast('Load the forecast for your location first.'); return; }
     var id = 's' + now();
-    WX.spots.push({ id: id, name: name, lat: L.loc.lat, lon: L.loc.lon });
+    WX.spots.push({ id: id, name: name, lat: src.lat, lon: src.lon });
+    if (WX.spot === 'tmp') WX.tmp = null;
     store.set('wxSpots', WX.spots); WX.spot = id; store.set('wxSpot', id); $('wxSpotName').value = '';
     wxRenderSpots(); toast('Spot saved: ' + name); wxFetch();
   });
@@ -1224,10 +1230,12 @@
   $('wxFindRes').addEventListener('click', function (e) {
     var b = e.target.closest('[data-found]'); if (!b) return;
     var g = WX.found[+b.getAttribute('data-found')], name = g.name.slice(0, 24);
-    var ex = WX.spots.filter(function (s) { return Math.abs(s.lat - g.lat) < 0.005 && Math.abs(s.lon - g.lon) < 0.005; })[0], id = ex ? ex.id : 's' + now();
-    if (!ex) { WX.spots.push({ id: id, name: name, lat: g.lat, lon: g.lon }); store.set('wxSpots', WX.spots); }
-    WX.spot = id; store.set('wxSpot', id); $('wxFind').value = ''; $('wxFindRes').innerHTML = '';
-    wxRenderSpots(); toast(ex ? 'Showing ' + ex.name : 'Spot saved: ' + name); wxFetch();
+    // samo prikaz; čuva se tek na Save spot
+    var ex = WX.spots.filter(function (s) { return Math.abs(s.lat - g.lat) < 0.005 && Math.abs(s.lon - g.lon) < 0.005; })[0];
+    if (ex) { WX.spot = ex.id; store.set('wxSpot', ex.id); }
+    else { WX.tmp = { lat: g.lat, lon: g.lon, name: name }; WX.spot = 'tmp'; }
+    $('wxFind').value = ''; $('wxFindRes').innerHTML = '';
+    wxRenderSpots(); if (!ex) $('wxSpotName').value = name; wxFetch();
   });
   $('wxDelSpot').addEventListener('click', function () {
     var s = WX.spots.filter(function (x) { return x.id === WX.spot; })[0]; if (!s) return;

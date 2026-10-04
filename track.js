@@ -174,7 +174,7 @@
   /* ---- list + replay ---- */
   var view = { id: null, map: null, pts: null, i: 0, playing: false, timer: null, speed: 10 };
   function openList() {
-    stopPlay(); view.id = null; $('trkTitle').textContent = 'TRACKING'; $('trkMore').classList.add('hidden');
+    stopPlay(); document.body.classList.remove('trk-fs-on'); var sf = document.querySelector('body > #rpStage'); if (sf) sf.remove(); view.id = null; $('trkTitle').textContent = 'TRACKING'; $('trkMore').classList.add('hidden');
     allTracks().then(function (a) {
       var h = '';
       if (rec) h += '<div class="trk-recnow"><i></i> Recording: ' + esc(rec.name) + ' · ' + rec.points.length + ' points</div>';
@@ -212,11 +212,13 @@
       $('trkTitle').textContent = 'REPLAY'; $('trkMore').classList.remove('hidden');
       var st = t.stats || stats(t.points);
       $('trkBody').innerHTML = '<div class="trk-name"><b>' + esc(t.name) + '</b><span>' + st.dist.toFixed(2) + ' NM · ' + fmtDur(st.dur) + ' · avg ' + st.avg.toFixed(1) + ' · max ' + st.max.toFixed(1) + ' kn</span></div>' +
-        '<div class="trk-map" id="trkMap"></div>' +
-        '<div class="trk-tele"><div><em>TIME</em><b id="rpT">0:00</b></div><div><em>SOG kn</em><b id="rpS">–.–</b></div><div><em>COG</em><b id="rpC">–––</b></div><div><em>HEEL</em><b id="rpH">–</b></div><div><em>DIST NM</em><b id="rpD">0.00</b></div></div>' +
-        '<div class="heel trk-heel" id="rpHeel"></div>' +
+        '<div class="trk-stage" id="rpStage">' +
+          '<div class="trk-map" id="trkMap"><div class="trk-fsbtns"><button class="icon-btn trk-zin" id="rpZin" aria-label="Zoom in">+</button><button class="icon-btn trk-zin" id="rpZout" aria-label="Zoom out">−</button><button class="icon-btn" id="rpFs" aria-label="Full screen">⛶</button></div></div>' +
+          '<div class="trk-ctrl"><button class="icon-btn" id="rpPlay">▶</button><input type="range" id="rpSlider" min="0" max="' + (t.points.length - 1) + '" value="0"><button class="icon-btn" id="rpSpeed">×10</button></div>' +
+          '<div class="trk-tele"><div><em>TIME</em><b id="rpT">0:00</b></div><div><em>SOG kn</em><b id="rpS">–.–</b></div><div><em>COG</em><b id="rpC">–––</b></div><div><em>HEEL</em><b id="rpH">–</b></div><div><em>DIST NM</em><b id="rpD">0.00</b></div></div>' +
+          '<div class="heel trk-heel" id="rpHeel"></div>' +
+        '</div>' +
         '<div class="mnv" id="rpMnv"></div>' +
-        '<div class="trk-ctrl"><button class="icon-btn" id="rpPlay">▶</button><input type="range" id="rpSlider" min="0" max="' + (t.points.length - 1) + '" value="0"><button class="icon-btn" id="rpSpeed">×10</button></div>' +
         '<div class="wm-legend trk-legend"><i style="background:linear-gradient(90deg,#0a5566,#00b3a4 25%,#00e0c6 42%,#9b3bff 58%,#ff2e93 75%,#ff1fd2)"></i><span>0</span><span>3</span><span>5</span><span>7</span><span>9</span><span>12 kn</span></div>' +
         '<div class="row"><button class="btn" id="rpRename">Rename</button><button class="btn" id="rpGpx">Export GPX</button><button class="btn" id="rpCsv">Export CSV</button><button class="btn danger" id="rpDel">Delete</button></div>';
       loadLib().then(function () {
@@ -242,6 +244,20 @@
       renderMnv();
       $('rpSlider').addEventListener('input', function (e) { stopPlay(); setIdx(+e.target.value); });
       $('rpPlay').addEventListener('click', function () { if (view.playing) stopPlay(); else play(); });
+      // full screen: mapa + play/timeline + telemetrija, zum prstima ili +/−
+      function setFs(on) {
+        var stg = $('rpStage'); if (!stg) return;
+        // prebaci u body (roditelj ekrana ima transform, pa fixed ne bi pokrio ceo ekran)
+        if (on && stg.parentNode !== document.body) { var ph = document.createElement('div'); ph.id = 'rpStagePh'; stg.parentNode.insertBefore(ph, stg); document.body.appendChild(stg); }
+        if (!on && $('rpStagePh')) { var ph2 = $('rpStagePh'); ph2.parentNode.insertBefore(stg, ph2); ph2.remove(); }
+        stg.classList.toggle('fs', on); $('rpFs').textContent = on ? '✕' : '⛶';
+        document.body.classList.toggle('trk-fs-on', on);
+        setTimeout(function () { if (view.map) view.map.resize(); }, 60);
+      }
+      view.setFs = setFs;
+      $('rpFs').addEventListener('click', function (e) { e.stopPropagation(); setFs(!$('rpStage').classList.contains('fs')); });
+      $('rpZin').addEventListener('click', function (e) { e.stopPropagation(); if (view.map) view.map.zoomIn(); });
+      $('rpZout').addEventListener('click', function (e) { e.stopPropagation(); if (view.map) view.map.zoomOut(); });
       $('rpSpeed').addEventListener('click', function () { view.speed = view.speed === 10 ? 30 : view.speed === 30 ? 1 : 10; $('rpSpeed').textContent = '×' + view.speed; });
       $('rpRename').addEventListener('click', function () { var n = prompt('Track name', t.name); if (n && n.trim()) { t.name = n.trim(); putTrack(t).then(function () { openTrack(id); }); } });
       $('rpGpx').addEventListener('click', function () { gpx(t); });

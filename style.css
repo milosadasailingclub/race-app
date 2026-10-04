@@ -424,3 +424,16 @@ html,body{touch-action:pan-x pan-y}
 .nor-zoom-bar{display:flex;gap:8px;padding:10px;justify-content:flex-end}
 .nor-zoom-sc{flex:1;overflow:auto;touch-action:pan-x pan-y;-webkit-user-select:none;user-select:none}
 .nor-zoom-sc img{width:100%;display:block;filter:invert(1) hue-rotate(180deg) brightness(.95) contrast(1.1)}
+
+/* replay: kontrole odmah ispod mape + full screen */
+.trk-stage{display:flex;flex-direction:column;gap:8px}
+.trk-fsbtns{position:absolute;top:8px;right:8px;z-index:5;display:flex;flex-direction:column;gap:6px}
+.trk-fsbtns .icon-btn{width:44px;height:44px;background:rgba(5,7,10,.78);font-size:22px}
+.trk-zin{display:none}
+.trk-stage.fs{position:fixed;inset:0;z-index:1000;background:var(--bg,#05070a);padding:calc(env(safe-area-inset-top) + 8px) 10px calc(env(safe-area-inset-bottom) + 10px);gap:6px}
+.trk-stage.fs .trk-map{flex:1 1 0;height:auto;min-height:0}
+.trk-stage.fs .trk-zin{display:inline-flex;align-items:center;justify-content:center}
+.trk-stage.fs .trk-tele b{font-size:18px}
+.trk-stage.fs .trk-heel{height:22px;flex:0 0 auto;margin:0}
+body.trk-fs-on{overflow:hidden}
+@media (orientation:landscape){.trk-stage.fs .trk-tele{grid-template-columns:repeat(5,1fr)}.trk-stage.fs .trk-heel{display:none}}
