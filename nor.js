@@ -1,4 +1,4 @@
-/* The Race App — NoR / SI: store PDFs offline, AI summary via Claude (copy/paste, no API key yet) */
+/* The Race App — EVENT page (NoR / SI): store PDFs offline, AI summary via Claude (copy/paste, no API key yet) */
 (function () {
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
@@ -295,7 +295,7 @@
   function txt(s) { return s && String(s).trim() ? '<p>' + esc(s) + '</p>' : ''; }
   function renderSummary() {
     var c = cur(), box = $('norSummary');
-    if (!c) { box.innerHTML = '<div class="nor-empty"><h2>NoR / SI</h2><p>No event yet. Tap <b>+</b>, type the event name, add the NoR / SI and tap CREATE SUMMARY.</p></div>'; return; }
+    if (!c) { box.innerHTML = '<div class="nor-empty"><h2>EVENT</h2><p>No event yet. Tap <b>+</b>, type the event name, add the NoR / SI and tap CREATE SUMMARY.</p></div>'; return; }
     var S = c.summary, FC = '<div id="norFcBox">' + fcHtml(c) + '</div>';
     if (!S) { box.innerHTML = '<div class="nor-empty"><h2>' + esc(c.name) + '</h2><p>' + (busy ? 'Making the summary…' : 'No summary yet. Add the NoR / SI below and tap Refresh summary.') + '</p></div>' + FC; bindFc(c); return; }
     var SMP = window.RA_SAMPLE_EVENT, diagrams = (c.diagramUrls || (SMP && c.id === SMP.id ? SMP.diagramUrls : null) || []).map(function (u) { return { src: u, caption: 'From the SI (Addendum B)' }; }).concat(diaCache[c.id] || []);
