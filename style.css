@@ -380,3 +380,14 @@ html,body{touch-action:pan-x pan-y}
 .nor-busy{opacity:.6;pointer-events:none}
 .nor-csig{font-weight:700;color:var(--turq)}
 .nor-cs{font-size:13px;opacity:.8;margin-left:8px}
+
+.nor-dates{display:flex;gap:8px}
+.nor-dates label{flex:1;display:flex;flex-direction:column;font-size:12px;letter-spacing:.1em;color:var(--muted);gap:4px}
+.nor-dates input,.nor-place input{font-size:16px;padding:9px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg);min-width:0}
+.nor-place{display:flex;gap:8px}.nor-place input{flex:1}
+.nor-fc{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin:10px 0;overflow:hidden;flex-shrink:0}
+.nor-fc-head{display:flex;align-items:center;gap:8px;padding:10px 12px}
+.nor-fc-head h3{margin:0;flex:1;font-family:var(--f-num);letter-spacing:.12em;color:var(--turq)}
+.nor-fc-head select{background:var(--surface-2);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:6px}
+.nor-fc .wx-row{grid-template-columns:52px 1fr 70px}
+.nor-fc-note{padding:6px 12px 10px;font-size:13px;color:var(--muted)}

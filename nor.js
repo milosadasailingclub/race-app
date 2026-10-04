@@ -98,6 +98,53 @@
     return Promise.all(files.map(function (f) { return tx('readwrite', function (s) { s.put({ id: 'd' + uid(), eventId: ev.id, name: f.name, size: f.size, added: Date.now(), blob: f }); }); }));
   }
 
+  /* ---- prognoza za regatu ---- */
+  var FC_MODELS = [['best_match', 'Best model'], ['icon_seamless', 'ICON (DWD)'], ['ecmwf_ifs025', 'ECMWF'], ['meteofrance_seamless', 'AROME / ARPEGE'], ['arpae_icon_2i', 'ItaliaMeteo ICON 2I'], ['gfs_seamless', 'GFS']];
+  var fcBusy = {};
+  function ymd(d) { return d.toISOString().slice(0, 10); }
+  function geocode(q) {
+    return fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&language=en&name=' + encodeURIComponent(q)).then(function (r) { return r.json(); })
+      .then(function (j) { var g = j && j.results && j.results[0]; if (!g) throw new Error('Place not found'); return { lat: g.latitude, lon: g.longitude, name: g.name + (g.country ? ', ' + g.country : '') }; });
+  }
+  function fcArrow(dir) { return '<span class="wx-arrow" style="transform:rotate(' + Math.round((dir + 180) % 360) + 'deg)">↑</span>'; }
+  function fcHtml(ev) {
+    if (!ev.dateFrom || !ev.loc) return '<div class="nor-fc"><div class="nor-fc-head"><h3>FORECAST</h3></div><p class="nor-fc-note">Add the dates and place of the regatta (✎ → Event) to see the forecast.</p></div>';
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    var from = new Date(ev.dateFrom + 'T00:00:00'), to = new Date((ev.dateTo || ev.dateFrom) + 'T00:00:00'), last = new Date(today.getTime() + 15 * 864e5);
+    var head = '<div class="nor-fc-head"><h3>FORECAST</h3><select id="norFcModel">' + FC_MODELS.map(function (m) { return '<option value="' + m[0] + '"' + ((ev.fcModel || 'best_match') === m[0] ? ' selected' : '') + '>' + m[1] + '</option>'; }).join('') + '</select></div>';
+    if (to < today) return '<div class="nor-fc">' + head + '<p class="nor-fc-note">The regatta is over.</p></div>';
+    if (from > last) return '<div class="nor-fc">' + head + '<p class="nor-fc-note">Forecast opens on ' + new Date(from.getTime() - 15 * 864e5).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' (16 days ahead). ' + esc(ev.loc.name || '') + '</p></div>';
+    var fc = ev.fc;
+    if (!fc || fc.model !== (ev.fcModel || 'best_match') || Date.now() - fc.at > 3600000) { loadFc(ev); if (!fc) return '<div class="nor-fc">' + head + '<p class="nor-fc-note">Loading forecast…</p></div>'; }
+    var H = fc.hourly, rows = '', prev = '';
+    for (var i = 0; i < H.time.length; i++) {
+      var t = H.time[i], hr = +t.slice(11, 13); if (hr < 8 || hr > 19 || hr % 2) continue;
+      var day = t.slice(0, 10); if (day < ev.dateFrom || day > (ev.dateTo || ev.dateFrom)) continue;
+      if (day !== prev) { rows += '<div class="wx-day">' + new Date(day + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase() + '</div>'; prev = day; }
+      var a = H.wind_speed_10m[i], g = H.wind_gusts_10m[i], d = H.wind_direction_10m[i], ratio = (a !== null && g) ? Math.max(0.15, Math.min(0.85, a / g)) : 0.5;
+      rows += '<div class="wx-row"><span class="t">' + t.slice(11, 13) + ':00</span><span class="wx-wg" style="--r:' + Math.round(ratio * 100) + '%"><b>' + (a === null ? '–' : Math.round(a)) + '</b><b>' + (g === null ? '–' : Math.round(g)) + '</b></span>' +
+        '<span class="wx-dir">' + (d === null || d === undefined ? '–' : ('00' + Math.round(d) % 360).slice(-3) + fcArrow(d)) + '</span></div>';
+    }
+    if (!rows) rows = '<p class="nor-fc-note">This model has no data for these days or this place. Try another model.</p>';
+    var far = (to - today) / 864e5 > 7 ? ' More than 7 days ahead: treat as a trend, not exact.' : '';
+    return '<div class="nor-fc">' + head + '<div class="wx-row head"><span>TIME</span><span class="wx-wg-h"><span>WIND kn</span><span>GUST</span></span><span style="text-align:right">DIR</span></div>' + rows +
+      '<p class="nor-fc-note">' + esc(ev.loc.name || '') + ' · updated ' + new Date(fc.at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + '.' + far + '</p></div>';
+  }
+  function loadFc(ev) {
+    if (fcBusy[ev.id]) return; fcBusy[ev.id] = true;
+    var today = ymd(new Date()), from = ev.dateFrom < today ? today : ev.dateFrom, lastD = ymd(new Date(Date.now() + 15 * 864e5)), to = (ev.dateTo || ev.dateFrom) > lastD ? lastD : (ev.dateTo || ev.dateFrom);
+    var m = ev.fcModel || 'best_match';
+    var u = 'https://api.open-meteo.com/v1/forecast?latitude=' + ev.loc.lat.toFixed(4) + '&longitude=' + ev.loc.lon.toFixed(4) + '&timezone=auto&wind_speed_unit=kn&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m&start_date=' + from + '&end_date=' + to + (m !== 'best_match' ? '&models=' + m : '');
+    fetch(u, { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) {
+      fcBusy[ev.id] = false;
+      if (!j || j.error || !j.hourly) throw new Error((j && j.reason) || 'no data');
+      // podrži i odgovore sa sufiksom modela (wind_speed_10m_icon_seamless)
+      var H = j.hourly; ['wind_speed_10m', 'wind_gusts_10m', 'wind_direction_10m'].forEach(function (k) { if (!H[k]) { for (var kk in H) if (kk.indexOf(k + '_') === 0) H[k] = H[kk]; } if (!H[k]) H[k] = H.time.map(function () { return null; }); });
+      saveEvents(events().map(function (x) { return x.id === ev.id ? Object.assign(x, { fc: { at: Date.now(), model: m, hourly: { time: H.time, wind_speed_10m: H.wind_speed_10m, wind_gusts_10m: H.wind_gusts_10m, wind_direction_10m: H.wind_direction_10m } } }) : x; }));
+      renderSummary();
+    }).catch(function (e) { fcBusy[ev.id] = false; var b = $('norFcBox'); if (b) b.innerHTML = '<div class="nor-fc"><p class="nor-fc-note">Forecast not available: ' + esc(e.message) + '</p></div>'; });
+  }
+
   /* ---- render ---- */
   var manage = false;
   function renderEvents() {
@@ -112,13 +159,14 @@
   function renderSummary() {
     var c = cur(), box = $('norSummary');
     if (!c) { box.innerHTML = '<div class="nor-empty"><h2>NoR / SI</h2><p>No event yet. Tap <b>+</b>, type the event name, add the NoR / SI and tap CREATE SUMMARY.</p></div>'; return; }
-    var S = c.summary;
-    if (!S) { box.innerHTML = '<div class="nor-empty"><h2>' + esc(c.name) + '</h2><p>' + (busy ? 'Making the summary…' : 'No summary yet. Add the NoR / SI below and tap Refresh summary.') + '</p></div>'; return; }
+    var S = c.summary, FC = '<div id="norFcBox">' + fcHtml(c) + '</div>';
+    if (!S) { box.innerHTML = '<div class="nor-empty"><h2>' + esc(c.name) + '</h2><p>' + (busy ? 'Making the summary…' : 'No summary yet. Add the NoR / SI below and tap Refresh summary.') + '</p></div>' + FC; bindFc(c); return; }
     var SMP = window.RA_SAMPLE_EVENT, diagrams = (c.diagramUrls || (SMP && c.id === SMP.id ? SMP.diagramUrls : null) || []).map(function (u) { return { src: u, caption: 'From the SI (Addendum B)' }; }).concat(diaCache[c.id] || []);
     var k = S.key || {}, h = '';
     h += '<div class="nor-title"><b>' + esc(S.event || c.name) + '</b><span>' + esc([S.venue, S.dates].filter(Boolean).join(' · ')) + '</span></div>';
     var tiles = [['First warning', k.first_warning], ['VHF', k.vhf], ['Time limit', k.time_limit], ['Penalty', k.penalty]].filter(function (x) { return x[1]; });
     if (tiles.length) h += '<div class="nor-tiles">' + tiles.map(function (x) { return '<div class="nor-tile"><span>' + x[0] + '</span><b>' + esc(x[1]) + '</b></div>'; }).join('') + '</div>';
+    h += FC;
     if (S.changes && S.changes.filter(Boolean).length) h += '<div class="nor-changes"><h3>Amendments</h3>' + list(S.changes) + '</div>';
     if ((S.courses && S.courses.length) || diagrams.length) {
       var C = window.Courses, dh = diagrams.map(function (d) { return '<div class="nor-dia"><img src="' + d.src + '" alt="Course diagram"><span>' + esc(d.caption || 'From the SI / NoR') + '</span></div>'; }).join('');
@@ -133,7 +181,11 @@
     h += sec('Time limits', list(S.time_limits)) + sec('Signals', list(S.signals)) + sec('Penalties', txt(S.penalties)) + sec('Protests', txt(S.protests)) +
       sec('Scoring', txt(S.scoring)) + sec('Safety / check-in', list(S.safety)) + sec('Equipment', list(S.equipment)) + sec('Other', list(S.other));
     h += '<p class="small nor-foot">AI summary from ' + esc(c.docNames || 'your documents') + ' · ' + new Date(c.summaryAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) + '. Always check the official documents.</p>';
-    box.innerHTML = h;
+    box.innerHTML = h; bindFc(c);
+  }
+  function bindFc(c) {
+    var sel = $('norFcModel'); if (!sel) return;
+    sel.addEventListener('change', function () { saveEvents(events().map(function (x) { return x.id === c.id ? Object.assign(x, { fcModel: sel.value }) : x; })); renderSummary(); });
   }
   var diaCache = {};
   function loadDiagrams(evId) {
@@ -159,7 +211,7 @@
     if (!events().length && !manage) $('norQuick').classList.remove('hidden');
     $('norManage').classList.toggle('hidden', !manage);
     $('norManageBtn').classList.toggle('on', manage);
-    if (manage) { renderDocs(); renderDiaList(); }
+    if (manage) { renderDocs(); renderDiaList(); var ce = cur(); $('norEFrom').value = ce && ce.dateFrom || ''; $('norETo').value = ce && ce.dateTo || ''; $('norEPlace').value = ce && ce.loc ? ce.loc.name : ''; eLoc = null; }
   }
 
   /* ---- course diagram: copy from PDF page (crop) or image ---- */
@@ -268,15 +320,42 @@
     qFiles = qFiles.concat([].slice.call(e.target.files || [])); e.target.value = '';
     $('norQList').innerHTML = qFiles.map(function (f) { return '📄 ' + esc(f.name); }).join('<br>');
   });
+  var eLoc = null;
+  $('norEHere').addEventListener('click', function () {
+    navigator.geolocation.getCurrentPosition(function (p) { eLoc = { lat: p.coords.latitude, lon: p.coords.longitude, name: 'Here (' + p.coords.latitude.toFixed(3) + ', ' + p.coords.longitude.toFixed(3) + ')' }; $('norEPlace').value = eLoc.name; }, function () { toast('Location not available'); }, { timeout: 10000, maximumAge: 300000 });
+  });
+  $('norEPlace').addEventListener('input', function () { eLoc = null; });
+  $('norESave').addEventListener('click', function () {
+    var c = cur(); if (!c) return;
+    var q = $('norEPlace').value.trim(), keep = c.loc && q === c.loc.name;
+    var lp = eLoc ? Promise.resolve(eLoc) : keep ? Promise.resolve(c.loc) : (q ? geocode(q) : Promise.resolve(null));
+    lp.then(function (loc) {
+      var f = $('norEFrom').value || null, t = $('norETo').value || f;
+      saveEvents(events().map(function (x) { return x.id === c.id ? Object.assign(x, { dateFrom: f, dateTo: t, loc: loc, fc: null }) : x; }));
+      manage = false; render(); toast('Saved' + (loc ? ': ' + loc.name : ''));
+    }).catch(function (e) { toast(e.message); });
+  });
+  var qLoc = null;
+  $('norQHere').addEventListener('click', function () {
+    navigator.geolocation.getCurrentPosition(function (p) { qLoc = { lat: p.coords.latitude, lon: p.coords.longitude, name: 'Here (' + p.coords.latitude.toFixed(3) + ', ' + p.coords.longitude.toFixed(3) + ')' }; $('norQPlace').value = ''; $('norQPlaceInfo').textContent = '📍 ' + qLoc.name; },
+      function () { toast('Location not available'); }, { timeout: 10000, maximumAge: 300000 });
+  });
+  $('norQPlace').addEventListener('change', function () { qLoc = null; $('norQPlaceInfo').textContent = ''; });
+  $('norQFrom').addEventListener('change', function () { if (!$('norQTo').value || $('norQTo').value < $('norQFrom').value) $('norQTo').value = $('norQFrom').value; });
   $('norQGo').addEventListener('click', function () {
     var n = $('norQName').value.trim();
     if (!n) { toast('Type the event name first.'); $('norQName').focus(); return; }
-    if (!qFiles.length) { toast('Add the NoR / SI first.'); return; }
-    var e = events(), ev = { id: 'ev' + uid(), name: n }; e.push(ev); saveEvents(e); sset('norCur', ev.id);
+    var placeQ = $('norQPlace').value.trim();
+    var locP = qLoc ? Promise.resolve(qLoc) : (placeQ ? geocode(placeQ).catch(function () { toast('Place not found, forecast needs a place'); return null; }) : Promise.resolve(null));
+    locP.then(function (loc) {
+    var e = events(), ev = { id: 'ev' + uid(), name: n, dateFrom: $('norQFrom').value || null, dateTo: $('norQTo').value || $('norQFrom').value || null, loc: loc }; e.push(ev); saveEvents(e); sset('norCur', ev.id);
+    $('norQFrom').value = ''; $('norQTo').value = ''; $('norQPlace').value = ''; $('norQPlaceInfo').textContent = ''; qLoc = null;
+    if (!qFiles.length) { $('norQuick').classList.add('hidden'); render(); toast('Event created'); return; }
     var files = qFiles; qFiles = []; $('norQList').innerHTML = ''; $('norQName').value = '';
     $('norQuick').classList.add('hidden'); render();
     var info = $('norQInfo'); $('norQuick').classList.add('hidden');
     addDocs(ev, files).then(function () { return summarize(ev, $('norInfo2')); });
+    });
   });
   $('norAiUrl').value = sget('aiUrl', '') || AI_URL_DEFAULT;
   $('norAiUrl').addEventListener('change', function (e) { sset('aiUrl', e.target.value.trim()); toast('AI server saved'); });

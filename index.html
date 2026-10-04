@@ -10,11 +10,11 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/saira-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=0.9.15">
+<link rel="stylesheet" href="style.css?v=0.9.16">
 </head>
 <body class="theme-night">
 
-<div id="version" class="version">v0.9.15</div>
+<div id="version" class="version">v0.9.16</div>
 <div id="update" class="update hidden">New version available. Tap to update</div>
 <div id="toast" class="toast hidden"></div>
 
@@ -119,6 +119,9 @@
       <div id="norQuick" class="nor-quick hidden">
         <h3>NEW EVENT</h3>
         <input id="norQName" type="text" maxlength="60" placeholder="Event name (e.g. Ada Cup 2026)">
+        <div class="nor-dates"><label>From<input id="norQFrom" type="date"></label><label>To<input id="norQTo" type="date"></label></div>
+        <div class="nor-place"><input id="norQPlace" type="text" maxlength="60" placeholder="Place (e.g. Ada Ciganlija, Belgrade)"><button class="btn" id="norQHere">📍 Here</button></div>
+        <div id="norQPlaceInfo" class="small"></div>
         <label class="btn nor-file">+ Add documents (PDF or photo)<input type="file" id="norQFile" accept="application/pdf,image/*" multiple hidden></label>
         <div id="norQList" class="small"></div>
         <button class="btn primary nor-go" id="norQGo">CREATE SUMMARY</button>
@@ -131,6 +134,9 @@
         <div class="card">
           <h3>Event</h3>
           <div class="cl-new"><input id="norNewName" type="text" maxlength="40" placeholder="New event name (e.g. Ada Cup 2026)"><button class="btn primary" id="norNewBtn">+ New event</button></div>
+          <p class="small" style="margin-top:10px">Dates and place (for the forecast)</p>
+          <div class="nor-dates"><label>From<input id="norEFrom" type="date"></label><label>To<input id="norETo" type="date"></label></div>
+          <div class="nor-place" style="margin-top:6px"><input id="norEPlace" type="text" maxlength="60" placeholder="Place"><button class="btn" id="norEHere">📍</button><button class="btn primary" id="norESave">Save</button></div>
           <div class="row" style="margin-top:8px"><button class="btn danger" id="norDelEvent">Delete this event</button></div>
         </div>
         <div class="card">
@@ -185,6 +191,7 @@
         <option value="ecmwf_ifs025">ECMWF</option>
         <option value="meteofrance_seamless">AROME / ARPEGE</option>
         <option value="gfs_seamless">GFS (NOAA)</option>
+        <option value="arpae_icon_2i">ItaliaMeteo ICON 2I</option>
       </select>
     </div>
     <div class="seg" id="wxView"><button data-wxv="table" class="on">TABLE</button><button data-wxv="map">MAP</button></div>
@@ -297,14 +304,14 @@
   </div>
 </section>
 
-<script src="wxmap.js?v=0.9.15"></script>
-<script src="public-lists.js?v=0.9.15"></script>
-<script src="checklist.js?v=0.9.15"></script>
-<script src="samples/portcup-2026.js?v=0.9.15"></script>
-<script src="courses.js?v=0.9.15"></script>
-<script src="nor.js?v=0.9.15"></script>
-<script src="maneuvers.js?v=0.9.15"></script>
-<script src="track.js?v=0.9.15"></script>
-<script src="app.js?v=0.9.15"></script>
+<script src="wxmap.js?v=0.9.16"></script>
+<script src="public-lists.js?v=0.9.16"></script>
+<script src="checklist.js?v=0.9.16"></script>
+<script src="samples/portcup-2026.js?v=0.9.16"></script>
+<script src="courses.js?v=0.9.16"></script>
+<script src="nor.js?v=0.9.16"></script>
+<script src="maneuvers.js?v=0.9.16"></script>
+<script src="track.js?v=0.9.16"></script>
+<script src="app.js?v=0.9.16"></script>
 </body>
 </html>
