@@ -4,9 +4,13 @@
    Secrets / variables in Cloudflare (Settings -> Variables and Secrets):
      ANTHROPIC_API_KEY  (Secret)  - your Anthropic API key, never in the app
      MODEL              (Text, optional) - Claude model id, e.g. from console.anthropic.com
+     MAX_INPUT_TOKENS   (Text, optional) - limit po obradi, podrazumevano 80000 (oko $0.25)
+   Zaštita troška: pre obrade server besplatno prebroji tokene (count_tokens) i odbije preveliku obradu.
 */
 const ALLOWED = ['https://milosadasailingclub.github.io', 'http://localhost:8765'];
-const MAX_BYTES = 25 * 1024 * 1024;
+const MAX_BYTES = 20 * 1024 * 1024;
+const MAX_TOKENS_DEFAULT = 80000;   // ulaz po jednoj obradi
+const PRICE_IN = 3, PRICE_OUT = 15; // $ po milion tokena (procena za Sonnet), samo za prikaz troška
 
 const SCHEMA = `{
   "event": "", "dates": "",
@@ -78,9 +82,10 @@ export default {
     if (req.method !== 'POST' || url.pathname !== '/summarize') return json({ error: 'Not found' }, 404, origin);
     if (!ALLOWED.includes(origin)) return json({ error: 'Origin not allowed' }, 403, origin);
     if (!env.ANTHROPIC_API_KEY) return json({ error: 'Server has no API key yet' }, 500, origin);
-    const len = +(req.headers.get('Content-Length') || 0); if (len > MAX_BYTES) return json({ error: 'Documents too large (max 25 MB)' }, 413, origin);
+    const len = +(req.headers.get('Content-Length') || 0); if (len > MAX_BYTES) return json({ error: 'Documents too large (max 20 MB). Upload only the NoR, SI and amendments.', code: 'too_long' }, 413, origin);
     let body; try { body = await req.json(); } catch (e) { return json({ error: 'Bad request' }, 400, origin); }
-    const name = String(body.name || 'Regatta').slice(0, 80), docs = Array.isArray(body.docs) ? body.docs.slice(0, 8) : [];
+    const name = String(body.name || 'Regatta').slice(0, 80), docs = Array.isArray(body.docs) ? body.docs : [];
+    if (docs.length > 6) return json({ error: 'Too many documents (max 6). Upload only the NoR, SI and amendments.', code: 'too_many' }, 413, origin);
     if (!docs.length) return json({ error: 'No documents' }, 400, origin);
     const content = [];
     for (const d of docs) {
@@ -91,13 +96,20 @@ export default {
     }
     if (!content.length) return json({ error: 'Unsupported file type (use PDF or a photo)' }, 400, origin);
     content.push({ type: 'text', text: await livePrompt(name, docs.map(d => String(d.name || 'document'))) });
+    const H = { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' };
     const call = (model) => fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      method: 'POST', headers: H,
       body: JSON.stringify({ model, max_tokens: 4000, messages: [{ role: 'user', content }] })
     });
     let model = await pickModel(env);
     if (!model) return json({ error: 'No AI model available for this key' }, 502, origin);
+    // zaštita troška: besplatno brojanje tokena pre prave obrade
+    const maxIn = +(env.MAX_INPUT_TOKENS || MAX_TOKENS_DEFAULT);
+    try {
+      const ct = await fetch('https://api.anthropic.com/v1/messages/count_tokens', { method: 'POST', headers: H, body: JSON.stringify({ model, messages: [{ role: 'user', content }] }) });
+      const cj = await ct.json().catch(() => ({}));
+      if (ct.ok && cj.input_tokens > maxIn) return json({ error: 'Operation too complex: the documents are too long for one summary. Upload only the NoR, SI and amendments.', code: 'too_complex', tokens: cj.input_tokens, max: maxIn }, 413, origin);
+    } catch (e) {}
     let r = await call(model);
     let out = await r.json().catch(() => ({}));
     if (!r.ok && /model/i.test((out.error && out.error.message) || '') && !env.MODEL) {
@@ -108,7 +120,9 @@ export default {
     const text = (out.content || []).filter(c => c.type === 'text').map(c => c.text).join('');
     const a = text.indexOf('{'), b = text.lastIndexOf('}');
     if (a < 0 || b <= a) return json({ error: 'AI answer had no summary' }, 502, origin);
-    try { return json({ summary: JSON.parse(text.slice(a, b + 1)) }, 200, origin); }
+    const u = out.usage || {}, usage = { in: u.input_tokens || 0, out: u.output_tokens || 0 };
+    usage.usd = Math.round(((usage.in * PRICE_IN + usage.out * PRICE_OUT) / 1e6) * 1000) / 1000;
+    try { return json({ summary: JSON.parse(text.slice(a, b + 1)), usage, model }, 200, origin); }
     catch (e) { return json({ error: 'AI answer could not be read' }, 502, origin); }
   }
 };

@@ -77,6 +77,19 @@
   var busy = false;
   function toB64(blob) { return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(String(r.result).split(',')[1]); }; r.onerror = function () { rej(r.error); }; r.readAsDataURL(blob); }); }
   function docType(d) { var t = (d.blob && d.blob.type) || ''; if (t) return t; return /\.pdf$/i.test(d.name) ? 'application/pdf' : 'image/jpeg'; }
+  // zaštita troška: ograničen broj strana pre slanja (server dodatno broji tokene)
+  var MAX_PAGES_DOC = 20, MAX_PAGES_ALL = 40, MAX_DOCS = 6, lastUsage = null;
+  function pageCheck(d) {
+    var pdfs = d.filter(function (x) { return /pdf/i.test(docType(x)); });
+    if (!pdfs.length) return Promise.resolve();
+    return loadPdfJs().then(function () {
+      return Promise.all(pdfs.map(function (x) { return x.blob.arrayBuffer().then(function (b) { return pdfjsLib.getDocument({ data: b }).promise; }).then(function (p) { return { name: x.name, n: p.numPages }; }).catch(function () { return { name: x.name, n: 0 }; }); }));
+    }).then(function (L) {
+      var big = L.filter(function (x) { return x.n > MAX_PAGES_DOC; })[0], all = L.reduce(function (s, x) { return s + x.n; }, 0);
+      if (big) throw new Error('Document is too long: ' + big.name + ' has ' + big.n + ' pages (max ' + MAX_PAGES_DOC + '). Upload only the NoR, SI and amendments.');
+      if (all > MAX_PAGES_ALL) throw new Error('Documents are too long together: ' + all + ' pages (max ' + MAX_PAGES_ALL + '). Remove the ones you do not need.');
+    });
+  }
   function summarize(ev, infoEl) {
     var url = aiUrl();
     function info(t) { if (infoEl) infoEl.textContent = t; }
@@ -84,13 +97,16 @@
     busy = true; renderSummary(); info('Reading the documents… this takes about 20–60 s.');
     return docsFor(ev.id).then(function (d) {
       if (!d.length) throw new Error('Add the NoR / SI first');
+      if (d.length > MAX_DOCS) throw new Error('Too many documents (max ' + MAX_DOCS + '). Keep only the NoR, SI and amendments.');
+      return pageCheck(d).then(function () { return d; });
+    }).then(function (d) {
       return Promise.all(d.map(function (x) { return toB64(x.blob).then(function (b) { return { name: x.name, type: docType(x), data: b }; }); })).then(function (docs) {
         ev.docNames = d.map(function (x) { return x.name; }).join(', ');
         return fetch(url + '/summarize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: ev.name, docs: docs }) });
       });
-    }).then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.summary) throw new Error(j.error || ('Server error ' + r.status)); return j.summary; }); })
+    }).then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.summary) throw new Error(j.error || ('Server error ' + r.status)); lastUsage = j.usage || null; return j.summary; }); })
       .then(function (S) {
-        saveEvents(events().map(function (x) { return x.id === ev.id ? Object.assign(x, { summary: S, summaryAt: Date.now(), docNames: ev.docNames, diaVer: DIA_VER }) : x; }));
+        saveEvents(events().map(function (x) { return x.id === ev.id ? Object.assign(x, { summary: S, summaryAt: Date.now(), docNames: ev.docNames, diaVer: DIA_VER, usage: lastUsage }) : x; }));
         busy = false; info(''); render(); toast('Summary ready');
         autoDiagrams(ev, S).then(function (n) { if (n) toast(n + ' course diagram' + (n > 1 ? 's' : '') + ' added from the documents'); });
       }).catch(function (err) { busy = false; renderSummary(); info('Summary failed: ' + err.message); toast('Summary failed'); });
@@ -313,7 +329,7 @@
     }
     h += sec('Start', txt(S.start)) + sec('Finish', txt(S.finish));
     h += '<div class="nor-open" id="norOpenDocs"></div>' + FC;
-    h += '<p class="small nor-foot">AI summary · ' + new Date(c.summaryAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) + '. Always check the official documents.</p>';
+    h += '<p class="small nor-foot">AI summary' + (c.usage && c.usage.in ? ' (' + Math.round((c.usage.in + c.usage.out) / 1000) + 'k tokens ≈ $' + (c.usage.usd || 0).toFixed(2) + ')' : '') + ' · ' + new Date(c.summaryAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) + '. Always check the official documents.</p>';
     box.innerHTML = h; bindFc(c);
     docsFor(c.id).then(function (d) {
       var o = $('norOpenDocs'); if (!o) return;
