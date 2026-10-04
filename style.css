@@ -175,6 +175,12 @@ select{font:inherit;padding:4px 6px;background:var(--surface-2);color:var(--fg);
 .wx-sea{grid-column:2 / -1;font-size:12px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap}
 .wx-sea b{color:var(--fg);font-weight:700}
 .wx-save{display:flex;gap:8px;flex-wrap:wrap}
+.wx-find{margin:10px 0}
+.wx-find-row{display:flex;gap:8px}
+.wx-find-row input{flex:1;min-width:0;min-height:44px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg);font:inherit}
+.wx-find-res{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.wx-find-res button{text-align:left;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg);font:inherit}
+.wx-find-res button span{display:block;font-size:12px;color:var(--muted)}
 .wx-save input{flex:1 1 100%;min-height:44px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg);font:inherit}
 .wx-credit a{color:var(--turq)}
 .set-body > *, .wx-body > *{flex-shrink:0}

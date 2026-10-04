@@ -1,7 +1,7 @@
-/* The Race App — v0.9.24 */
+/* The Race App — v0.9.25 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.24';
+  var APP_VERSION = '0.9.25';
   var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -1204,6 +1204,30 @@
     WX.spots.push({ id: id, name: name, lat: L.loc.lat, lon: L.loc.lon });
     store.set('wxSpots', WX.spots); WX.spot = id; store.set('wxSpot', id); $('wxSpotName').value = '';
     wxRenderSpots(); toast('Spot saved: ' + name); wxFetch();
+  });
+  // pretraga mesta (Open-Meteo geocoding) ili koordinate "45.52, 13.57"
+  function wxFind() {
+    var q = $('wxFind').value.trim(), box = $('wxFindRes'); if (!q) return;
+    var m = q.match(/^\s*(-?\d+(?:\.\d+)?)\s*[,; ]\s*(-?\d+(?:\.\d+)?)\s*$/);
+    if (m && Math.abs(+m[1]) <= 90 && Math.abs(+m[2]) <= 180) { wxShowFound([{ name: (+m[1]).toFixed(4) + ', ' + (+m[2]).toFixed(4), sub: 'Coordinates', lat: +m[1], lon: +m[2] }]); return; }
+    box.innerHTML = '<p class="small">Searching…</p>';
+    fetch('https://geocoding-api.open-meteo.com/v1/search?count=6&language=en&name=' + encodeURIComponent(q)).then(function (r) { return r.json(); }).then(function (j) {
+      wxShowFound(((j && j.results) || []).map(function (g) { return { name: g.name, sub: [g.admin1, g.country].filter(Boolean).join(', '), lat: g.latitude, lon: g.longitude }; }));
+    }).catch(function () { box.innerHTML = '<p class="small">No connection. Try again.</p>'; });
+  }
+  function wxShowFound(list) {
+    var box = $('wxFindRes'); WX.found = list;
+    box.innerHTML = list.length ? list.map(function (g, i) { return '<button data-found="' + i + '">' + esc(g.name) + '<span>' + esc(g.sub || '') + '</span></button>'; }).join('') : '<p class="small">Nothing found. Try a nearby town, or type coordinates like 45.52, 13.57.</p>';
+  }
+  $('wxFindGo').addEventListener('click', wxFind);
+  $('wxFind').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); wxFind(); } });
+  $('wxFindRes').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-found]'); if (!b) return;
+    var g = WX.found[+b.getAttribute('data-found')], name = g.name.slice(0, 24);
+    var ex = WX.spots.filter(function (s) { return Math.abs(s.lat - g.lat) < 0.005 && Math.abs(s.lon - g.lon) < 0.005; })[0], id = ex ? ex.id : 's' + now();
+    if (!ex) { WX.spots.push({ id: id, name: name, lat: g.lat, lon: g.lon }); store.set('wxSpots', WX.spots); }
+    WX.spot = id; store.set('wxSpot', id); $('wxFind').value = ''; $('wxFindRes').innerHTML = '';
+    wxRenderSpots(); toast(ex ? 'Showing ' + ex.name : 'Spot saved: ' + name); wxFetch();
   });
   $('wxDelSpot').addEventListener('click', function () {
     var s = WX.spots.filter(function (x) { return x.id === WX.spot; })[0]; if (!s) return;

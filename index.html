@@ -10,11 +10,11 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/saira-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=0.9.24">
+<link rel="stylesheet" href="style.css?v=0.9.25">
 </head>
 <body class="theme-night">
 
-<div id="version" class="version">v0.9.24</div>
+<div id="version" class="version">v0.9.25</div>
 <div id="update" class="update hidden">New version available. Tap to update</div>
 <div id="toast" class="toast hidden"></div>
 
@@ -199,6 +199,10 @@
     <div id="wxMap" class="wx-map hidden"></div>
     <div id="wxNow" class="wx-now hidden"></div>
     <div id="wxTableWrap"><div id="wxTable" class="wx-table"></div></div>
+    <div class="wx-find">
+      <div class="wx-find-row"><input id="wxFind" type="search" placeholder="Find a place (e.g. Portorož, Murter)" maxlength="60" enterkeyhint="search"><button id="wxFindGo" class="btn">SEARCH</button></div>
+      <div id="wxFindRes" class="wx-find-res"></div>
+    </div>
     <div class="wx-save">
       <input id="wxSpotName" type="text" placeholder="Name this spot (e.g. Ada)" maxlength="24">
       <button id="wxSaveSpot" class="btn">Save spot</button>
@@ -304,14 +308,14 @@
   </div>
 </section>
 
-<script src="wxmap.js?v=0.9.24"></script>
-<script src="public-lists.js?v=0.9.24"></script>
-<script src="checklist.js?v=0.9.24"></script>
-<script src="samples/portcup-2026.js?v=0.9.24"></script>
-<script src="courses.js?v=0.9.24"></script>
-<script src="nor.js?v=0.9.24"></script>
-<script src="maneuvers.js?v=0.9.24"></script>
-<script src="track.js?v=0.9.24"></script>
-<script src="app.js?v=0.9.24"></script>
+<script src="wxmap.js?v=0.9.25"></script>
+<script src="public-lists.js?v=0.9.25"></script>
+<script src="checklist.js?v=0.9.25"></script>
+<script src="samples/portcup-2026.js?v=0.9.25"></script>
+<script src="courses.js?v=0.9.25"></script>
+<script src="nor.js?v=0.9.25"></script>
+<script src="maneuvers.js?v=0.9.25"></script>
+<script src="track.js?v=0.9.25"></script>
+<script src="app.js?v=0.9.25"></script>
 </body>
 </html>
