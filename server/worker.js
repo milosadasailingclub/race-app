@@ -37,6 +37,20 @@ Answer with ONLY one JSON object in exactly this structure, nothing before or af
 ${SCHEMA}`;
 }
 
+// Model: MODEL iz podešavanja, ili automatski najnoviji Sonnet sa liste modela koje tvoj nalog vidi
+let cachedModel = null;
+async function pickModel(env, force) {
+  if (env.MODEL) return env.MODEL;
+  if (cachedModel && !force) return cachedModel;
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/models?limit=100', { headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' } });
+    const j = await r.json();
+    const ids = (j.data || []).map(m => m.id);
+    cachedModel = ids.find(id => /sonnet/i.test(id)) || ids.find(id => /opus/i.test(id)) || ids[0] || null;
+  } catch (e) { cachedModel = null; }
+  return cachedModel;
+}
+
 function cors(origin) {
   const ok = ALLOWED.includes(origin);
   return { 'Access-Control-Allow-Origin': ok ? origin : ALLOWED[0], 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type', 'Vary': 'Origin' };
@@ -48,7 +62,7 @@ export default {
     const origin = req.headers.get('Origin') || '';
     if (req.method === 'OPTIONS') return new Response(null, { headers: cors(origin) });
     const url = new URL(req.url);
-    if (req.method === 'GET' && url.pathname === '/') return json({ ok: true, service: 'race-app-ai', model: env.MODEL || 'claude-sonnet-4-5' }, 200, origin);
+    if (req.method === 'GET' && url.pathname === '/') return json({ ok: true, service: 'race-app-ai', model: env.ANTHROPIC_API_KEY ? await pickModel(env) : 'no key' }, 200, origin);
     if (req.method !== 'POST' || url.pathname !== '/summarize') return json({ error: 'Not found' }, 404, origin);
     if (!ALLOWED.includes(origin)) return json({ error: 'Origin not allowed' }, 403, origin);
     if (!env.ANTHROPIC_API_KEY) return json({ error: 'Server has no API key yet' }, 500, origin);
@@ -65,12 +79,19 @@ export default {
     }
     if (!content.length) return json({ error: 'Unsupported file type (use PDF or a photo)' }, 400, origin);
     content.push({ type: 'text', text: prompt(name) });
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
+    const call = (model) => fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: env.MODEL || 'claude-sonnet-4-5', max_tokens: 4000, messages: [{ role: 'user', content }] })
+      body: JSON.stringify({ model, max_tokens: 4000, messages: [{ role: 'user', content }] })
     });
-    const out = await r.json().catch(() => ({}));
+    let model = await pickModel(env);
+    if (!model) return json({ error: 'No AI model available for this key' }, 502, origin);
+    let r = await call(model);
+    let out = await r.json().catch(() => ({}));
+    if (!r.ok && /model/i.test((out.error && out.error.message) || '') && !env.MODEL) {
+      model = await pickModel(env, true);   // model povučen ili preimenovan: uzmi ponovo listu i probaj još jednom
+      if (model) { r = await call(model); out = await r.json().catch(() => ({})); }
+    }
     if (!r.ok) return json({ error: 'AI error: ' + ((out.error && out.error.message) || r.status) }, 502, origin);
     const text = (out.content || []).filter(c => c.type === 'text').map(c => c.text).join('');
     const a = text.indexOf('{'), b = text.lastIndexOf('}');
