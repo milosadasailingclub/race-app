@@ -72,7 +72,7 @@
   }
 
   /* ---- AI sažetak preko našeg servera ---- */
-  var AI_URL_DEFAULT = '';
+  var AI_URL_DEFAULT = 'https://race-app-ai.milos-0e2.workers.dev';
   function aiUrl() { return (sget('aiUrl', '') || AI_URL_DEFAULT).replace(/\/+$/, ''); }
   var busy = false;
   function toB64(blob) { return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(String(r.result).split(',')[1]); }; r.onerror = function () { rej(r.error); }; r.readAsDataURL(blob); }); }
