@@ -204,30 +204,33 @@
     var SMP = window.RA_SAMPLE_EVENT, diagrams = (c.diagramUrls || (SMP && c.id === SMP.id ? SMP.diagramUrls : null) || []).map(function (u) { return { src: u, caption: 'From the SI (Addendum B)' }; }).concat(diaCache[c.id] || []);
     var k = S.key || {}, h = '';
     h += '<div class="nor-title"><b>' + esc(S.event || c.name) + '</b><span>' + esc([S.venue, S.dates].filter(Boolean).join(' · ')) + '</span></div>';
-    // Na vodi: VHF, prvi signal, kursevi (dijagram + redosled + signal), start, cilj. Ostalo sklopljeno.
+    // Na vodi: VHF + prvi signali (sitno), dijagrami krupno, signal kursa, redosled kao u originalu, start, cilj.
     var vhf = S.vhf || k.vhf, fw = S.first_warning || k.first_warning;
-    var tiles = [['VHF', vhf], ['First warning', fw]].filter(function (x) { return x[1]; });
-    if (tiles.length) h += '<div class="nor-tiles">' + tiles.map(function (x) { return '<div class="nor-tile' + (x[0] === 'VHF' ? ' big' : '') + '"><span>' + x[0] + '</span><b>' + esc(x[1]) + '</b></div>'; }).join('') + '</div>';
-    if (S.changes && S.changes.filter(Boolean).length) h += '<div class="nor-changes"><h3>Amendments</h3>' + list(S.changes) + '</div>';
+    if (vhf || fw) h += '<div class="nor-keys">' + (vhf ? '<div class="nor-vhf"><span>VHF</span><b>' + esc(vhf) + '</b></div>' : '') + (fw ? '<div class="nor-fw"><span>FIRST WARNING</span><b>' + esc(fw).replace(/ · /g, '<br>') + '</b></div>' : '') + '</div>';
     if ((S.courses && S.courses.length) || diagrams.length) {
-      var C = window.Courses, dh = diagrams.map(function (d) { return '<div class="nor-dia"><img src="' + d.src + '" alt="Course diagram"><span>' + esc(d.caption || 'From the SI / NoR') + '</span></div>'; }).join('');
-      h += sec('Courses', (S.course_signal ? '<p class="nor-csig">' + esc(S.course_signal) + '</p>' : '') + dh + (S.courses || []).map(function (co) {
+      var C = window.Courses, dh = diagrams.map(function (d, di) { return '<div class="nor-dia" data-zoom="' + di + '"><img src="' + d.src + '" alt="Course diagram"></div>'; }).join('');
+      h += sec('Courses', dh + (S.course_signal ? '<p class="nor-csig">' + esc(S.course_signal) + '</p>' : '') + (S.courses || []).map(function (co) {
         var pn = C && C.pennantFromName(co.name + ' ' + (co.signal || ''));
         return '<div class="nor-course"><div class="nor-cname">' + (pn ? C.pennant(pn) : '') + '<b>' + esc(co.name) + '</b>' + (co.signal ? '<span class="nor-cs">' + esc(co.signal) + '</span>' : '') + '</div><div class="nor-seq">' + (co.sequence || []).map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('<i>›</i>') + '</div>' + (co.notes ? '<p>' + esc(co.notes) + '</p>' : '') + '</div>';
       }).join(''));
     }
     h += sec('Start', txt(S.start)) + sec('Finish', txt(S.finish));
-    h += FC;
-    var more = '';
-    if (S.marks && S.marks.length) more += sec('Marks', '<ul>' + S.marks.map(function (m) { return '<li><b>' + esc(m.name) + '</b> ' + esc(m.description) + '</li>'; }).join('') + '</ul>');
-    if (S.schedule && S.schedule.length) more += sec('Schedule', S.schedule.map(function (d) { return '<p class="nor-day">' + esc(d.day) + '</p>' + list(d.items); }).join(''));
-    more += sec('Time limits', list(S.time_limits)) + sec('Signals', list(S.signals)) + sec('Penalties', txt(S.penalties || k.penalty)) + sec('Protests', txt(S.protests)) +
-      sec('Scoring', txt(S.scoring)) + sec('Safety / check-in', list(S.safety)) + sec('Equipment', list(S.equipment)) + sec('Other', list(S.other));
-    if (more) h += '<details class="nor-more"><summary>More from the documents</summary>' + more + '</details>';
-    h += '<div class="nor-open" id="norOpenDocs"></div>';
+    h += '<div class="nor-open" id="norOpenDocs"></div>' + FC;
     h += '<p class="small nor-foot">AI summary from ' + esc(c.docNames || 'your documents') + ' · ' + new Date(c.summaryAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) + '. Always check the official documents.</p>';
     box.innerHTML = h; bindFc(c);
-    docsFor(c.id).then(function (d) { var o = $('norOpenDocs'); if (o) o.innerHTML = d.map(function (x) { return '<button class="btn" data-open-doc="' + x.id + '">📄 ' + esc(x.name) + '</button>'; }).join(''); });
+    docsFor(c.id).then(function (d) {
+      var o = $('norOpenDocs'); if (!o) return;
+      var am = 0, lbl = function (x, i) { var n = x.name.toLowerCase(); if (d.length === 1) return 'READ FULL NOR / SI'; if (/amend|izmen|ammend/.test(n)) return 'AMENDMENT ' + (++am); if (/(^|[^a-z])si([^a-z]|$)|sailing.?instr|uputstv/.test(n)) return 'READ FULL SI'; if (/nor|notice|raspis|poziv/.test(n)) return 'READ FULL NOR'; return /image/.test(docType(x)) ? 'PHOTO ' + (i + 1) : 'DOCUMENT ' + (i + 1); };
+      o.innerHTML = d.map(function (x, i) { return '<button class="btn nor-read" data-open-doc="' + x.id + '">📄 ' + lbl(x, i) + '</button>'; }).join('');
+    });
+    box.querySelectorAll('[data-zoom]').forEach(function (el) { el.addEventListener('click', function () { zoomImg(el.querySelector('img').src); }); });
+  }
+  function zoomImg(src) {
+    var ov = document.createElement('div'); ov.className = 'nor-zoom';
+    ov.innerHTML = '<div class="nor-zoom-bar"><button class="btn" data-z="1">FIT</button><button class="btn" data-z="2">2×</button><button class="btn" data-z="3">3×</button><button class="btn" data-z="x">✕</button></div><div class="nor-zoom-sc"><img src="' + src + '"></div>';
+    document.body.appendChild(ov);
+    var img = ov.querySelector('img');
+    ov.addEventListener('click', function (e) { var z = e.target.getAttribute && e.target.getAttribute('data-z'); if (!z) return; if (z === 'x') ov.remove(); else img.style.width = (100 * +z) + '%'; });
   }
   function bindFc(c) {
     var sel = $('norFcModel'); if (!sel) return;

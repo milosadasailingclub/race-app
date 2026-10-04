@@ -404,3 +404,16 @@ html,body{touch-action:pan-x pan-y}
 .nor-more{margin:10px 0;border:1px solid var(--line);border-radius:12px;padding:8px 12px;flex-shrink:0}
 .nor-more summary{font-family:var(--f-num);font-weight:800;letter-spacing:.1em;color:var(--muted);padding:6px 0}
 .nor-open{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;flex-shrink:0}
+.nor-keys{display:flex;gap:8px;margin:8px 0;flex-shrink:0}
+.nor-vhf,.nor-fw{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px 12px;display:flex;flex-direction:column;justify-content:center}
+.nor-vhf{flex:0 0 auto;text-align:center}
+.nor-fw{flex:1;min-width:0}
+.nor-vhf span,.nor-fw span{font-size:11px;letter-spacing:.14em;color:var(--muted);font-weight:700}
+.nor-vhf b{font-family:var(--f-num);font-size:28px;line-height:1.1;color:var(--turq)}
+.nor-fw b{font-family:var(--f-num);font-size:17px;line-height:1.3;font-weight:700}
+.nor-dia{margin:0 -12px 10px;cursor:zoom-in}
+.nor-read{font-family:var(--f-num);font-weight:800;letter-spacing:.08em}
+.nor-zoom{position:fixed;inset:0;z-index:200;background:#05070a;display:flex;flex-direction:column}
+.nor-zoom-bar{display:flex;gap:8px;padding:10px;justify-content:flex-end}
+.nor-zoom-sc{flex:1;overflow:auto;touch-action:pan-x pan-y}
+.nor-zoom-sc img{width:100%;display:block;filter:invert(1) hue-rotate(180deg) brightness(.95) contrast(1.1)}
