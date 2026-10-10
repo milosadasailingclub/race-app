@@ -1,7 +1,7 @@
-/* The Race App — v0.9.31 */
+/* The Race App — v0.9.32 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.31';
+  var APP_VERSION = '0.9.32';
   // skriveni developer mod: 7 tapova na broj verzije (prikazuje trošak AI obrade samo vlasniku)
   (function () {
     var n = 0, t0 = 0, el = document.getElementById('version'); if (!el) return;
@@ -23,8 +23,9 @@
   };
   var cfg = {
     damp: store.get('damp', 2),
+    heelTau: store.get('heelTau', 0.35), // libela ima svoje (brže) prigušenje; histereza sprečava treptanje
     ledMirror: store.get('ledMirror', false),
-    heelStep: store.get('heelStepMig', false) ? store.get('heelStep', 5) : 5,  // v0.9.31: podrazumevano 5° po LED-u (manje osetljivo)
+    heelStep: store.get('heelStepMig', false) ? store.get('heelStep', 5) : 5,  // v0.9.32: podrazumevano 5° po LED-u (manje osetljivo)
     calOffset: store.get('calOffset', null),
     calTime: store.get('calTime', null),
     theme: store.get('theme', 'night'),
@@ -270,7 +271,7 @@
     // pa je podrazumevano obrnuto: + = nagib na desno (starboard), LED-ovi svetle na strani na koju je brod nagnut.
     val = -val; // senzor: + = nagib na desno (starboard), uvek za telefon okrenut ka posadi
     var t = now(), dt = S.lastT ? (t - S.lastT) / 1000 : 0; S.lastT = t;
-    var tau = TAU[cfg.damp] || 0;
+    var tau = cfg.heelTau;
     if (S.heel === null || tau === 0 || dt <= 0) S.heel = val;
     else S.heel += (val - S.heel) * (1 - Math.exp(-dt / tau));
   }
@@ -290,6 +291,12 @@
   function renderHeel(el) {
     var h = S.heel, step = cfg.heelStep;
     var n = h === null ? null : Math.min(6, Math.round(Math.abs(h) / step));
+    // histereza 1°: LED se ne pali/gasi dok nagib ne pređe granicu za bar 1° (brzo, a bez treptanja)
+    if (n !== null && el._n !== undefined && el._n !== null && Math.abs(n - el._n) === 1) {
+      var edge = (Math.min(n, el._n) + 0.5) * step;
+      if (Math.abs(Math.abs(h) - edge) < 1) n = el._n;
+    }
+    el._n = n;
     var side = h === null ? 0 : (h > 0 ? 1 : -1);
     if (cfg.ledMirror) side = -side; // samo prikaz: LED-ovi na suprotnoj strani
     el.querySelectorAll('i').forEach(function (d) {
@@ -1012,6 +1019,8 @@
   $('ledMirror').addEventListener('change', function (e) { cfg.ledMirror = e.target.checked; store.set('ledMirror', cfg.ledMirror); });
   if (!store.get('heelStepMig', false)) { store.set('heelStep', 5); store.set('heelStepMig', true); }
   $('heelStep').value = String(cfg.heelStep);
+  $('heelTau').value = String(cfg.heelTau);
+  $('heelTau').addEventListener('change', function (e) { cfg.heelTau = +e.target.value; store.set('heelTau', cfg.heelTau); });
   $('heelStep').addEventListener('change', function (e) { cfg.heelStep = +e.target.value; store.set('heelStep', cfg.heelStep); });
   function renderSettings() {
     $('dampVal').textContent = cfg.damp + (cfg.damp === 0 ? ' (off)' : ' (≈' + TAU[cfg.damp] + ' s)');
