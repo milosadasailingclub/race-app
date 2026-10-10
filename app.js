@@ -1,7 +1,7 @@
-/* The Race App — v0.9.29 */
+/* The Race App — v0.9.30 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.29';
+  var APP_VERSION = '0.9.30';
   // skriveni developer mod: 7 tapova na broj verzije (prikazuje trošak AI obrade samo vlasniku)
   (function () {
     var n = 0, t0 = 0, el = document.getElementById('version'); if (!el) return;
@@ -24,7 +24,7 @@
   var cfg = {
     damp: store.get('damp', 2),
     ledMirror: store.get('ledMirror', false),
-    heelStep: store.get('heelStep', 3),
+    heelStep: store.get('heelStepMig', false) ? store.get('heelStep', 5) : 5,  // v0.9.30: podrazumevano 5° po LED-u (manje osetljivo)
     calOffset: store.get('calOffset', null),
     calTime: store.get('calTime', null),
     theme: store.get('theme', 'night'),
@@ -1006,6 +1006,7 @@
   damp.addEventListener('input', function () { cfg.damp = +damp.value; store.set('damp', cfg.damp); renderSettings(); });
   $('ledMirror').checked = cfg.ledMirror;
   $('ledMirror').addEventListener('change', function (e) { cfg.ledMirror = e.target.checked; store.set('ledMirror', cfg.ledMirror); });
+  if (!store.get('heelStepMig', false)) { store.set('heelStep', 5); store.set('heelStepMig', true); }
   $('heelStep').value = String(cfg.heelStep);
   $('heelStep').addEventListener('change', function (e) { cfg.heelStep = +e.target.value; store.set('heelStep', cfg.heelStep); });
   function renderSettings() {

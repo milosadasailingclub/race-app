@@ -195,7 +195,7 @@
     return { type: 'FeatureCollection', features: f };
   }
   function heelBar(v) {
-    var h = '', n = v === null || v === undefined ? null : Math.min(6, Math.round(Math.abs(v) / 3)), side = v > 0 ? 1 : -1;
+    var st = +(JSON.parse(localStorage.getItem('ra.heelStep') || '5')) || 5, h = '', n = v === null || v === undefined ? null : Math.min(6, Math.round(Math.abs(v) / st)), side = v > 0 ? 1 : -1;
     for (var k = -6; k <= 6; k++) {
       var c = '';
       if (n !== null) { if (k === 0 && n === 0) c = 'g'; else if (k && Math.sign(k) === side && Math.abs(k) <= n) c = Math.abs(k) <= 2 ? 'g' : Math.abs(k) <= 4 ? 'w' : 'b'; }
