@@ -1,7 +1,7 @@
-/* The Race App — v0.9.30 */
+/* The Race App — v0.9.31 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.30';
+  var APP_VERSION = '0.9.31';
   // skriveni developer mod: 7 tapova na broj verzije (prikazuje trošak AI obrade samo vlasniku)
   (function () {
     var n = 0, t0 = 0, el = document.getElementById('version'); if (!el) return;
@@ -24,7 +24,7 @@
   var cfg = {
     damp: store.get('damp', 2),
     ledMirror: store.get('ledMirror', false),
-    heelStep: store.get('heelStepMig', false) ? store.get('heelStep', 5) : 5,  // v0.9.30: podrazumevano 5° po LED-u (manje osetljivo)
+    heelStep: store.get('heelStepMig', false) ? store.get('heelStep', 5) : 5,  // v0.9.31: podrazumevano 5° po LED-u (manje osetljivo)
     calOffset: store.get('calOffset', null),
     calTime: store.get('calTime', null),
     theme: store.get('theme', 'night'),
@@ -283,6 +283,10 @@
     }
   }
   buildHeel($('heel')); buildHeel($('heelSet'));
+  // boja po stepenima, ne po broju LED-a: kobilični brodovi ovog tipa su najbrži na ~15–16° (npr. North speed guide
+  // za Seascape 18: 15–16° na 12–16 kn, 18° na 20 kn). Zeleno do 16°, belo do 21°, crveno preko = preopterećen.
+  function heelCls(deg) { return deg <= 16 ? 'g' : deg <= 21 ? 'w' : 'b'; }
+  window.RA_heelCls = heelCls;
   function renderHeel(el) {
     var h = S.heel, step = cfg.heelStep;
     var n = h === null ? null : Math.min(6, Math.round(Math.abs(h) / step));
@@ -293,7 +297,7 @@
       if (n !== null) {
         if (k === 0 && n === 0) cls += ' g';
         else if (k !== 0 && Math.sign(k) === side && Math.abs(k) <= n) {
-          var a = Math.abs(k); cls += a <= 2 ? ' g' : (a <= 4 ? ' w' : ' b');
+          cls += ' ' + heelCls(Math.abs(k) * step);
         }
       }
       d.className = cls.trim();
@@ -485,7 +489,7 @@
   // Smer: +delta = okret u smeru kazaljke (CW). Na desnim uzdama (vetar s desne) lift = CW; na levim lift = CCW.
   // Uz vetar lift je povoljan (zeleno), niz vetar lift znači "idi u gybe" (crveno).
   // v0.9.3: brže zaključavanje (max ~15 s posle okreta), osa vetra iz halsova, nagib samo ako je telefon stabilno montiran
-  var LP = { TURN: 50, TURN_DOWN: 40, TURN_WIN: 20, COOLDOWN: 5, SPEED_OK: 0.9, PLATEAU: 0.03, HDG_STD: 6, MIN_ACC: 4, QUIET: 8, SOFT: 10, HARD: 15, LOCK_WIN: 3, HEEL: 4, HEEL_STD: 3, UP_MAX: 75, DOWN_MIN: 105 };
+  var LP = { TURN: 50, TURN_DOWN: 40, TURN_WIN: 20, COOLDOWN: 5, SPEED_OK: 0.9, PLATEAU: 0.03, HDG_STD: 6, MIN_ACC: 4, QUIET: 8, SOFT: 10, HARD: 15, LOCK_WIN: 3, HEEL: 4, HEEL_STD: 3, UP_MAX: 70, DOWN_MIN: 100 }; // orca: TWA ~35–45° (po COG do ~55°); krma: TWA ~135–150°, prihvatanje do ~100°
   var L = {
     hist: [], phase: 'idle', leg: cfg.startLeg || 'up', side: null,
     ref: null, refSrc: null, lastT: 0, turnT: 0, turnDir: 0, v0: null, heelBefore: null,
@@ -550,7 +554,7 @@
   setInterval(function () { if (L.axis !== null) { TAC.axHist.push({ t: now(), a: L.axis }); while (TAC.axHist.length && now() - TAC.axHist[0].t > 1800000) TAC.axHist.shift(); } }, 10000);
   function tacInfo() {
     var mean = TAC.axHist.length >= 6 ? cmean(TAC.axHist.map(function (e) { return e.a; })) : null;
-    return { axis: L.axis, ta: L.ta || (LW.res ? LW.res.ta : null), leg: L.leg, side: L.side, marks: TAC.marks, shift: mean !== null && L.axis !== null ? nrm(L.axis - mean) : null };
+    return { axis: L.axis, ta: L.ta || (LW.res ? LW.res.ta : null) || (L.axis !== null ? 85 : null) /* 85° po COG: tipično za kobilični brod dok se ne nauči */, leg: L.leg, side: L.side, marks: TAC.marks, shift: mean !== null && L.axis !== null ? nrm(L.axis - mean) : null };
   }
   function setMarkHere() {
     var f = S.lastFix; if (!f) { toast('No GPS position yet.'); return; }
