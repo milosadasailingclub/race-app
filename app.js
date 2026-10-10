@@ -1,7 +1,7 @@
-/* The Race App — v0.9.28 */
+/* The Race App — v0.9.29 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.28';
+  var APP_VERSION = '0.9.29';
   // skriveni developer mod: 7 tapova na broj verzije (prikazuje trošak AI obrade samo vlasniku)
   (function () {
     var n = 0, t0 = 0, el = document.getElementById('version'); if (!el) return;
@@ -595,8 +595,12 @@
     } else if (before !== null && after !== null) {
       // učenje ose vetra iz halsa / gybe-a
       var diff = Math.abs(nrm(after - before)), mid = cmean([before, after]), ax = null;
-      if (L.leg === 'up' && diff >= 60 && diff <= 130) { ax = mid; pushTA(diff); }
-      if (L.leg === 'down' && diff >= 35 && diff <= 130) ax = (mid + 180) % 360;
+      // samo pravi hals / gybe: kurs pre i posle na suprotnim stranama vetra. Orcanje ili obaranje na istom boku
+      // (npr. na krmi u refuli, Palić 8.10.) ne sme da uči osu.
+      var dirW = L.axis === null ? null : (L.leg === 'up' ? L.axis : (L.axis + 180) % 360);
+      var crossed = dirW === null || ((nrm(before - dirW) > 0) !== (nrm(after - dirW) > 0) && Math.abs(nrm(before - dirW)) > 8 && Math.abs(nrm(after - dirW)) > 8);
+      if (L.leg === 'up' && diff >= 60 && diff <= 130 && crossed) { ax = mid; pushTA(diff); }
+      if (L.leg === 'down' && diff >= 50 && diff <= 130 && crossed) ax = (mid + 180) % 360;
       // velik skok ose iz jednog manevra je sumnjiv: pomeri samo do pola (sledeći hals potvrđuje)
       if (ax !== null) {
         var jump = L.axis === null ? 0 : Math.abs(nrm(ax - L.axis));

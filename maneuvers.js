@@ -44,12 +44,13 @@
     });
     if (!list.length) return { list: [], axis: null, summary: null };
 
-    // 3) osa vetra: snimljena (nova verzija) ili procena iz traga
+    // 3) osa vetra. Snimljena osa je samo početna pretpostavka (live mod je mogao da je pogrešno nauči, npr. iz orcanja niz vetar).
+    //    Prava osa se računa iz samog traga: sredina kursa pre/posle halsa = pravac vetra; lokalno, iz najbližih halsova.
     var U = opt.axis !== undefined && opt.axis !== null ? opt.axis : null;
     var rec = list.filter(function (m) { return m.recAxis !== null; });
-    if (U === null && rec.length >= Math.max(1, list.length / 2)) U = null; // po manevru, niže
     var est = null;
-    if (U === null && rec.length < list.length / 2) {
+    if (rec.length) est = cmean(rec.map(function (m) { return m.recAxis; }));
+    else {
       // histogram dvostrukog ugla sredina manevara 60–130° (halsovi i gybe-ovi imaju sredinu na osi ili osi+180)
       var bins = new Array(36).fill(0);
       list.forEach(function (m) { if (m.turn >= 60 && m.turn <= 130) { var mid = cmean([m.pre, m.post]); bins[Math.floor(((2 * mid) % 360) / 10)] += 1; } });
@@ -59,21 +60,41 @@
         var A = cmean(mids.map(function (m) { return (2 * m) % 360; })) / 2; // osa mod 180
         // smer uz vetar: strana gde je nagib veći
         function heelScore(axis) { var hs = [], i2; for (i2 = 0; i2 < n; i2++) if (H[i2] !== null && P[i2][5] !== null && Math.abs(P[i2][5]) < 35 && Math.abs(nrm(H[i2] - axis)) < 70) hs.push(Math.abs(P[i2][5])); hs.sort(function (x, y) { return x - y; }); return hs.length ? hs[hs.length >> 1] : 0; }
-        var s1 = heelScore(A), s2 = heelScore((A + 180) % 360);
-        est = s1 >= s2 ? A : (A + 180) % 360;
-        // dorada samo iz halsova (sredina ≈ osa); gybe-ovi su na reci iskrivljeni strujom (COG ≠ pramac)
-        var tm = []; list.forEach(function (m) { if (m.turn >= 60 && m.turn <= 130) { var mid = cmean([m.pre, m.post]); if (Math.abs(nrm(mid - est)) < 40) tm.push(mid); } });
-        if (tm.length >= 2) est = cmean(tm);
+        est = heelScore(A) >= heelScore((A + 180) % 360) ? A : (A + 180) % 360;
       }
     }
-    function axisFor(m) { return U !== null ? U : (m.recAxis !== null ? m.recAxis : est); }
+    // halsovi (i gybe-ovi): oba kursa sa iste strane vetra, široko, i prelaz preko ose; sredina = osa (gybe: sredina + 180)
+    function axMids(ax, gy) {
+      var d = gy ? (ax + 180) % 360 : ax;
+      return list.filter(function (m) {
+        if (m.turn < 50 || m.turn > 130) return false;
+        var a = nrm(m.pre - d), b = nrm(m.post - d);
+        return Math.abs(a) < 90 && Math.abs(b) < 90 && Math.abs(a) > 12 && Math.abs(b) > 12 && (a > 0) !== (b > 0);
+      }).map(function (m) { var c = cmean([m.pre, m.post]); return { t: m.t, mid: gy ? (c + 180) % 360 : c }; });
+    }
+    // na reci struja krivi kurs niz vetar, pa gybe-ovi pomažu samo kad halsova ima manje od 2
+    function refs(ax) { var tm = axMids(ax, false); return tm.length >= 2 ? tm : tm.concat(axMids(ax, true)); }
+    var TM = est !== null ? refs(est) : [];
+    for (var it = 0; it < 2 && TM.length; it++) { est = cmean(TM.map(function (x) { return x.mid; })); TM = refs(est); }
+    function localAxis(m) {
+      if (U !== null) return U;
+      if (!TM.length) return est;
+      var near = TM.slice().sort(function (a, b) { return Math.abs(a.t - m.t) - Math.abs(b.t - m.t); }).slice(0, 3)
+        .filter(function (x, k) { return k === 0 || Math.abs(x.t - m.t) < 10 * 60000; });
+      var la = cmean(near.map(function (x) { return x.mid; }));
+      return Math.abs(nrm(la - est)) < 40 ? la : est;
+    }
+    function axisFor(m) { return localAxis(m); }
 
     // 4) klasifikacija i gubitak
     list.forEach(function (m, idx) {
       var Ua = axisFor(m); m.axis = Ua;
       if (Ua === null) { m.kind = 'turn'; } else {
         var rp = Math.abs(nrm(m.pre - Ua)), rq = Math.abs(nrm(m.post - Ua));
-        m.kind = rp < 90 && rq < 90 ? 'tack' : rp >= 90 && rq >= 90 ? 'gybe' : rp < 90 ? 'bearaway' : 'roundup';
+        // uz vetar < 80°, niz vetar > 95°; između (npr. orcanje na krmi u refuli) = običan okret bez ocene
+        var up1 = rp < 80, dn1 = rp > 95, up2 = rq < 80, dn2 = rq > 95;
+        m.kind = up1 && up2 ? 'tack' : dn1 && dn2 ? 'gybe' : up1 && dn2 ? 'bearaway' : dn1 && up2 ? 'roundup' : 'turn';
+        if (m.kind === 'tack' && (nrm(m.pre - Ua) > 0) === (nrm(m.post - Ua) > 0)) m.kind = 'turn'; // bez prelaza preko ose nije hals (gybe ne proveravamo: na reci struja krivi COG niz vetar)
       }
       var ts = T[m.s], nextS = idx + 1 < list.length ? T[list[idx + 1].s] : Infinity, prevE = idx > 0 ? T[list[idx - 1].e] : -Infinity;
       var entryIx = range(Math.max(ts - 12, prevE + 2), ts - 2);
@@ -114,7 +135,7 @@
       var bi2 = 0, wi = 0; a.forEach(function (m, x) { if (m.loss < a[bi2].loss) bi2 = x; if (m.loss > a[wi].loss) wi = x; });
       return { n: list.filter(function (m) { return m.kind === kind; }).length, avgLoss: avg(l), best: a[bi2], worst: a[wi], avgRec: avg(a.filter(function (m) { return m.rec !== null; }).map(function (m) { return m.rec; })) };
     }
-    return { list: list, axis: U !== null ? U : (rec.length ? rec[rec.length - 1].recAxis : est), summary: { tack: sum('tack'), gybe: sum('gybe') } };
+    return { list: list, axis: U !== null ? U : est, summary: { tack: sum('tack'), gybe: sum('gybe') } };
   }
   if (typeof window !== 'undefined') window.Maneuvers = { analyze: analyze };
   if (typeof module !== 'undefined') module.exports = { analyze: analyze };
