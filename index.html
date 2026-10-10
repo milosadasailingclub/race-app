@@ -10,11 +10,11 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/saira-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=0.9.32">
+<link rel="stylesheet" href="style.css?v=0.9.33">
 </head>
 <body class="theme-night">
 
-<div id="version" class="version">v0.9.32</div>
+<div id="version" class="version">v0.9.33</div>
 <div id="update" class="update hidden">New version available. Tap to update</div>
 <div id="toast" class="toast hidden"></div>
 
@@ -109,7 +109,12 @@
       <p>Coming soon: waypoints for distance races · bearing &amp; distance to next mark · favoured / unfavoured tack</p>
     </div>
 
-    <!-- 5. EVENT (NoR / SI, kursevi, prognoza) -->
+    <!-- 5. RACE WEATHER (prognoza za dane trke iz eventa, po satu) -->
+    <div class="page nor-page" id="p-wx">
+      <div id="rwBody"></div>
+    </div>
+
+    <!-- 6. NOR / SI (dokumenti, AI sažetak, kursevi) -->
     <div class="page nor-page" id="p-nor">
       <div class="nor-head">
         <select id="norEvent" aria-label="Event"></select>
@@ -171,7 +176,7 @@
     </div>
   </div>
 
-  <div class="dots" id="dots"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+  <div class="dots" id="dots"><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
   <button id="sensorsBtn" class="sensors-btn hidden">Tap to enable sensors</button>
 </section>
 
@@ -309,14 +314,14 @@
   </div>
 </section>
 
-<script src="wxmap.js?v=0.9.32"></script>
-<script src="public-lists.js?v=0.9.32"></script>
-<script src="checklist.js?v=0.9.32"></script>
-<script src="samples/portcup-2026.js?v=0.9.32"></script>
-<script src="courses.js?v=0.9.32"></script>
-<script src="nor.js?v=0.9.32"></script>
-<script src="maneuvers.js?v=0.9.32"></script>
-<script src="track.js?v=0.9.32"></script>
-<script src="app.js?v=0.9.32"></script>
+<script src="wxmap.js?v=0.9.33"></script>
+<script src="public-lists.js?v=0.9.33"></script>
+<script src="checklist.js?v=0.9.33"></script>
+<script src="samples/portcup-2026.js?v=0.9.33"></script>
+<script src="courses.js?v=0.9.33"></script>
+<script src="nor.js?v=0.9.33"></script>
+<script src="maneuvers.js?v=0.9.33"></script>
+<script src="track.js?v=0.9.33"></script>
+<script src="app.js?v=0.9.33"></script>
 </body>
 </html>

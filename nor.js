@@ -1,4 +1,4 @@
-/* The Race App — EVENT page (NoR / SI): store PDFs offline, AI summary via Claude (copy/paste, no API key yet) */
+/* The Race App — NOR / SI page: store PDFs offline, AI summary via Claude (copy/paste, no API key yet) */
 (function () {
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
@@ -260,7 +260,7 @@
   }
   function fcArrow(dir) { return '<span class="wx-arrow" style="transform:rotate(' + Math.round((dir + 180) % 360) + 'deg)">↑</span>'; }
   function fcHtml(ev) {
-    if (!ev.dateFrom || !ev.loc) return '<div class="nor-fc"><div class="nor-fc-head"><h3>FORECAST</h3></div><p class="nor-fc-note">Add the dates and place of the regatta (✎ → Event) to see the forecast.</p></div>';
+    if (!ev.dateFrom || !ev.loc) return '<div class="nor-fc"><div class="nor-fc-head"><h3>FORECAST</h3></div><p class="nor-fc-note">Add the dates and place of the regatta on the NOR / SI page (✎ → Event) to see the forecast.</p></div>';
     var today = new Date(); today.setHours(0, 0, 0, 0);
     var from = new Date(ev.dateFrom + 'T00:00:00'), to = new Date((ev.dateTo || ev.dateFrom) + 'T00:00:00'), last = new Date(today.getTime() + 15 * 864e5);
     var head = '<div class="nor-fc-head"><h3>FORECAST</h3><select id="norFcModel">' + FC_MODELS.map(function (m) { return '<option value="' + m[0] + '"' + ((ev.fcModel || 'best_match') === m[0] ? ' selected' : '') + '>' + m[1] + '</option>'; }).join('') + '</select></div>';
@@ -270,7 +270,7 @@
     if (!fc || !fc.hourly.temperature_2m || fc.model !== (ev.fcModel || 'best_match') || Date.now() - fc.at > 3600000) { loadFc(ev); if (!fc) return '<div class="nor-fc">' + head + '<p class="nor-fc-note">Loading forecast…</p></div>'; }
     var H = fc.hourly, rows = '', prev = '';
     for (var i = 0; i < H.time.length; i++) {
-      var t = H.time[i], hr = +t.slice(11, 13); if (hr < 8 || hr > 19 || hr % 2) continue;
+      var t = H.time[i], hr = +t.slice(11, 13); if (hr < 8 || hr > 19) continue; // po satu, 08–19
       var day = t.slice(0, 10); if (day < ev.dateFrom || day > (ev.dateTo || ev.dateFrom)) continue;
       if (day !== prev) { rows += '<div class="wx-day">' + new Date(day + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase() + '</div>'; prev = day; }
       var a = H.wind_speed_10m[i], g = H.wind_gusts_10m[i], d = H.wind_direction_10m[i], ratio = (a !== null && g) ? Math.max(0.15, Math.min(0.85, a / g)) : 0.5;
@@ -294,7 +294,7 @@
       // podrži i odgovore sa sufiksom modela (wind_speed_10m_icon_seamless)
       var H = j.hourly; ['wind_speed_10m', 'wind_gusts_10m', 'wind_direction_10m', 'precipitation_probability', 'precipitation', 'temperature_2m'].forEach(function (k) { if (!H[k]) { for (var kk in H) if (kk.indexOf(k + '_') === 0) H[k] = H[kk]; } if (!H[k]) H[k] = H.time.map(function () { return null; }); });
       saveEvents(events().map(function (x) { return x.id === ev.id ? Object.assign(x, { fc: { at: Date.now(), model: m, hourly: { time: H.time, wind_speed_10m: H.wind_speed_10m, wind_gusts_10m: H.wind_gusts_10m, wind_direction_10m: H.wind_direction_10m, precipitation_probability: H.precipitation_probability, precipitation: H.precipitation, temperature_2m: H.temperature_2m } } }) : x; }));
-      renderSummary();
+      renderRaceWx();
     }).catch(function (e) { fcBusy[ev.id] = false; var b = $('norFcBox'); if (b) b.innerHTML = '<div class="nor-fc"><p class="nor-fc-note">Forecast not available: ' + esc(e.message) + '</p></div>'; });
   }
 
@@ -309,11 +309,19 @@
   function list(arr) { arr = (arr || []).filter(function (x) { return x && String(x).trim(); }); return arr.length ? '<ul>' + arr.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : ''; }
   function sec(title, body) { return body ? '<div class="nor-sec"><h3>' + title + '</h3>' + body + '</div>' : ''; }
   function txt(s) { return s && String(s).trim() ? '<p>' + esc(s) + '</p>' : ''; }
+  // RACE WEATHER: posebna strana pre NOR / SI, prognoza samo za dane trke izabranog eventa, po satu
+  function renderRaceWx() {
+    var box = $('rwBody'); if (!box) return;
+    var c = cur();
+    if (!c) { box.innerHTML = '<div class="nor-empty"><h2>RACE WEATHER</h2><p>No event yet. Swipe to the NOR / SI page, tap <b>+</b> and add the event name, dates and place.</p></div>'; return; }
+    box.innerHTML = '<div class="nor-title"><b>' + esc((c.summary && c.summary.event) || c.name) + '</b><span>' + esc([c.loc && c.loc.name, c.dateFrom ? [c.dateFrom, c.dateTo && c.dateTo !== c.dateFrom ? c.dateTo : null].filter(Boolean).map(function (d) { return new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); }).join(' – ') : ''].filter(Boolean).join(' · ')) + '</span></div><div id="norFcBox">' + fcHtml(c) + '</div>';
+    bindFc(c);
+  }
   function renderSummary() {
     var c = cur(), box = $('norSummary');
-    if (!c) { box.innerHTML = '<div class="nor-empty"><h2>EVENT</h2><p>No event yet. Tap <b>+</b>, type the event name, add the NoR / SI and tap CREATE SUMMARY.</p></div>'; return; }
-    var S = c.summary, FC = '<div id="norFcBox">' + fcHtml(c) + '</div>';
-    if (!S) { box.innerHTML = '<div class="nor-empty"><h2>' + esc(c.name) + '</h2><p>' + (busy ? 'Making the summary…' : 'No summary yet. Add the NoR / SI below and tap Refresh summary.') + '</p></div>' + FC; bindFc(c); return; }
+    if (!c) { box.innerHTML = '<div class="nor-empty"><h2>NOR / SI</h2><p>No event yet. Tap <b>+</b>, type the event name, add the NoR / SI and tap CREATE SUMMARY.</p></div>'; return; }
+    var S = c.summary, FC = '';
+    if (!S) { box.innerHTML = '<div class="nor-empty"><h2>' + esc(c.name) + '</h2><p>' + (busy ? 'Making the summary…' : 'No summary yet. Add the NoR / SI below and tap Refresh summary.') + '</p></div>'; return; }
     var SMP = window.RA_SAMPLE_EVENT, diagrams = (c.diagramUrls || (SMP && c.id === SMP.id ? SMP.diagramUrls : null) || []).map(function (u) { return { src: u, caption: 'From the SI (Addendum B)' }; }).concat(diaCache[c.id] || []);
     var k = S.key || {}, h = '';
     h += '<div class="nor-title"><b>' + esc(S.event || c.name) + '</b><span>' + esc([S.venue, S.dates].filter(Boolean).join(' · ')) + '</span></div>';
@@ -330,7 +338,7 @@
     h += sec('Start', txt(S.start)) + sec('Finish', txt(S.finish));
     h += '<div class="nor-open" id="norOpenDocs"></div>' + FC;
     h += '<p class="small nor-foot">AI summary' + (c.usage && c.usage.in && sget('dev', false) ? ' (' + Math.round((c.usage.in + c.usage.out) / 1000) + 'k tokens ≈ $' + (c.usage.usd || 0).toFixed(2) + ')' : '') + ' · ' + new Date(c.summaryAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) + '. Always check the official documents.</p>';
-    box.innerHTML = h; bindFc(c);
+    box.innerHTML = h;
     docsFor(c.id).then(function (d) {
       var o = $('norOpenDocs'); if (!o) return;
       var am = 0, lbl = function (x, i) { var n = x.name.toLowerCase(); if (d.length === 1) return 'READ FULL NOR / SI'; if (/amend|izmen|ammend/.test(n)) return 'AMENDMENT ' + (++am); if (/(^|[^a-z])si([^a-z]|$)|sailing.?instr|uputstv/.test(n)) return 'READ FULL SI'; if (/nor|notice|raspis|poziv/.test(n)) return 'READ FULL NOR'; return /image/.test(docType(x)) ? 'PHOTO ' + (i + 1) : 'DOCUMENT ' + (i + 1); };
@@ -359,7 +367,7 @@
   }
   function bindFc(c) {
     var sel = $('norFcModel'); if (!sel) return;
-    sel.addEventListener('change', function () { saveEvents(events().map(function (x) { return x.id === c.id ? Object.assign(x, { fcModel: sel.value }) : x; })); renderSummary(); });
+    sel.addEventListener('change', function () { saveEvents(events().map(function (x) { return x.id === c.id ? Object.assign(x, { fcModel: sel.value }) : x; })); renderRaceWx(); });
   }
   var diaCache = {};
   function loadDiagrams(evId) {
@@ -378,7 +386,7 @@
     });
   }
   function render() {
-    renderEvents(); renderSummary();
+    renderEvents(); renderSummary(); renderRaceWx();
     var cc = cur(); if (cc) loadDiagrams(cc.id).then(function () { renderSummary(); if (manage) renderDiaList(); });
     // novi način sečenja dijagrama: ponovo iseci postojeće (bez novog AI poziva)
     if (cc && cc.summary && (cc.summary.diagram_pages || []).length && cc.diaVer !== DIA_VER) {
