@@ -457,3 +457,12 @@ body.trk-fs-on{overflow:hidden}
 .co-tiles em{display:block;font-style:normal;font-size:9px;letter-spacing:.1em;color:var(--muted);font-weight:700}
 .co-tiles b{font-family:var(--f-num);font-weight:800;font-size:18px}
 #coBody textarea{min-height:140px;resize:vertical}
+
+.co-tip{margin:0 0 8px;font-size:15px;line-height:1.4}
+.co-tbl-w{overflow-x:auto;margin:6px -4px}
+.co-tbl{border-collapse:collapse;width:100%;font-size:12px;font-variant-numeric:tabular-nums}
+.co-tbl th{font-size:10px;letter-spacing:.06em;color:var(--muted);text-align:left;padding:4px;border-bottom:1px solid var(--line);white-space:nowrap}
+.co-tbl td{padding:5px 4px;border-bottom:1px solid var(--line);white-space:nowrap}
+.co-tbl tr.me td{color:var(--turq);font-weight:700}
+.co-race summary{font-family:var(--f-num);font-weight:700;letter-spacing:.04em;cursor:pointer;padding:2px 0}
+.co-rgt{border:0;padding:0;background:none;font-size:20px}

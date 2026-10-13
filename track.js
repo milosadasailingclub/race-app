@@ -207,7 +207,9 @@
     getTrack(id).then(function (t) {
       if (!t || !t.points || !t.points.length) { toast('Empty track'); return; }
       view.id = id; view.pts = t.points; view.i = 0; view.t = t;
-      view.mnv = window.Maneuvers ? window.Maneuvers.analyze(t.raceStart ? t.points.filter(function (q) { return q[0] >= t.raceStart - 60000 && (!t.raceEnd || q[0] <= t.raceEnd); }) : t.points, { upAt: t.raceStart || null, flip: !!t.flip }) : null;
+      var mP = t.raceStart ? t.points.filter(function (q) { return q[0] >= t.raceStart - 60000 && (!t.raceEnd || q[0] <= t.raceEnd); }) : t.points;
+      var mO = t.axis !== undefined && t.axis !== null ? { axis: t.flip ? (t.axis + 180) % 360 : t.axis } : { upAt: t.raceStart || null, flip: !!t.flip };
+      view.mnv = window.Maneuvers ? window.Maneuvers.analyze(mP, mO) : null;
       view.cum = [0]; for (var ci = 1; ci < t.points.length; ci++) view.cum.push(view.cum[ci - 1] + dist(t.points[ci - 1], t.points[ci]) / 1852);
       $('trkTitle').textContent = 'REPLAY'; $('trkMore').classList.remove('hidden');
       var st = t.stats || stats(t.points);
