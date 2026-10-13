@@ -560,3 +560,4 @@ body.trk-fs-on{overflow:hidden}
 .prof-row input,.prof-col textarea{background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:14px}
 
 .prof-guide{margin:8px 0}.prof-guide summary{font-size:13px;color:var(--turq);cursor:pointer}.prof-guide .co-tbl td,.prof-guide .co-tbl th{padding:3px 5px;font-size:12px}
+.co-theory{border-left:3px solid #2fa3d6;padding-left:8px}

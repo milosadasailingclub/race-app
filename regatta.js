@@ -211,6 +211,7 @@
       return { legs: out, fleet: fleet, targets: tgt };
     }
     var lg = legs();
+    var SA = steadyAngles(lg.fleet, lg.legs, AX); rows.forEach(function (x) { var q = SA[x.id] || {}; x.upAng = q.upAng === undefined ? null : q.upAng; x.dnAng = q.dnAng === undefined ? null : q.dnAng; x.upSog = q.upSog === undefined ? null : q.upSog; x.dnSog = q.dnSog === undefined ? null : q.dnSog; });
     var boatInfo = {}; rows.forEach(function (x) { boatInfo[x.id] = { ta: x.ta, tackLoss: x.tackLoss, up: x.up, down: x.down }; });
     return { legs: lg.legs, targets: lg.targets, boatInfo: boatInfo, marks: marks.map(function (m) { return { lat: mp[m][0], lon: mp[m][1], top: topMarks.indexOf(m) >= 0, start: (startLn || []).indexOf(m) >= 0, fin: !!(fin && fin.ln && fin.ln.indexOf(m) >= 0), name: info.marks[m] || '' }; }), fleet: lg.fleet, gun: gun, end: tLimit, wind: Math.round(AX), course: Math.round(G), laps: laps, startLine: startLn, finishLine: fin ? fin.ln : null, rows: rows, boats: boats.length };
   }
@@ -228,6 +229,28 @@
   }
 
   /* ---- zbir prvenstva za jednog brod ---- */
+  /* ugao prema vetru dok brod jedri ravno (bez letanja, bova i starta), preko dna, po legu u odnosu na vetar tog lega.
+     upAng = ugao na orci (npr. 40°), dnAng = ugao na krmi (npr. 152°); upSog / dnSog = brzina na tim delovima */
+  function steadyAngles(fleet, legs, wind) {
+    var out = {}, ids = Object.keys(fleet || {}); if (!ids.length || !legs) return out;
+    var o = fleet[ids[0]][0], kx = 111320 * Math.cos(o[1] * Math.PI / 180), ky = 110540;
+    function nr(d) { return ((d % 360) + 540) % 360 - 180; }
+    ids.forEach(function (id) {
+      var P = fleet[id], U = { a: [], s: [] }, Dn = { a: [], s: [] };
+      legs.forEach(function (L) {
+        var b = L.boats[id]; if (!b || !b.t0) return; var ax = L.wind !== null && L.wind !== undefined ? L.wind : wind, S = L.up ? U : Dn;
+        var seg = P.filter(function (q) { return q[0] >= b.t0 + 20000 && q[0] <= b.t1 - 20000; });
+        for (var i = 5; i < seg.length - 5; i++) {
+          var p0 = seg[i - 5], p1 = seg[i + 5], m = seg[i], dx = (p1[2] - p0[2]) * kx, dy = (p1[1] - p0[1]) * ky, d = Math.hypot(dx, dy); if (d < 15) continue;
+          var c1 = Math.atan2((m[2] - p0[2]) * kx, (m[1] - p0[1]) * ky) * 180 / Math.PI, c2 = Math.atan2((p1[2] - m[2]) * kx, (p1[1] - m[1]) * ky) * 180 / Math.PI; if (Math.abs(nr(c1 - c2)) > 10) continue;
+          var cog = Math.atan2(dx, dy) * 180 / Math.PI, r = Math.abs(nr(cog - (L.up ? ax : ax + 180))); if (r <= 15 || r >= 75) continue;
+          S.a.push(r); S.s.push(d / ((p1[0] - p0[0]) / 1000) / 0.514444);
+        }
+      });
+      out[id] = { upAng: U.a.length > 8 ? +med(U.a).toFixed(1) : null, upSog: U.s.length > 8 ? +med(U.s).toFixed(2) : null, dnAng: Dn.a.length > 8 ? +(180 - med(Dn.a)).toFixed(1) : null, dnSog: Dn.s.length > 8 ? +med(Dn.s).toFixed(2) : null };
+    });
+    return out;
+  }
   function summary(races, me) {
     var keys = ['up', 'vmgUp', 'vmgDown', 'ta', 'tackLoss', 'start'], per = {};
     races.forEach(function (r) {
@@ -347,7 +370,7 @@
     return out;
   }
 
-  var api = { parseFleetCsv: parseFleetCsv, parseInfo: parseInfo, parseResults: parseResults, mapByResults: mapByResults, analyzeRace: analyzeRace, matchOwn: matchOwn, summary: summary };
+  var api = { steadyAngles: steadyAngles, parseFleetCsv: parseFleetCsv, parseInfo: parseInfo, parseResults: parseResults, mapByResults: mapByResults, analyzeRace: analyzeRace, matchOwn: matchOwn, summary: summary };
   if (typeof window !== 'undefined') window.Regatta = api;
   if (typeof module !== 'undefined') module.exports = api;
 })();

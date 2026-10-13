@@ -93,6 +93,20 @@
     function at(T) { var a = T.tws, i = 1; if (tws <= a[0]) i = 1; else if (tws >= a[a.length - 1]) i = a.length - 1; else while (a[i] < tws) i++; var f = Math.max(0, Math.min(1, (tws - a[i - 1]) / (a[i] - a[i - 1]))), o = {}; ['bs', 'vmg', 'heel', 'twa', 'turn'].forEach(function (k) { o[k] = T[k][i - 1] + (T[k][i] - T[k][i - 1]) * f; }); return o; }
     return { up: at(G.up), dn: at(G.dn) };
   }
+  // procena jačine vetra iz brzina najboljih brodova (obrnuto iz tabele brzina: orca i krma)
+  function estTws(G, upS, dnS) {
+    if (!G) return null;
+    function inv(T, v) { if (v === null || v === undefined) return null; var b = T.bs, w = T.tws; if (v <= b[0]) return w[0]; for (var i = 1; i < b.length; i++) if (v <= b[i] && b[i] > b[i - 1]) return w[i - 1] + (w[i] - w[i - 1]) * (v - b[i - 1]) / (b[i] - b[i - 1]); return w[w.length - 1]; }
+    var a = [inv(G.up, upS), inv(G.dn, dnS)].filter(function (x) { return x !== null; });
+    return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : null;
+  }
+  // teorija za trku: cilj iz tabele + koliko VMG gubiš na svom uglu (brzina na uglu iz polara)
+  function theory(c, tws, upAng) {
+    if (!c || !c.guide || !tws) return null;
+    var G = guideAt(c.guide, tws), r = { tws: tws, up: G.up, dn: G.dn, loss: null };
+    if (upAng && c.polar) { var v = speed(c.polar, tws, upAng), vmg = v * Math.cos(upAng * Math.PI / 180); r.loss = Math.max(-0.2, 1 - vmg / G.up.vmg); r.myVmg = vmg; r.myBs = v; }
+    return r;
+  }
   function drawPolar(cv, P) {
     var g = cv.getContext('2d'), W = cv.width = cv.clientWidth * 2, H = cv.height = cv.clientHeight * 2, cx = W * 0.1, cy = H / 2, R = Math.min(W * 0.86, H * 0.47);
     g.clearRect(0, 0, W, H);
@@ -136,7 +150,8 @@
     }
     if (c && GT) h += GT;
     box.innerHTML = h;
-    if (c && c.polar) drawPolar($('profPolar'), c.polar);
+    // Settings je skriven pri učitavanju (širina 0): crtaj kad canvas dobije veličinu
+    if (c && c.polar) { var cv = $('profPolar'), draw = function () { if (cv.clientWidth > 0) drawPolar(cv, c.polar); }; draw(); if (window.ResizeObserver) new ResizeObserver(draw).observe(cv); }
   }
   function bind() {
     var box = $('profBody'); if (!box) return;
@@ -165,6 +180,6 @@
       if (e.target.id === 'pcDel') { sset('customClasses', customs().filter(function (c) { return c.id !== cid; })); sset('boatClass', ''); render(); }
     });
   }
-  window.Profile = { classes: all, get: get, current: current, parsePolar: parsePolar, speed: speed, targets: targets, guideAt: guideAt, render: render };
+  window.Profile = { classes: all, get: get, current: current, parsePolar: parsePolar, speed: speed, targets: targets, guideAt: guideAt, estTws: estTws, theory: theory, render: render };
   if (document.readyState !== 'loading') { bind(); render(); } else document.addEventListener('DOMContentLoaded', function () { bind(); render(); });
 })();
