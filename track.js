@@ -183,7 +183,7 @@
       a.forEach(function (t) {
         var st = t.stats || stats(t.points || []);
         h += '<button class="cl-card" data-trk="' + t.id + '"><span class="cl-name">' + esc(t.name) + '</span><span class="cl-meta">' + st.dist.toFixed(2) + ' NM</span>' +
-          '<span class="trk-meta">' + fmtDur(st.dur) + ' · avg ' + st.avg.toFixed(1) + ' kn · max ' + st.max.toFixed(1) + ' kn' + (rec && rec.id === t.id ? ' · recording' : '') + '</span></button>';
+          '<span class="trk-meta">' + (t.imported ? '<b class="trk-imp">IMPORTED</b> ' : '') + fmtDur(st.dur) + ' · avg ' + st.avg.toFixed(1) + ' kn · max ' + st.max.toFixed(1) + ' kn' + (rec && rec.id === t.id ? ' · recording' : '') + '</span></button>';
       });
       $('trkBody').innerHTML = h;
     });

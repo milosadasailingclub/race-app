@@ -393,14 +393,14 @@
       var calc = function (id) {
         RT.sel = id; var box = $('coLegs');
         var done = function (o) { if (RT.sel !== id || !$('coLegs')) return; $('coLegs').innerHTML = legsTable(rg, r, id, o); window.RaceReplay.ideal(o, lbl(id)); };
-        if (RT.opt[id]) { done(RT.opt[id]); if (RT.model && RT.model.field && window.RaceReplay.field) window.RaceReplay.field(RT.model.field); return; }
+        if (RT.opt[id]) { done(RT.opt[id]); if (RT.model && RT.model.field && window.RaceReplay.field) window.RaceReplay.field(RT.model.field, RT.model.probe); return; }
         if (box) box.innerHTML = legsTable(rg, r, id, null); window.RaceReplay.ideal(null);
         if (!window.Router || !tg) { done(r.legs.map(function () { return null; })); return; }
         setTimeout(function () { // posle iscrtavanja; računanje traje 1–3 s na telefonu
           var race = { gun: r.gun, wind: r.wind, legs: r.legs, targets: tg, marks: r.marks }, o;
           try { if (!RT.model) RT.model = window.Router.buildModel(race, f.boats, raceInfo(r)); o = window.Router.optimal(race, f.boats, id, raceInfo(r), RT.model); } catch (e) { console.warn(e); o = r.legs.map(function () { return null; }); }
           RT.opt[id] = o; done(o);
-          if (RT.model && RT.model.field && window.RaceReplay.field) window.RaceReplay.field(RT.model.field);
+          if (RT.model && RT.model.field && window.RaceReplay.field) window.RaceReplay.field(RT.model.field, RT.model.probe);
         }, 60);
       };
       calc(sel);

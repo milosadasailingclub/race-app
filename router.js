@@ -17,7 +17,7 @@
     var tA = race.gun - 60000, tB = tA, x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
     ids.forEach(function (id) { fleet[id].forEach(function (q) { var p = xy(q[1], q[2]); x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); tB = Math.max(tB, q[0]); }); });
     x0 -= 200; y0 -= 200; x1 += 200; y1 += 200;
-    var DT = 20000, DS = 80, NT = Math.ceil((tB - tA) / DT) + 1, NX = Math.ceil((x1 - x0) / DS) + 1, NY = Math.ceil((y1 - y0) / DS) + 1;
+    var DT = 20000, DS = 60, NT = Math.ceil((tB - tA) / DT) + 1, NX = Math.ceil((x1 - x0) / DS) + 1, NY = Math.ceil((y1 - y0) / DS) + 1;
     // 1) smer vetra: uzorci (t, x, y, smer, težina)
     var dirS = [], spdRaw = [], GY = 75; // ugao halsovanja (krma) po COG, tipično 65–80°
     ids.forEach(function (id) {
@@ -49,7 +49,7 @@
       }
       return out;
     }
-    function smooth(arr) { return blur(blur(blur(arr, 0, 3), 1, 3), 2, 3); }
+    function smooth(arr) { return blur(blur(blur(arr, 0, 3), 1, 2.5), 2, 2.5); } // ~60 s, ~150 m
     // smer kao sin/cos
     var S1 = new Float64Array(NT * NX * NY), C1 = new Float64Array(NT * NX * NY), W1 = new Float64Array(NT * NX * NY);
     dirS.forEach(function (d) { var c = cell(d[0], d[1], d[2]), k = idx(c[0], c[1], c[2]); S1[k] += Math.sin(rad(d[3])) * d[4]; C1[k] += Math.cos(rad(d[3])) * d[4]; W1[k] += d[4]; });
@@ -87,19 +87,38 @@
     PS = smooth(PS); PW = smooth(PW);
     function pressAt(t, x, y) { var c = cell(t, x, y), k = idx(c[0], c[1], c[2]); var w = PW[k]; return w > 0.3 ? Math.max(0.7, Math.min(1.3, PS[k] / w)) : 1; }
     var toLL = function (p) { return [o[0] + p[1] / ky, o[1] + p[0] / kx]; };
-    // polje za mapu u trenutku t: ćelije pritiska (samo gde je bilo brodova) + strelice smera vetra
+    // polje za mapu u trenutku t: glatka slika pritiska (fejduje se tamo gde nije bilo brodova) + guste strelice smera vetra
+    var cv = null;
+    function alphaW(w) { var u = Math.max(0, Math.min(1, (w - 0.25) / 1.6)); return u * u * (3 - 2 * u); }
+    var RAMP = [[0.8, [59, 76, 192]], [0.9, [47, 163, 214]], [1.0, [53, 183, 121]], [1.1, [242, 193, 46]], [1.2, [232, 87, 47]]];
+    function rampC(p) { if (p <= RAMP[0][0]) return RAMP[0][1]; for (var i = 1; i < RAMP.length; i++) if (p <= RAMP[i][0]) { var f = (p - RAMP[i - 1][0]) / (RAMP[i][0] - RAMP[i - 1][0]), a = RAMP[i - 1][1], b = RAMP[i][1]; return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f]; } return RAMP[RAMP.length - 1][1]; }
     function field(t) {
-      var ti = Math.max(0, Math.min(NT - 1, Math.round((t - tA) / DT))), cells = [], arrows = [], h = DS / 2;
-      for (var xi = 0; xi < NX; xi++) for (var yi = 0; yi < NY; yi++) {
-        var k = idx(ti, xi, yi), w = PW[k]; if (w < 1.5) continue;
-        var x = x0 + xi * DS, y = y0 + yi * DS, pr = Math.max(0.7, Math.min(1.3, PS[k] / w));
-        var a = toLL([x - h, y - h]), b = toLL([x + h, y + h]);
-        cells.push({ type: 'Feature', properties: { p: +pr.toFixed(3) }, geometry: { type: 'Polygon', coordinates: [[[a[1], a[0]], [b[1], a[0]], [b[1], b[0]], [a[1], b[0]], [a[1], a[0]]]] } });
-        if (xi % 3 === 1 && yi % 3 === 1) { var c = toLL([x, y]); arrows.push({ type: 'Feature', properties: { r: Math.round((dirAt(t, x, y) + 180) % 360) }, geometry: { type: 'Point', coordinates: [c[1], c[0]] } }); }
+      var ti = Math.max(0, Math.min(NT - 1, Math.round((t - tA) / DT))), arrows = [], img = null;
+      if (typeof document !== 'undefined') {
+        if (!cv) { cv = document.createElement('canvas'); cv.width = NX; cv.height = NY; }
+        var g = cv.getContext('2d'), id = g.createImageData(NX, NY);
+        for (var xi = 0; xi < NX; xi++) for (var yi = 0; yi < NY; yi++) {
+          var k = idx(ti, xi, yi), w = PW[k], al = alphaW(w); if (al <= 0) continue;
+          var c = rampC(Math.max(0.7, Math.min(1.3, PS[k] / w))), o4 = ((NY - 1 - yi) * NX + xi) * 4;
+          id.data[o4] = c[0]; id.data[o4 + 1] = c[1]; id.data[o4 + 2] = c[2]; id.data[o4 + 3] = Math.round(al * 255);
+        }
+        g.putImageData(id, 0, 0); img = cv.toDataURL('image/png');
       }
-      return { key: ti, cells: { type: 'FeatureCollection', features: cells }, arrows: { type: 'FeatureCollection', features: arrows } };
+      for (var ax = 0; ax < NX; ax++) for (var ay = 0; ay < NY; ay++) {
+        var kk = idx(ti, ax, ay), aw = alphaW(PW[kk]); if (aw < 0.15) continue;
+        var x = x0 + ax * DS, y = y0 + ay * DS, cc = toLL([x, y]);
+        arrows.push({ type: 'Feature', properties: { r: Math.round((dirAt(t, x, y) + 180) % 360), a: +aw.toFixed(2) }, geometry: { type: 'Point', coordinates: [cc[1], cc[0]] } });
+      }
+      // uglovi slike (centri krajnjih ćelija ± pola ćelije)
+      var tl = toLL([x0 - DS / 2, y0 + (NY - 0.5) * DS]), tr = toLL([x0 + (NX - 0.5) * DS, y0 + (NY - 0.5) * DS]), br = toLL([x0 + (NX - 0.5) * DS, y0 - DS / 2]), bl = toLL([x0 - DS / 2, y0 - DS / 2]);
+      return { key: ti, img: img, coords: [[tl[1], tl[0]], [tr[1], tr[0]], [br[1], br[0]], [bl[1], bl[0]]], arrows: { type: 'FeatureCollection', features: arrows } };
     }
-    return { xy: xy, toLL: toLL, dirAt: dirAt, makePolar: makePolar, pressAt: pressAt, AX: AX, field: field };
+    // vetar u tački (za dodir na mapi)
+    function probe(t, lat, lon) {
+      var p = xy(lat, lon), c = cell(t, p[0], p[1]), k = idx(c[0], c[1], c[2]), w = PW[k];
+      return { dir: Math.round(dirAt(t, p[0], p[1])), p: w > 0.3 ? PS[k] / w : null, conf: alphaW(w) };
+    }
+    return { xy: xy, toLL: toLL, dirAt: dirAt, makePolar: makePolar, pressAt: pressAt, AX: AX, field: field, probe: probe };
   }
 
   // izohrone za jedan leg

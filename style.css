@@ -516,3 +516,16 @@ body.trk-fs-on{overflow:hidden}
 .rr-wkey i{flex:0 0 120px;height:8px;border-radius:4px;background:linear-gradient(90deg,#3b4cc0,#2fa3d6,#35b779,#f2c12e,#e8572f)}
 .rr-wkey small{flex-basis:100%;font-size:10px}
 .rr-wbtn[hidden],.rr-wkey[hidden]{display:none!important}
+
+.rr-pop .maplibregl-popup-content{background:rgba(5,7,10,.9);color:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 26px 8px 10px;display:flex;flex-direction:column;gap:2px;font-size:12px}
+.rr-pop .maplibregl-popup-content b{font-family:var(--f-num);font-size:15px;letter-spacing:.04em;color:var(--turq)}
+.rr-pop .maplibregl-popup-tip{border-top-color:rgba(5,7,10,.9)!important;border-bottom-color:rgba(5,7,10,.9)!important}
+.rr-pop .maplibregl-popup-close-button{color:#fff;font-size:18px;right:4px;top:2px}
+.rr-pq{color:var(--muted);font-size:11px}
+
+.rr-stage .rr-leg{position:static;max-width:none;background:var(--surface);display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;padding:8px 10px}
+.rr-stage .rr-leg b{grid-column:1/-1}
+.rr-stage .rr-leg span:last-child{grid-column:1/-1;color:var(--muted)}
+.rr-stage.fs .rr-chips{display:none}
+
+.trk-imp{display:inline-block;font:700 9px/14px var(--f-num);letter-spacing:.08em;color:#ffc83d;border:1px solid #ffc83d;border-radius:4px;padding:0 4px;margin-right:4px;vertical-align:1px}
