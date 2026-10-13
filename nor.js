@@ -325,26 +325,37 @@
   }
   function hereHtml(note) {
     var f = here.fc, today = ymd(new Date()), tom = ymd(new Date(Date.now() + 864e5));
-    var head = '<div class="nor-title"><b>WEATHER HERE</b><span>' + esc(here.loc ? here.loc.name : 'Finding your location…') + ' · today and tomorrow</span></div>' + (note ? '<p class="small">' + note + '</p>' : '');
+    var m = sget('wxModel', 'best_match');
+    var head = '<div class="nor-title"><b>WEATHER HERE</b><span>' + esc(here.loc ? here.loc.name : 'Finding your location…') + ' · today and tomorrow</span></div>' + (note ? '<p class="small">' + note + '</p>' : '') +
+      '<div class="nor-fc-head"><h3>FORECAST</h3><select id="rwModel">' + FC_MODELS.map(function (x) { return '<option value="' + x[0] + '"' + (m === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></div>';
     if (!f) return head + '<div class="nor-fc"><p class="nor-fc-note">Loading forecast…</p></div>';
     var rows = fcRows(f, today, tom) || '<p class="nor-fc-note">No forecast data.</p>';
     return head + '<div class="nor-fc"><div class="wx-row head"><span>TIME</span><span class="wx-wg-h"><span>WIND kn</span><span>GUST</span></span><span style="text-align:right">DIR</span><span style="text-align:right">°C / 💧</span></div>' + rows +
       '<p class="nor-fc-note">Updated ' + new Date(here.at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + '.</p></div>';
   }
   function loadHere() {
-    if (here.busy || (here.fc && Date.now() - here.at < 1800000)) return; here.busy = true;
+    var m = sget('wxModel', 'best_match');
+    if (here.busy || (here.fc && here.model === m && Date.now() - here.at < 1800000)) return; here.busy = true;
     hereLoc().then(function (loc) {
       if (!loc) throw new Error('no location'); here.loc = loc;
-      var u = 'https://api.open-meteo.com/v1/forecast?latitude=' + loc.lat.toFixed(4) + '&longitude=' + loc.lon.toFixed(4) + '&timezone=auto&wind_speed_unit=kn&forecast_days=2&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation_probability,precipitation,temperature_2m';
+      var u = 'https://api.open-meteo.com/v1/forecast?latitude=' + loc.lat.toFixed(4) + '&longitude=' + loc.lon.toFixed(4) + '&timezone=auto&wind_speed_unit=kn&forecast_days=2&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation_probability,precipitation,temperature_2m' + (m !== 'best_match' ? '&models=' + m : '');
       return fetch(u, { cache: 'no-store' }).then(function (r) { return r.json(); });
-    }).then(function (j) { here.busy = false; if (!j || !j.hourly) throw new Error('no data'); here.fc = j.hourly; here.at = Date.now(); renderRaceWx(); })
+    }).then(function (j) {
+      here.busy = false; if (!j || !j.hourly) throw new Error('no data');
+      var H = j.hourly; ['wind_speed_10m', 'wind_gusts_10m', 'wind_direction_10m', 'precipitation_probability', 'precipitation', 'temperature_2m'].forEach(function (k) { if (!H[k]) { for (var kk in H) if (kk.indexOf(k + '_') === 0) H[k] = H[kk]; } if (!H[k]) H[k] = H.time.map(function () { return null; }); });
+      here.fc = H; here.model = m; here.at = Date.now(); renderRaceWx();
+    })
       .catch(function () { here.busy = false; var b = $('rwBody'); if (b && !here.fc) b.innerHTML = hereHtml('Forecast not available (offline or no location).'); });
   }
   // RACE WEATHER: posebna strana pre NOR / SI, prognoza samo za dane trke izabranog eventa, po satu
   function renderRaceWx() {
     var box = $('rwBody'); if (!box) return;
     var c = cur();
-    if (!c || ended(c)) { box.innerHTML = hereHtml(c ? esc(c.name) + ' is over. For the next regatta add its NoR / SI on the next page.' : 'No event yet. Add the NoR / SI on the next page to see the race forecast.'); loadHere(); return; }
+    if (!c || ended(c)) {
+      box.innerHTML = hereHtml(c ? esc(c.name) + ' is over. For the next regatta add its NoR / SI on the next page.' : 'No event yet. Add the NoR / SI on the next page to see the race forecast.'); loadHere();
+      var ms = $('rwModel'); if (ms) ms.addEventListener('change', function () { sset('wxModel', ms.value); here.fc = null; renderRaceWx(); });
+      return;
+    }
     box.innerHTML = '<div class="nor-title"><b>' + esc((c.summary && c.summary.event) || c.name) + '</b><span>' + esc([c.loc && c.loc.name, c.dateFrom ? [c.dateFrom, c.dateTo && c.dateTo !== c.dateFrom ? c.dateTo : null].filter(Boolean).map(function (d) { return new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); }).join(' – ') : ''].filter(Boolean).join(' · ')) + '</span></div><div id="norFcBox">' + fcHtml(c) + '</div>';
     bindFc(c);
   }
