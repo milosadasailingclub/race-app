@@ -42,6 +42,7 @@
     var now = Date.now(), all = [];
     (sget('regattas', []) || []).forEach(function (rg) {
       if (!rg.me) return;
+      var cls = sget('boatClass', ''); if (cls && rg.cls && rg.cls !== cls) return; // samo moja klasa (stare regate bez oznake ulaze)
       rg.races.forEach(function (r) { if (r.rows.some(function (x) { return x.id === rg.me; })) all.push({ rg: rg, r: r }); });
     });
     if (ctx.mode === 'event' && ctx.day > 1) {
@@ -85,7 +86,7 @@
       out.push({ k: k, rank: r, N: N, races: A.races, first: A.firsts, score: N > 1 ? (r - 1) / (N - 1) : 0.5, mine: avg(A.mine), best: avg(A.best) });
     });
     // trening (bez flote): sopstveni brojevi
-    var tr = (sget('raceLog', []) || []).filter(function (e) { return !e.regatta && e.m && Date.now() - (e.m.start || 0) < 365 * DAY; });
+    var myCls = sget('boatClass', ''), tr = (sget('raceLog', []) || []).filter(function (e) { return !e.regatta && e.m && Date.now() - (e.m.start || 0) < 365 * DAY && (!myCls || !e.cls || e.cls === myCls); });
     var own = { n: tr.length, heel: avg(tr.map(function (e) { return e.m.heelUp; })), ta: avg(tr.map(function (e) { return e.m.ta; })), tackLoss: avg(tr.map(function (e) { return e.m.tackLoss; })), up: avg(tr.map(function (e) { return e.m.up; })), down: avg(tr.map(function (e) { return e.m.down; })) };
     return { src: R.src, races: R.list.length, regattas: R.list.reduce(function (s, x) { if (s.indexOf(x.rg.id) < 0) s.push(x.rg.id); return s; }, []).length, m: out, own: own };
   }
@@ -247,7 +248,8 @@
     context().then(function (ctx) {
       busy = false;
       var P = perf(ctx), I = perfItems(P), h = '<div class="nor-title"><b>BRIEF</b><span>' + (ctx.mode === 'event' ? esc(ctx.ev.name) + ' · day ' + ctx.day : 'Training' + (ctx.loc ? ' · ' + esc(ctx.loc.name) : '')) + '</span></div>';
-      if (P.races) h += '<p class="small">Based on ' + P.races + ' race' + (P.races > 1 ? 's' : '') + ' from ' + P.regattas + ' regatta' + (P.regattas > 1 ? 's' : '') + ' (' + P.src + ')' + (P.own.n ? ' and ' + P.own.n + ' training' + (P.own.n > 1 ? 's' : '') : '') + '.</p>';
+      var MC = window.Profile && window.Profile.current();
+      if (P.races) h += '<p class="small">' + (MC ? esc(MC.name) + ' · ' : '') + 'Based on ' + P.races + ' race' + (P.races > 1 ? 's' : '') + ' from ' + P.regattas + ' regatta' + (P.regattas > 1 ? 's' : '') + ' (' + P.src + ')' + (P.own.n ? ' and ' + P.own.n + ' training' + (P.own.n > 1 ? 's' : '') : '') + '.</p>';
       else if (P.own.n) h += '<p class="small">Based on ' + P.own.n + ' training' + (P.own.n > 1 ? 's' : '') + ' (last 12 months). Import regatta files in Debrief to compare with the fleet.</p>';
       else h += '<p class="small">No races or trainings yet. Record with Tracking or import files in Debrief, and the Brief fills in.</p>';
       if (I.F.length) h += '<div class="br-sec"><h3>WATCH TODAY</h3>' + I.F.map(function (x) { return card('focus', x.h, x.t); }).join('') + '</div>';

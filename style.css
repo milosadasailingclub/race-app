@@ -549,3 +549,12 @@ body.trk-fs-on{overflow:hidden}
 .wind-strip b{font-family:var(--f-num);font-size:26px;line-height:1.1}
 .nor-addnew{margin-top:10px;width:100%}
 .nor-old{opacity:.75}
+
+.prof-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0;font-size:14px}
+.prof-row input,.prof-row select{flex:0 1 60%;min-width:0}
+.prof-col{display:flex;flex-direction:column;gap:4px;margin:8px 0;font-size:13px;color:var(--muted)}
+.prof-col textarea{width:100%;font-family:ui-monospace,monospace;font-size:12px}
+.prof-polar{width:100%;max-width:320px;aspect-ratio:2/3;display:block;margin:6px auto}
+.prof-custom{border-top:1px solid var(--line);margin-top:8px;padding-top:6px}
+
+.prof-row input,.prof-col textarea{background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:14px}
