@@ -268,20 +268,24 @@
     if (from > last) return '<div class="nor-fc">' + head + '<p class="nor-fc-note">Forecast opens on ' + new Date(from.getTime() - 15 * 864e5).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' (16 days ahead). ' + esc(ev.loc.name || '') + '</p></div>';
     var fc = ev.fc;
     if (!fc || !fc.hourly.temperature_2m || fc.model !== (ev.fcModel || 'best_match') || Date.now() - fc.at > 3600000) { loadFc(ev); if (!fc) return '<div class="nor-fc">' + head + '<p class="nor-fc-note">Loading forecast…</p></div>'; }
-    var H = fc.hourly, rows = '', prev = '';
+    var rows = fcRows(fc.hourly, ev.dateFrom, ev.dateTo || ev.dateFrom);
+    if (!rows) rows = '<p class="nor-fc-note">This model has no data for these days or this place. Try another model.</p>';
+    var far = (to - today) / 864e5 > 7 ? ' More than 7 days ahead: treat as a trend, not exact.' : '';
+    return '<div class="nor-fc">' + head + '<div class="wx-row head"><span>TIME</span><span class="wx-wg-h"><span>WIND kn</span><span>GUST</span></span><span style="text-align:right">DIR</span><span style="text-align:right">°C / 💧</span></div>' + rows +
+      '<p class="nor-fc-note">' + esc(ev.loc.name || '') + ' · updated ' + new Date(fc.at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + '.' + far + '</p></div>';
+  }
+  function fcRows(H, d0, d1) {
+    var rows = '', prev = '';
     for (var i = 0; i < H.time.length; i++) {
       var t = H.time[i], hr = +t.slice(11, 13); if (hr < 8 || hr > 19) continue; // po satu, 08–19
-      var day = t.slice(0, 10); if (day < ev.dateFrom || day > (ev.dateTo || ev.dateFrom)) continue;
+      var day = t.slice(0, 10); if (day < d0 || day > d1) continue;
       if (day !== prev) { rows += '<div class="wx-day">' + new Date(day + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase() + '</div>'; prev = day; }
       var a = H.wind_speed_10m[i], g = H.wind_gusts_10m[i], d = H.wind_direction_10m[i], ratio = (a !== null && g) ? Math.max(0.15, Math.min(0.85, a / g)) : 0.5;
       rows += '<div class="wx-row"><span class="t">' + t.slice(11, 13) + ':00</span><span class="wx-wg" style="--r:' + Math.round(ratio * 100) + '%"><b>' + (a === null ? '–' : Math.round(a)) + '</b><b>' + (g === null ? '–' : Math.round(g)) + '</b></span>' +
         '<span class="wx-dir">' + (d === null || d === undefined ? '–' : ('00' + Math.round(d) % 360).slice(-3) + fcArrow(d)) + '</span>' +
         '<span class="wx-misc">' + (window.RA_rainTxt ? window.RA_rainTxt((H.precipitation_probability || [])[i], (H.precipitation || [])[i]) : '') + (H.temperature_2m && H.temperature_2m[i] !== null && H.temperature_2m[i] !== undefined ? Math.round(H.temperature_2m[i]) + '°' : '–') + '</span></div>';
     }
-    if (!rows) rows = '<p class="nor-fc-note">This model has no data for these days or this place. Try another model.</p>';
-    var far = (to - today) / 864e5 > 7 ? ' More than 7 days ahead: treat as a trend, not exact.' : '';
-    return '<div class="nor-fc">' + head + '<div class="wx-row head"><span>TIME</span><span class="wx-wg-h"><span>WIND kn</span><span>GUST</span></span><span style="text-align:right">DIR</span><span style="text-align:right">°C / 💧</span></div>' + rows +
-      '<p class="nor-fc-note">' + esc(ev.loc.name || '') + ' · updated ' + new Date(fc.at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + '.' + far + '</p></div>';
+    return rows;
   }
   function loadFc(ev) {
     if (fcBusy[ev.id]) return; fcBusy[ev.id] = true;
@@ -309,16 +313,51 @@
   function list(arr) { arr = (arr || []).filter(function (x) { return x && String(x).trim(); }); return arr.length ? '<ul>' + arr.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : ''; }
   function sec(title, body) { return body ? '<div class="nor-sec"><h3>' + title + '</h3>' + body + '</div>' : ''; }
   function txt(s) { return s && String(s).trim() ? '<p>' + esc(s) + '</p>' : ''; }
+  function ended(c) { return !!(c && c.dateFrom && (c.dateTo || c.dateFrom) < ymd(new Date())); }
+  // posle eventa (ili bez eventa): prognoza za mesto gde je uređaj (GPS, inače spot iz Weather)
+  var here = { fc: null, at: 0, busy: false, loc: null };
+  function hereLoc() {
+    var spots = sget('wxSpots', [{ id: 'ada', name: 'Ada Ciganlija', lat: 44.7872, lon: 20.3985 }]) || [], fb = spots[0] ? { name: spots[0].name, lat: spots[0].lat, lon: spots[0].lon } : null;
+    return new Promise(function (res) {
+      if (!('geolocation' in navigator)) return res(fb);
+      navigator.geolocation.getCurrentPosition(function (p) { res({ name: 'My location', lat: p.coords.latitude, lon: p.coords.longitude }); }, function () { res(fb); }, { timeout: 8000, maximumAge: 600000 });
+    });
+  }
+  function hereHtml(note) {
+    var f = here.fc, today = ymd(new Date()), tom = ymd(new Date(Date.now() + 864e5));
+    var head = '<div class="nor-title"><b>WEATHER HERE</b><span>' + esc(here.loc ? here.loc.name : 'Finding your location…') + ' · today and tomorrow</span></div>' + (note ? '<p class="small">' + note + '</p>' : '');
+    if (!f) return head + '<div class="nor-fc"><p class="nor-fc-note">Loading forecast…</p></div>';
+    var rows = fcRows(f, today, tom) || '<p class="nor-fc-note">No forecast data.</p>';
+    return head + '<div class="nor-fc"><div class="wx-row head"><span>TIME</span><span class="wx-wg-h"><span>WIND kn</span><span>GUST</span></span><span style="text-align:right">DIR</span><span style="text-align:right">°C / 💧</span></div>' + rows +
+      '<p class="nor-fc-note">Updated ' + new Date(here.at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + '.</p></div>';
+  }
+  function loadHere() {
+    if (here.busy || (here.fc && Date.now() - here.at < 1800000)) return; here.busy = true;
+    hereLoc().then(function (loc) {
+      if (!loc) throw new Error('no location'); here.loc = loc;
+      var u = 'https://api.open-meteo.com/v1/forecast?latitude=' + loc.lat.toFixed(4) + '&longitude=' + loc.lon.toFixed(4) + '&timezone=auto&wind_speed_unit=kn&forecast_days=2&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation_probability,precipitation,temperature_2m';
+      return fetch(u, { cache: 'no-store' }).then(function (r) { return r.json(); });
+    }).then(function (j) { here.busy = false; if (!j || !j.hourly) throw new Error('no data'); here.fc = j.hourly; here.at = Date.now(); renderRaceWx(); })
+      .catch(function () { here.busy = false; var b = $('rwBody'); if (b && !here.fc) b.innerHTML = hereHtml('Forecast not available (offline or no location).'); });
+  }
   // RACE WEATHER: posebna strana pre NOR / SI, prognoza samo za dane trke izabranog eventa, po satu
   function renderRaceWx() {
     var box = $('rwBody'); if (!box) return;
     var c = cur();
-    if (!c) { box.innerHTML = '<div class="nor-empty"><h2>RACE WEATHER</h2><p>No event yet. Swipe to the NOR / SI page, tap <b>+</b> and add the event name, dates and place.</p></div>'; return; }
+    if (!c || ended(c)) { box.innerHTML = hereHtml(c ? esc(c.name) + ' is over. For the next regatta add its NoR / SI on the next page.' : 'No event yet. Add the NoR / SI on the next page to see the race forecast.'); loadHere(); return; }
     box.innerHTML = '<div class="nor-title"><b>' + esc((c.summary && c.summary.event) || c.name) + '</b><span>' + esc([c.loc && c.loc.name, c.dateFrom ? [c.dateFrom, c.dateTo && c.dateTo !== c.dateFrom ? c.dateTo : null].filter(Boolean).map(function (d) { return new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); }).join(' – ') : ''].filter(Boolean).join(' · ')) + '</span></div><div id="norFcBox">' + fcHtml(c) + '</div>';
     bindFc(c);
   }
+  var showOld = false;
   function renderSummary() {
     var c = cur(), box = $('norSummary');
+    if (c && ended(c) && !showOld && !manage) {
+      box.innerHTML = '<div class="nor-empty"><h2>NOR / SI</h2><p>Next regatta? Add its notice of race and sailing instructions.</p><button class="btn primary nor-addnew" id="norAddNew">+ ADD NEW NOR / SI</button></div>' +
+        '<button class="cl-card nor-old" id="norShowOld"><span class="cl-name">' + esc((c.summary && c.summary.event) || c.name) + '</span><span class="cl-meta">ended</span><span class="co-sub">' + esc([c.loc && c.loc.name, new Date((c.dateTo || c.dateFrom) + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })].filter(Boolean).join(' · ')) + ' · tap to open</span></button>';
+      $('norAddNew').addEventListener('click', function () { $('norAddBtn').click(); });
+      $('norShowOld').addEventListener('click', function () { showOld = true; renderSummary(); });
+      return;
+    }
     if (!c) { box.innerHTML = '<div class="nor-empty"><h2>NOR / SI</h2><p>No event yet. Tap <b>+</b>, type the event name, add the NoR / SI and tap CREATE SUMMARY.</p></div>'; return; }
     var S = c.summary, FC = '';
     if (!S) { box.innerHTML = '<div class="nor-empty"><h2>' + esc(c.name) + '</h2><p>' + (busy ? 'Making the summary…' : 'No summary yet. Add the NoR / SI below and tap Refresh summary.') + '</p></div>'; return; }
@@ -394,7 +433,7 @@
       autoDiagrams(cc, cc.summary);
     }
     $('norSummary').classList.toggle('hidden', manage);
-    $('norAmendBox').classList.toggle('hidden', manage || !cur());
+    $('norAmendBox').classList.toggle('hidden', manage || !cur() || (ended(cur()) && !showOld));
     if (!events().length && !manage) $('norQuick').classList.remove('hidden');
     $('norManage').classList.toggle('hidden', !manage);
     $('norManageBtn').classList.toggle('on', manage);

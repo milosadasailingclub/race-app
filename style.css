@@ -547,3 +547,5 @@ body.trk-fs-on{overflow:hidden}
 .wind-strip div{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:4px 6px;text-align:center;display:flex;flex-direction:column}
 .wind-strip span{font-size:10px;letter-spacing:.08em;color:var(--muted)}
 .wind-strip b{font-family:var(--f-num);font-size:26px;line-height:1.1}
+.nor-addnew{margin-top:10px;width:100%}
+.nor-old{opacity:.75}
