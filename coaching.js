@@ -189,10 +189,12 @@
   function importRegatta(files) {
     var R = window.Regatta; if (!R) return Promise.reject(new Error('Regatta module missing'));
     return Promise.all(files.map(function (f) { return readFile(f).then(function (t) { return { f: f, t: t }; }); })).then(function (all) {
-      var info = { competitors: {}, marks: {}, event: null }, races = [];
+      var info = { competitors: {}, marks: {}, event: null }, races = [], res = null;
       all.forEach(function (x) {
         var D = /^\s*[{\[]/.test(x.t) ? null : R.parseFleetCsv(x.t);
         if (D) { races.push({ name: x.f.name, D: D }); return; }
+        var rs = /^\s*[{\[]/.test(x.t) ? null : R.parseResults(x.t);
+        if (rs) { res = rs; return; }
         var inf = R.parseInfo(x.t); Object.assign(info.competitors, inf.competitors); Object.assign(info.marks, inf.marks); if (inf.event) info.event = inf.event;
       });
       if (!races.length) throw new Error('No race files found (CSV with a device column for every boat)');
@@ -204,6 +206,7 @@
       var ev = info.event || {}, rg = { id: 'rg' + out[0].a.gun, name: ev.name || ('Regatta ' + new Date(out[0].a.gun).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })),
         place: ev.location || '', comp: info.competitors, me: null, created: Date.now(),
         races: out.map(function (x, i) { return { n: i + 1, gun: x.a.gun, end: x.a.end, wind: x.a.wind, laps: x.a.laps, rows: x.a.rows }; }) };
+      if (res) applyResults(rg, res);
       rg.races.forEach(function (r) { r.rows.forEach(function (row) { if (rg.comp[row.id]) { row.name = rg.comp[row.id].name; row.sail = rg.comp[row.id].sail; } }); });
       saveRegattas(regattas().filter(function (x) { return x.id !== rg.id; }).concat([rg]));
       regPending = { id: rg.id, out: out };
@@ -211,10 +214,40 @@
         if (me) return setMe(rg.id, me);
         // izbor broda
         var ids = {}; rg.races.forEach(function (r) { r.rows.forEach(function (x) { ids[x.id] = 1; }); });
-        $('coRegPick').innerHTML = '<p class="small">' + rg.races.length + ' races found. Which boat is yours?</p>' + Object.keys(ids).map(function (id) { return '<button class="cl-card" data-me="' + id + '"><span class="cl-name">' + esc(nameOf(rg, id)) + '</span></button>'; }).join('');
+        $('coRegPick').innerHTML = '<p class="small">' + rg.races.length + ' races found. Which boat is yours?' + (Object.keys(rg.comp).length ? '' : ' Boats have no names yet: add the official results (with the race files, or later on the regatta page) and they get named.') + '</p>' + Object.keys(ids).map(function (id) { return '<button class="cl-card" data-me="' + id + '"><span class="cl-name">' + esc(nameOf(rg, id)) + '</span></button>'; }).join('');
         toast('Pick your boat');
       });
     });
+  }
+  // zvanični rezultati: imena brodova (ako nema spiska takmičara) i zvanični plasman po trci
+  function applyResults(rg, res) {
+    var R = window.Regatta, m = R.mapByResults(rg.races, res);
+    if (!Object.keys(rg.comp || {}).length) { rg.comp = {}; Object.keys(m).forEach(function (d) { rg.comp[d] = { name: m[d].name, sail: m[d].sail, conf: m[d].conf }; }); }
+    var bySail = {}; res.boats.forEach(function (b) { bySail[String(b.sail).replace(/\D/g, '')] = b; });
+    rg.races.forEach(function (r) {
+      r.rows.forEach(function (row) {
+        var c = rg.comp[row.id], b = c ? bySail[String(c.sail).replace(/\D/g, '')] : null;
+        if (b && b.places[r.n] !== undefined) row.offPlace = b.places[r.n]; // null = DNF / RET / ...
+      });
+    });
+    rg.hasResults = true;
+  }
+  function resultsInto(rgId, txt) {
+    var res = window.Regatta.parseResults(txt || '');
+    if (!res) { toast('Could not read the results. Copy the whole table including the header row (R1, R2, …).', null, null, 5000); return; }
+    var all = regattas(), rg = all.filter(function (x) { return x.id === rgId; })[0]; if (!rg) return;
+    applyResults(rg, res);
+    rg.races.forEach(function (r) { r.rows.forEach(function (row) { if (rg.comp[row.id]) { row.name = rg.comp[row.id].name; row.sail = rg.comp[row.id].sail; } }); });
+    var my = (sget('myName', '') || '').toLowerCase();
+    if (!rg.me && my) { var hit = Object.keys(rg.comp).filter(function (id) { return rg.comp[id].name.toLowerCase().indexOf(my.split(' ').pop()) >= 0; }); if (hit.length === 1) rg.me = hit[0]; }
+    saveRegattas(all);
+    // Race Log: zvanični plasman
+    if (rg.me) saveEntries(entries().map(function (e) {
+      if (e.regatta !== rg.id) return e; var m = / Race (\d+)$/.exec(e.title || ''); if (!m) return e;
+      var r = rg.races[+m[1] - 1], row = r && r.rows.filter(function (y) { return y.id === rg.me; })[0];
+      if (row && row.offPlace !== undefined) e.result = (row.offPlace === null ? 'DNF / RET' : row.offPlace) + ' of ' + r.rows.length; return e;
+    }));
+    toast('Results added: ' + res.boats.length + ' boats'); render();
   }
   // sopstveni brod: po imenu (zapamćeno) ili po tragu snimljenom aplikacijom u isto vreme
   function findMe(rg, out) {
@@ -241,7 +274,7 @@
       var P = (x.D[me] || []).filter(function (q) { return q[0] >= r.gun - 60000 && q[0] <= fin + 60000; }).map(function (q) { return [q[0], q[1], q[2], q[3], q[4], null, null]; });
       if (P.length < 20) return;
       var t = { id: 't' + r.gun + 'r' + me, name: rg.name + ' · Race ' + r.n, start: P[0][0], end: P[P.length - 1][0], points: P, imported: true,
-        raceStart: r.gun, raceEnd: fin, axis: r.wind, place: row.place, fleet: r.rows.length };
+        raceStart: r.gun, raceEnd: fin, axis: r.wind, place: row.offPlace !== undefined ? row.offPlace : row.place, fleet: r.rows.length };
       t.stats = window.Track.stats(P);
       p = p.then(function () { return window.Track.put(t); }).then(function () { return addFromTrack(t.id, { silent: true, place: rg.place || null, regatta: rg.id }); });
     });
@@ -264,11 +297,13 @@
     h += '<div class="co-sec"><h3>ALL RACES (AVERAGE)</h3>' + tbl(S.list, [['Boat', function (x) { return esc(nameOf(rg, x.id)); }], ['Up kn', function (x) { return n2(x.up); }], ['VMG up', function (x) { return n2(x.vmgUp); }], ['VMG dn', function (x) { return n2(x.vmgDown); }], ['TA°', function (x) { return n0(x.ta); }], ['Tack m', function (x) { return n1(x.tackLoss); }], ['Start s', function (x) { return n0(x.start); }]]) + '</div>';
     rg.races.forEach(function (r) {
       var mine = r.rows.filter(function (x) { return x.id === me; })[0];
-      h += '<details class="co-sec co-race"><summary>RACE ' + r.n + ' · ' + timeTxt(r.gun) + ' · wind ' + d3(r.wind) + '° · ' + r.laps + ' laps' + (mine ? ' · you ' + (mine.place || 'not finished') : '') + '</summary>' +
-        tbl(r.rows, [['#', function (x) { return x.place || '–'; }], ['Boat', function (x) { return esc(nameOf(rg, x.id)); }], ['Time', function (x) { return fmtT(x.elapsed) + (x.finished ? '' : '*'); }], ['Start', function (x) { return x.start === null ? '–' : '+' + Math.round(x.start) + 's'; }], ['Up', function (x) { return n1(x.up) + '/' + n1(x.vmgUp); }], ['Dn', function (x) { return n1(x.down) + '/' + n1(x.vmgDown); }], ['TA', function (x) { return n0(x.ta); }], ['Tacks', function (x) { return x.tacks + (x.tackLoss !== null ? ' (' + n1(x.tackLoss) + ')' : ''); }]]) +
+      h += '<details class="co-sec co-race"><summary>RACE ' + r.n + ' · ' + timeTxt(r.gun) + ' · wind ' + d3(r.wind) + '° · ' + r.laps + ' laps' + (mine ? ' · you ' + ((mine.offPlace !== undefined ? mine.offPlace : mine.place) || 'not finished') : '') + '</summary>' +
+        tbl(r.rows.slice().sort(function (a, b) { var pa = a.offPlace !== undefined ? a.offPlace : a.place, pb = b.offPlace !== undefined ? b.offPlace : b.place; return (pa || 99) - (pb || 99); }), [['#', function (x) { var p = x.offPlace !== undefined ? x.offPlace : x.place; return p ? p : (x.offPlace === null ? 'DNF' : '–'); }], ['Boat', function (x) { return esc(nameOf(rg, x.id)); }], ['Time', function (x) { return fmtT(x.elapsed) + (x.finished ? '' : '*'); }], ['Start', function (x) { return x.start === null ? '–' : '+' + Math.round(x.start) + 's'; }], ['Up', function (x) { return n1(x.up) + '/' + n1(x.vmgUp); }], ['Dn', function (x) { return n1(x.down) + '/' + n1(x.vmgDown); }], ['TA', function (x) { return n0(x.ta); }], ['Tacks', function (x) { return x.tacks + (x.tackLoss !== null ? ' (' + n1(x.tackLoss) + ')' : ''); }]]) +
         (r.rows.some(function (x) { return !x.finished; }) ? '<p class="small">* not finished inside the file.</p>' : '') + '</details>';
     });
-    h += '<p class="small">Place = order over the finish line found in the tracks. Up / Dn = speed / VMG in knots. Tacks (m) = median meters lost per tack.</p>' +
+    h += '<div class="co-sec"><h3>RESULTS</h3><p class="small">' + (rg.hasResults ? 'Official results added: boats named and places from the results.' : 'Add the official results to name the boats and use the official places. Copy the results table from the results web page and paste it here, or pick the file (CSV / TXT / HTML).') + '</p>' +
+      '<textarea id="coResTxt" rows="4" placeholder="Paste the results table here"></textarea><div class="row"><button class="btn" id="coResGo">Use pasted results</button><label class="btn co-imp">Results file<input type="file" id="coResFile" accept=".csv,.txt,.tsv,.html,.htm" hidden></label></div></div>';
+    h += '<p class="small">Place = ' + (rg.hasResults ? 'official result' : 'order over the finish line found in the tracks') + '. Names: ' + (rg.hasResults && Object.keys(rg.comp).some(function (k) { return rg.comp[k].conf !== undefined; }) ? 'matched from the finish order of every race to the results' : 'from the competitor list') + '. Up / Dn = speed / VMG in knots. Tacks (m) = median meters lost per tack.</p>' +
       '<div class="row"><button class="btn danger" id="coRgDel">Delete regatta</button></div>';
     $('coBody').innerHTML = h;
   }
@@ -337,6 +372,7 @@
     if (b.hasAttribute('data-rg')) { cur = 'rg:' + b.getAttribute('data-rg'); render(); window.scrollTo(0, 0); return; }
     if (b.hasAttribute('data-me')) { var rgP = regPending; setMe(rgP ? rgP.id : null, b.getAttribute('data-me')); return; }
     if (b.hasAttribute('data-me2')) { var all2 = regattas(), r2 = all2.filter(function (x) { return 'rg:' + x.id === cur; })[0]; if (r2) { r2.me = b.getAttribute('data-me2'); saveRegattas(all2); if (r2.comp[r2.me]) sset('myName', r2.comp[r2.me].name); render(); } return; }
+    if (b.id === 'coResGo') { var tx = ($('coResTxt') || {}).value || ''; resultsInto(cur.slice(3), tx); return; }
     if (b.id === 'coRgDel') { var rid = cur.slice(3); toast('Delete this regatta? Race Log entries stay.', 'Delete', function () { saveRegattas(regattas().filter(function (x) { return x.id !== rid; })); cur = null; renderList(); }, 4000); return; }
     if (b.id === 'coFlip') {
       var ef = entries().filter(function (x) { return x.id === cur; })[0]; if (!ef) return;
@@ -365,6 +401,7 @@
         importRegatta(fs).catch(function (err) { toast('Import failed: ' + err.message, null, null, 5000); });
         return;
       }
+      if (ev.target.id === 'coResFile' && ev.target.files.length) { var rid = cur.slice(3); ev.target.files[0].text().then(function (t) { resultsInto(rid, t); }); return; }
       if (ev.target.id !== 'coImport' || !ev.target.files.length) return;
       var f = ev.target.files[0]; toast('Importing ' + f.name + '…');
       importFile(f).catch(function (err) { toast('Import failed: ' + err.message, null, null, 5000); });

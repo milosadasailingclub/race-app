@@ -205,7 +205,57 @@
     return { list: list, tips: tips };
   }
 
-  var api = { parseFleetCsv: parseFleetCsv, parseInfo: parseInfo, analyzeRace: analyzeRace, matchOwn: matchOwn, summary: summary };
+  /* ---- zvanični rezultati (kopirano sa sajta / Sailwave HTML / CSV) ---- */
+  function parseResults(txt) {
+    var rows = [];
+    if (/<table/i.test(txt) && typeof DOMParser !== 'undefined') {
+      var doc = new DOMParser().parseFromString(txt, 'text/html');
+      Array.prototype.forEach.call(doc.querySelectorAll('tr'), function (tr) { rows.push(Array.prototype.map.call(tr.querySelectorAll('th,td'), function (c) { return c.textContent.replace(/\s+/g, ' ').trim(); })); });
+    } else {
+      txt.split(/\r?\n/).forEach(function (l) {
+        if (!l.trim()) return;
+        var c = l.indexOf('\t') >= 0 ? l.split('\t') : l.indexOf(';') >= 0 ? l.split(';') : l.indexOf(',') >= 0 && !/\d,\d/.test(l) ? l.split(',') : l.split(/\s{2,}/);
+        rows.push(c.map(function (x) { return x.replace(/"/g, '').trim(); }));
+      });
+    }
+    var hi = -1, H = null;
+    rows.some(function (r, i) { var low = r.map(function (x) { return x.toLowerCase(); }); if (low.some(function (x) { return /^r\d+$/.test(x); }) && low.some(function (x) { return /sail|helm|boat|skipper|crew/.test(x); })) { hi = i; H = low; return true; } return false; });
+    if (hi < 0) return null;
+    function col(re) { for (var k = 0; k < H.length; k++) if (re.test(H[k])) return k; return -1; }
+    var cSail = col(/sail\s*no|^sail|^no\.?$|^nr/), cHelm = col(/helm|skipper|name/), cCrew = col(/crew/), cBoat = col(/^boat|yacht/), RC = [];
+    H.forEach(function (h, k) { var m = /^r(\d+)$/.exec(h); if (m) RC.push([+m[1], k]); });
+    var boats = [];
+    rows.slice(hi + 1).forEach(function (r) {
+      if (r.length < RC.length + 2) return;
+      var places = {};
+      RC.forEach(function (rc) {
+        var v = (r[rc[1]] || '').replace(/[()]/g, ' ').trim(), num = parseFloat(v);
+        places[rc[0]] = !isNaN(num) && !/DNF|DNS|DNC|RET|DSQ|OCS|BFD|UFD|DNE|RAF|NSC/i.test(v) ? num : null;
+      });
+      var sail = cSail >= 0 ? r[cSail] : '', helm = cHelm >= 0 ? r[cHelm] : '';
+      if (!sail && !helm) return;
+      boats.push({ sail: sail, helm: helm, crew: cCrew >= 0 ? r[cCrew] : '', boat: cBoat >= 0 ? r[cBoat] : '', places: places });
+    });
+    return boats.length ? { boats: boats, races: RC.map(function (x) { return x[0]; }) } : null;
+  }
+  // uređaj -> brod iz rezultata: redosled na cilju u svakoj trci glasa, pobeđuje najčešće povezivanje
+  function mapByResults(races, res) {
+    var votes = {};
+    races.forEach(function (r, i) {
+      var n = i + 1, fin = r.rows.filter(function (x) { return x.finished; }).sort(function (a, b) { return a.elapsed - b.elapsed; });
+      var off = res.boats.filter(function (b) { return b.places[n] !== null && b.places[n] !== undefined; }).sort(function (a, b) { return a.places[n] - b.places[n]; });
+      fin.forEach(function (x, k) { var b = off[k]; if (!b) return; var v = votes[x.id] || (votes[x.id] = {}); v[b.sail] = (v[b.sail] || 0) + 1; });
+    });
+    var pairs = []; Object.keys(votes).forEach(function (d) { Object.keys(votes[d]).forEach(function (s) { pairs.push([votes[d][s], d, s]); }); });
+    pairs.sort(function (a, b) { return b[0] - a[0]; });
+    var map = {}, used = {};
+    pairs.forEach(function (p) { if (map[p[1]] || used[p[2]]) return; var tot = 0; Object.keys(votes[p[1]]).forEach(function (s) { tot += votes[p[1]][s]; }); map[p[1]] = { sail: p[2], conf: p[0] / tot }; used[p[2]] = 1; });
+    var out = {};
+    Object.keys(map).forEach(function (d) { var b = res.boats.filter(function (x) { return x.sail === map[d].sail; })[0]; out[d] = { name: b.helm + (b.crew ? ' / ' + b.crew : ''), helm: b.helm, sail: b.sail, boat: b.boat, conf: map[d].conf, places: b.places }; });
+    return out;
+  }
+
+  var api = { parseFleetCsv: parseFleetCsv, parseInfo: parseInfo, parseResults: parseResults, mapByResults: mapByResults, analyzeRace: analyzeRace, matchOwn: matchOwn, summary: summary };
   if (typeof window !== 'undefined') window.Regatta = api;
   if (typeof module !== 'undefined') module.exports = api;
 })();
