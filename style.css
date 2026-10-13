@@ -507,3 +507,4 @@ body.trk-fs-on{overflow:hidden}
 .rr-stage.fs .trk-fsbtns .rr-z{display:inline-flex;align-items:center;justify-content:center}
 .rr-stage.fs .rr-chips{max-height:22vh;overflow:auto}
 .rr-spd{font-family:var(--f-num);font-weight:800;font-size:15px;min-width:52px}
+.rr-sn{font-family:var(--f-num);font-weight:800;color:var(--fg)}

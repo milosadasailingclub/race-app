@@ -276,7 +276,7 @@
     rows.some(function (r, i) { var low = r.map(function (x) { return x.toLowerCase(); }); if (low.some(function (x) { return /^r\d+$/.test(x); }) && low.some(function (x) { return /sail|helm|boat|skipper|crew/.test(x); })) { hi = i; H = low; return true; } return false; });
     if (hi < 0) return parseResultsLoose(txt);
     function col(re) { for (var k = 0; k < H.length; k++) if (re.test(H[k])) return k; return -1; }
-    var cSail = col(/sail\s*no|^sail|^no\.?$|^nr/), cHelm = col(/helm|skipper|name/), cCrew = col(/crew/), cBoat = col(/^boat|yacht/), RC = [];
+    var cSail = col(/sail\s*no|^sail|^no\.?$|^nr/), cHelm = col(/helm|skipper|name/), cCrew = col(/crew/), cBoat = col(/^boat|yacht/), cNat = col(/^nat|country|nation|^ctry/), RC = [];
     H.forEach(function (h, k) { var m = /^r(\d+)$/.exec(h); if (m) RC.push([+m[1], k]); });
     var boats = [];
     rows.slice(hi + 1).forEach(function (r) {
@@ -288,7 +288,7 @@
       });
       var sail = cSail >= 0 ? r[cSail] : '', helm = cHelm >= 0 ? r[cHelm] : '';
       if (!sail && !helm) return;
-      boats.push({ sail: sail, helm: helm, crew: cCrew >= 0 ? r[cCrew] : '', boat: cBoat >= 0 ? r[cBoat] : '', places: places });
+      boats.push({ sail: sail, helm: helm, crew: cCrew >= 0 ? r[cCrew] : '', boat: cBoat >= 0 ? r[cBoat] : '', nat: cNat >= 0 ? r[cNat] : '', places: places });
     });
     return boats.length ? { boats: boats, races: RC.map(function (x) { return x[0]; }) } : null;
   }
@@ -341,7 +341,7 @@
     var map = {}, used = {};
     pairs.forEach(function (p) { if (map[p[1]] || used[p[2]]) return; var tot = 0; Object.keys(votes[p[1]]).forEach(function (s) { tot += votes[p[1]][s]; }); map[p[1]] = { sail: p[2], conf: p[0] / tot }; used[p[2]] = 1; });
     var out = {};
-    Object.keys(map).forEach(function (d) { var b = res.boats.filter(function (x) { return x.sail === map[d].sail; })[0]; out[d] = { name: b.helm + (b.crew ? ' / ' + b.crew : ''), helm: b.helm, sail: b.sail, boat: b.boat, conf: map[d].conf, places: b.places }; });
+    Object.keys(map).forEach(function (d) { var b = res.boats.filter(function (x) { return x.sail === map[d].sail; })[0]; out[d] = { name: b.helm + (b.crew ? ' / ' + b.crew : ''), helm: b.helm, sail: b.sail, nat: b.nat || '', boat: b.boat, conf: map[d].conf, places: b.places }; });
     return out;
   }
 

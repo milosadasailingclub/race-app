@@ -175,7 +175,7 @@
   }
 
   /* ---- regate (svi brodovi sa sistema za praćenje) ---- */
-  function regattas() { var a = sget('regattas', []), ch = false; if (window.Regatta) a.forEach(function (rg) { if (!rg.knownApplied && applyKnown(rg)) ch = true; }); if (ch) sset('regattas', a); return a; }
+  function regattas() { var a = sget('regattas', []), ch = false; if (window.Regatta) a.forEach(function (rg) { if (rg.knownApplied !== 2 && applyKnown(rg)) ch = true; }); if (ch) sset('regattas', a); return a; }
   function saveRegattas(a) { sset('regattas', a); }
   function nameOf(r, id) { var c = (r.comp || {})[id]; return c ? c.name + (c.sail ? ' ' + c.sail : '') : 'Boat ' + id; }
   function readFile(f) {
@@ -204,12 +204,12 @@
   }
   // primeni poznate rezultate; vraća true ako je nešto promenjeno
   function applyKnown(rg) {
-    var k = knownFor(rg); if (!k || rg.knownApplied || rg.compOfficial) return false;
+    var k = knownFor(rg); if (!k || rg.knownApplied === 2 || rg.compOfficial) return false;
     var res = window.Regatta.parseResults(k.txt); if (!res) return false;
     rg.comp = {}; applyResults(rg, res);
     rg.races.forEach(function (r) { r.rows.forEach(function (row) { if (rg.comp[row.id]) { row.name = rg.comp[row.id].name; row.sail = rg.comp[row.id].sail; } }); });
     if (/^Regatta \d/.test(rg.name)) rg.name = k.name;
-    rg.knownApplied = true; return true;
+    rg.knownApplied = 2; return true;
   }
   var regPending = null;
   function importRegatta(files) {
@@ -250,7 +250,7 @@
   // zvanični rezultati: imena brodova (ako nema spiska takmičara) i zvanični plasman po trci
   function applyResults(rg, res) {
     var R = window.Regatta, m = R.mapByResults(rg.races, res);
-    if (!rg.compOfficial && Object.keys(m).length) { rg.comp = {}; Object.keys(m).forEach(function (d) { rg.comp[d] = { name: m[d].name, sail: m[d].sail, conf: m[d].conf }; }); }
+    if (!rg.compOfficial && Object.keys(m).length) { rg.comp = {}; Object.keys(m).forEach(function (d) { rg.comp[d] = { name: m[d].name, sail: m[d].sail, nat: m[d].nat || '', conf: m[d].conf }; }); }
     var bySail = {}; res.boats.forEach(function (b) { bySail[String(b.sail).replace(/\D/g, '')] = b; });
     rg.races.forEach(function (r) {
       r.rows.forEach(function (row) {
@@ -388,7 +388,7 @@
     $('coBody').innerHTML = h;
     if (r.legs && window.Track && window.RaceReplay) window.Track.get('f' + rgId + '_' + n).then(function (f) {
       if (!f || !f.boats) { $('rrBox').innerHTML = '<p class="small">Fleet tracks not found. Import the race files again.</p>'; return; }
-      window.RaceReplay.open($('rrBox'), r, f.boats, { me: me, label: lbl, short: function (id) { var c = (rg.comp || {})[id], h = c && c.name ? helmOf(c.name).split(' ') : null; return h && h.length > 1 ? h[h.length - 1] : c && c.sail ? String(c.sail).replace(/\D/g, '') : id.slice(-3); } });
+      window.RaceReplay.open($('rrBox'), r, f.boats, { me: me, label: lbl, short: function (id) { var c = (rg.comp || {})[id], sl = c && c.sail ? String(c.sail).trim() : ''; if (!sl) return id.slice(-3); return /[a-z]/i.test(sl) ? sl.toUpperCase() : ((c.nat ? String(c.nat).toUpperCase() + ' ' : '') + sl); } });
       var k = rgId + ':' + n; if (RT.key !== k) { RT.key = k; RT.model = null; RT.opt = {}; RT.sel = null; }
       var calc = function (id) {
         RT.sel = id; var box = $('coLegs');
