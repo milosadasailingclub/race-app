@@ -465,4 +465,4 @@ body.trk-fs-on{overflow:hidden}
 .co-tbl td{padding:5px 4px;border-bottom:1px solid var(--line);white-space:nowrap}
 .co-tbl tr.me td{color:var(--turq);font-weight:700}
 .co-race summary{font-family:var(--f-num);font-weight:700;letter-spacing:.04em;cursor:pointer;padding:2px 0}
-.co-rgt{border:0;padding:0;background:none;font-size:20px}
+.co-rgt{font-size:20px}
