@@ -220,7 +220,7 @@
         '</div>' +
         '<div class="mnv" id="rpMnv"></div>' +
         '<div class="wm-legend trk-legend"><i style="background:linear-gradient(90deg,#0a5566,#00b3a4 25%,#00e0c6 42%,#9b3bff 58%,#ff2e93 75%,#ff1fd2)"></i><span>0</span><span>3</span><span>5</span><span>7</span><span>9</span><span>12 kn</span></div>' +
-        '<div class="row"><button class="btn" id="rpRename">Rename</button><button class="btn" id="rpGpx">Export GPX</button><button class="btn" id="rpCsv">Export CSV</button><button class="btn danger" id="rpDel">Delete</button></div>';
+        '<div class="row"><button class="btn" id="rpLog">+ Race Log</button><button class="btn" id="rpRename">Rename</button><button class="btn" id="rpGpx">Export GPX</button><button class="btn" id="rpCsv">Export CSV</button><button class="btn danger" id="rpDel">Delete</button></div>';
       loadLib().then(function () {
         if (view.map) { view.map.remove(); view.map = null; }
         var p = t.points, b = new maplibregl.LngLatBounds();
@@ -261,6 +261,7 @@
       $('rpSpeed').addEventListener('click', function () { view.speed = view.speed === 10 ? 30 : view.speed === 30 ? 1 : 10; $('rpSpeed').textContent = '×' + view.speed; });
       $('rpRename').addEventListener('click', function () { var n = prompt('Track name', t.name); if (n && n.trim()) { t.name = n.trim(); putTrack(t).then(function () { openTrack(id); }); } });
       $('rpGpx').addEventListener('click', function () { gpx(t); });
+      $('rpLog').addEventListener('click', function () { if (window.Coach) window.Coach.addFromTrack(id); });
       $('rpCsv').addEventListener('click', function () { csv(t); });
       $('rpDel').addEventListener('click', function () { toast('Delete this track?', 'Delete', function () { delTrack(id).then(openList); }, 4000); });
     });
@@ -344,5 +345,5 @@
   });
   setTimeout(renderRecBtn, 0);
 
-  window.Track = { onFix: onFix, autoStart: function () { startRec(true); }, stop: stopRec, showLive: showLive, openList: openList, _stats: stats, _rec: function () { return rec; } };
+  window.Track = { get: getTrack, put: putTrack, all: allTracks, stats: stats, open: function (id) { if (window.RA) window.RA.show('tracking'); openTrack(id); }, onFix: onFix, autoStart: function () { startRec(true); }, stop: stopRec, showLive: showLive, openList: openList, _stats: stats, _rec: function () { return rec; } };
 })();

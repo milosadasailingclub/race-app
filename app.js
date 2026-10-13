@@ -1,7 +1,7 @@
-/* The Race App — v0.9.33 */
+/* The Race App — v0.9.34 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.33';
+  var APP_VERSION = '0.9.34';
   // skriveni developer mod: 7 tapova na broj verzije (prikazuje trošak AI obrade samo vlasniku)
   (function () {
     var n = 0, t0 = 0, el = document.getElementById('version'); if (!el) return;
@@ -25,7 +25,7 @@
     damp: store.get('damp', 2),
     heelTau: store.get('heelTau', 0.35), // libela ima svoje (brže) prigušenje; histereza sprečava treptanje
     ledMirror: store.get('ledMirror', false),
-    heelStep: store.get('heelStepMig', false) ? store.get('heelStep', 5) : 5,  // v0.9.33: podrazumevano 5° po LED-u (manje osetljivo)
+    heelStep: store.get('heelStepMig', false) ? store.get('heelStep', 5) : 5,  // v0.9.34: podrazumevano 5° po LED-u (manje osetljivo)
     calOffset: store.get('calOffset', null),
     calTime: store.get('calTime', null),
     theme: store.get('theme', 'night'),
@@ -66,6 +66,7 @@
     if (v === 'weather') { wxOpen(); }
     if (v === 'checklist' && window.Checklist) { window.Checklist.open(); }
     if (v === 'tracking' && window.Track) { window.Track.openList(); }
+    if (v === 'coaching' && window.Coach) { window.Coach.list(); }
   }
   document.querySelectorAll('[data-go]').forEach(function (b) {
     b.addEventListener('click', function () { unlockAudio(); show(b.getAttribute('data-go')); });

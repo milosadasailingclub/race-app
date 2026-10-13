@@ -437,3 +437,23 @@ html,body{touch-action:pan-x pan-y}
 .trk-stage.fs .trk-heel{height:22px;flex:0 0 auto;margin:0}
 body.trk-fs-on{overflow:hidden}
 @media (orientation:landscape){.trk-stage.fs .trk-tele{grid-template-columns:repeat(5,1fr)}.trk-stage.fs .trk-heel{display:none}}
+
+/* Coaching / Race Log */
+.co-sec{margin:14px 0;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.co-sec h3{margin:0 0 8px;font-family:var(--f-num);letter-spacing:.12em;font-size:14px;color:var(--turq)}
+.co-soon{opacity:.6}
+.co-imp{display:inline-flex;align-items:center;cursor:pointer}
+.co-filter,.co-full,.co-lbl input,.co-title,#coBody textarea{width:100%;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg);font:inherit;box-sizing:border-box}
+.co-filter{margin:10px 0 4px}
+
+.co-sub{grid-column:1 / -1;font-size:12px;color:var(--muted);text-align:left}
+.co-title{font-family:var(--f-num);font-weight:800;font-size:22px;text-transform:uppercase;letter-spacing:.03em}
+.co-when{font-size:13px;color:var(--muted);margin:6px 0 10px}
+.co-lbl{display:block;font-size:12px;color:var(--muted);letter-spacing:.06em;margin:8px 0}
+.co-lbl input{margin-top:4px}
+.co-wx{font-size:17px;font-weight:700;margin:0 0 6px}
+.co-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
+.co-tiles div{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:6px;text-align:center}
+.co-tiles em{display:block;font-style:normal;font-size:9px;letter-spacing:.1em;color:var(--muted);font-weight:700}
+.co-tiles b{font-family:var(--f-num);font-weight:800;font-size:18px}
+#coBody textarea{min-height:140px;resize:vertical}

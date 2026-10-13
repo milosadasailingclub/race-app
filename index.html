@@ -10,11 +10,11 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/saira-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=0.9.33">
+<link rel="stylesheet" href="style.css?v=0.9.34">
 </head>
 <body class="theme-night">
 
-<div id="version" class="version">v0.9.33</div>
+<div id="version" class="version">v0.9.34</div>
 <div id="update" class="update hidden">New version available. Tap to update</div>
 <div id="toast" class="toast hidden"></div>
 
@@ -28,9 +28,8 @@
   <nav class="menu-list">
     <button class="menu-item primary" data-go="race">Racing Mode<span>Timer · Start line · SOG · Lift/Header</span></button>
     <button class="menu-item" data-go="weather">Weather<span>24 h wind · gusts · direction · waves</span></button>
-    <button class="menu-item soon">Race Log<span>Coming soon</span></button>
     <button class="menu-item" data-go="tracking">Tracking<span>Saved tracks · Replay with telemetry · GPX</span></button>
-    <button class="menu-item soon">Coaching<span>Pro · Coming soon</span></button>
+    <button class="menu-item" data-go="coaching">Coaching<span>Race Log · Training sessions (soon)</span></button>
     <button class="menu-item" data-go="checklist">Checklist<span>My lists · Public lists</span></button>
     <button class="menu-item" data-go="settings">Settings<span>Calibration · Damping · Diagnostics</span></button>
   </nav>
@@ -237,6 +236,15 @@
   <div class="wx-body" id="trkBody"></div>
 </section>
 
+<!-- COACHING (Race Log) -->
+<section id="coaching" class="view">
+  <div class="set-head">
+    <button class="icon-btn" id="coBack" aria-label="Back">←</button>
+    <h2 id="coTitle">COACHING</h2>
+  </div>
+  <div class="wx-body" id="coBody"></div>
+</section>
+
 <!-- SETTINGS -->
 <section id="settings" class="view">
   <div class="set-head">
@@ -314,14 +322,15 @@
   </div>
 </section>
 
-<script src="wxmap.js?v=0.9.33"></script>
-<script src="public-lists.js?v=0.9.33"></script>
-<script src="checklist.js?v=0.9.33"></script>
-<script src="samples/portcup-2026.js?v=0.9.33"></script>
-<script src="courses.js?v=0.9.33"></script>
-<script src="nor.js?v=0.9.33"></script>
-<script src="maneuvers.js?v=0.9.33"></script>
-<script src="track.js?v=0.9.33"></script>
-<script src="app.js?v=0.9.33"></script>
+<script src="coaching.js?v=0.9.34"></script>
+<script src="wxmap.js?v=0.9.34"></script>
+<script src="public-lists.js?v=0.9.34"></script>
+<script src="checklist.js?v=0.9.34"></script>
+<script src="samples/portcup-2026.js?v=0.9.34"></script>
+<script src="courses.js?v=0.9.34"></script>
+<script src="nor.js?v=0.9.34"></script>
+<script src="maneuvers.js?v=0.9.34"></script>
+<script src="track.js?v=0.9.34"></script>
+<script src="app.js?v=0.9.34"></script>
 </body>
 </html>
