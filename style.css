@@ -479,7 +479,7 @@ body.trk-fs-on{overflow:hidden}
 .rr-chip{display:inline-flex;align-items:center;gap:5px;color:var(--muted)}
 .rr-chip.me{color:var(--fg);font-weight:700}
 .rr-chip i{width:12px;height:4px;border-radius:2px;display:inline-block}
-.rr-lane-i{width:18px!important;height:10px!important;background:rgba(0,224,198,.35)}
+.rr-lane-i{width:18px!important;height:10px!important;background:rgba(0,224,198,.45);box-shadow:0 0 6px rgba(0,224,198,.6)}
 .rr-boat{min-width:22px;height:18px;padding:0 3px;border-radius:9px;font:700 10px/18px var(--f-num);color:#05070a;text-align:center;border:1.5px solid #05070a;box-shadow:0 0 4px rgba(0,0,0,.6)}
 .rr-boat.me{box-shadow:0 0 10px #fff}
 .co-leg{background:none;border:1px solid var(--line);border-radius:6px;color:var(--turq);font:700 12px var(--f-num);padding:4px 8px}
@@ -497,3 +497,13 @@ body.trk-fs-on{overflow:hidden}
 .co-me .btn.sm{padding:4px 10px;font-size:12px}
 .co-warn{border:1px solid #ffb020;color:#ffb020;border-radius:8px;padding:8px 10px;font-size:13px}
 .cl-card.on{border-color:var(--turq)}
+
+.rr-best-i{width:18px!important;height:0!important;border-top:2.5px dashed #ffc83d;border-radius:0!important;background:none!important}
+.rr-bestt{color:#ffc83d}
+.rr-ideal{color:#00e0c6;font-weight:700}
+.rr-map .trk-fsbtns .rr-z{display:none}
+.rr-stage.fs{position:fixed;inset:0;z-index:1000;margin:0;background:var(--bg,#05070a);padding:calc(env(safe-area-inset-top) + 8px) 10px calc(env(safe-area-inset-bottom) + 10px);gap:6px}
+.rr-stage.fs .rr-map{flex:1 1 0;height:auto;min-height:0}
+.rr-stage.fs .trk-fsbtns .rr-z{display:inline-flex;align-items:center;justify-content:center}
+.rr-stage.fs .rr-chips{max-height:22vh;overflow:auto}
+.rr-spd{font-family:var(--f-num);font-weight:800;font-size:15px;min-width:52px}

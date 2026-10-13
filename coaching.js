@@ -175,7 +175,7 @@
   }
 
   /* ---- regate (svi brodovi sa sistema za praćenje) ---- */
-  function regattas() { return sget('regattas', []); }
+  function regattas() { var a = sget('regattas', []), ch = false; if (window.Regatta) a.forEach(function (rg) { if (!rg.knownApplied && applyKnown(rg)) ch = true; }); if (ch) sset('regattas', a); return a; }
   function saveRegattas(a) { sset('regattas', a); }
   function nameOf(r, id) { var c = (r.comp || {})[id]; return c ? c.name + (c.sail ? ' ' + c.sail : '') : 'Boat ' + id; }
   function readFile(f) {
@@ -186,6 +186,31 @@
     return f.text();
   }
   function seq(a, fn) { return a.reduce(function (p, x) { return p.then(function () { return fn(x); }); }, Promise.resolve()); }
+  // PRIVREMENO: zvanični rezultati Palić 2026 (sa slike rezultata) dok ne rešimo čitanje rezultata sa slike / PDF-a
+  var KNOWN = [{ name: 'Palić 2026', from: Date.UTC(2026, 9, 8), to: Date.UTC(2026, 9, 12), lat: 46.1, lon: 19.76, txt:
+    'Rank,Boat,Class,Nat,SailNo,Club,HelmName,CrewName,R1,R2,R3,R4,R5,R6,R7,R8,R9,Total,Nett\n' +
+    '1,,Seascape 18,SRB,644,JK Ada,Goran Stevanović,Nikola Marijanović,2.0,1.0,(3.0),1.0,1.0,1.0,1.0,(3.0),1.0,14.0,8.0\n' +
+    '2,Barely Legal,Seascape 18,SLO,611,JK Pirat,Jure Jerman,Urban Jerman,3.0,2.0,2.0,3.0,(5.0),(6.0),2.0,1.0,2.0,26.0,15.0\n' +
+    '3,Pocket Rocket,Seascape 18,SLO,304,JK Ljubljana,Ana Žavbi,Anže Skalja,(5.0),4.0,1.0,2.0,4.0,3.0,5.0,(6.0),3.0,33.0,22.0\n' +
+    '4,,Seascape 18,SRB,344,JK Ada,Miloš Dobrosavljević,Goran Jerinkić,1.0,(5.0),4.0,5.0,3.0,4.0,3.0,2.0,(6.0),33.0,22.0\n' +
+    '5,YO,Seascape 18,SRB,401,JK Gemax,Nikola Banjac,Luka Minić,(8.0 DNF),(7.0),5.0,7.0,2.0,2.0,6.0,4.0,5.0,46.0,31.0\n' +
+    '6,Pinocchio,Seascape 18,SLO,642,JK Bohinj / JK Palić,Dušan Djoković,Nenad Zakić,4.0,3.0,6.0,4.0,6.0,(7.0),7.0,(8.0 RET),4.0,49.0,34.0\n' +
+    '7,Prince Team,Seascape 18,SRB,355,JK Ada,Aljoša Ivković,Aleksandar Jovanović,6.0,6.0,(7.0),6.0,(7.0),5.0,4.0,5.0,7.0,53.0,39.0\n' }];
+  function fold(t) { return String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'dj').trim(); }
+  function knownFor(rg, fleetPt) {
+    var g = rg.races[0] && rg.races[0].gun; if (!g) return null;
+    var m = (rg.races[0].marks || [])[0], ll = m ? [m.lat, m.lon] : fleetPt;
+    return KNOWN.filter(function (k) { return g >= k.from && g <= k.to && (!ll || (Math.abs(ll[0] - k.lat) < 0.2 && Math.abs(ll[1] - k.lon) < 0.3)); })[0] || null;
+  }
+  // primeni poznate rezultate; vraća true ako je nešto promenjeno
+  function applyKnown(rg) {
+    var k = knownFor(rg); if (!k || rg.knownApplied || rg.compOfficial) return false;
+    var res = window.Regatta.parseResults(k.txt); if (!res) return false;
+    rg.comp = {}; applyResults(rg, res);
+    rg.races.forEach(function (r) { r.rows.forEach(function (row) { if (rg.comp[row.id]) { row.name = rg.comp[row.id].name; row.sail = rg.comp[row.id].sail; } }); });
+    if (/^Regatta \d/.test(rg.name)) rg.name = k.name;
+    rg.knownApplied = true; return true;
+  }
   var regPending = null;
   function importRegatta(files) {
     var R = window.Regatta; if (!R) return Promise.reject(new Error('Regatta module missing'));
@@ -207,7 +232,7 @@
       var ev = info.event || {}, rg = { id: 'rg' + out[0].a.gun, name: ev.name || ('Regatta ' + new Date(out[0].a.gun).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })),
         place: ev.location || (function () { var D = out[0].D, k = Object.keys(D)[0], q = D[k][0]; return placeFor(q[1], q[2]); })(), comp: info.competitors, compOfficial: Object.keys(info.competitors || {}).length > 0, me: null, created: Date.now(),
         races: out.map(function (x, i) { return { n: i + 1, gun: x.a.gun, end: x.a.end, wind: x.a.wind, laps: x.a.laps, rows: x.a.rows, legs: x.a.legs, marks: x.a.marks, targets: x.a.targets, boatInfo: x.a.boatInfo }; }) };
-      if (res) applyResults(rg, res);
+      if (res) applyResults(rg, res); else applyKnown(rg);
       rg.races.forEach(function (r) { r.rows.forEach(function (row) { if (rg.comp[row.id]) { row.name = rg.comp[row.id].name; row.sail = rg.comp[row.id].sail; } }); });
       saveRegattas(regattas().filter(function (x) { return x.id !== rg.id; }).concat([rg]));
       regPending = { id: rg.id, out: out };
@@ -241,8 +266,8 @@
     var all = regattas(), rg = all.filter(function (x) { return x.id === rgId; })[0]; if (!rg) return;
     applyResults(rg, res);
     rg.races.forEach(function (r) { r.rows.forEach(function (row) { if (rg.comp[row.id]) { row.name = rg.comp[row.id].name; row.sail = rg.comp[row.id].sail; } }); });
-    var my = helmOf((sget('myName', '') || '').toLowerCase());
-    if (!rg.me && my) { var hit = Object.keys(rg.comp).filter(function (id) { return helmOf(rg.comp[id].name).toLowerCase() === my; }); if (hit.length === 1) rg.me = hit[0]; }
+    var my = fold(helmOf(sget('myName', '') || ''));
+    if (!rg.me && my) { var hit = Object.keys(rg.comp).filter(function (id) { return fold(helmOf(rg.comp[id].name)) === my; }); if (hit.length === 1) rg.me = hit[0]; }
     saveRegattas(all);
     // Race Log: zvanični plasman
     if (rg.me) saveEntries(entries().map(function (e) {
@@ -255,8 +280,8 @@
   // sopstveni brod: po imenu (zapamćeno) ili po tragu snimljenom aplikacijom u isto vreme
   function findMe(rg, out) {
     var my = (sget('myName', '') || '').toLowerCase().trim();
-    my = helmOf(my);
-    if (my) { var hit = Object.keys(rg.comp).filter(function (id) { return helmOf(rg.comp[id].name).toLowerCase() === my; }); if (hit.length === 1) return Promise.resolve(hit[0]); }
+    my = fold(helmOf(my));
+    if (my) { var hit = Object.keys(rg.comp).filter(function (id) { return fold(helmOf(rg.comp[id].name)) === my; }); if (hit.length === 1) return Promise.resolve(hit[0]); }
     if (!window.Track) return Promise.resolve(null);
     return window.Track.all().then(function (tr) {
       var votes = {};
@@ -353,7 +378,7 @@
       var bs = Object.keys(r.legs[0].boats);
       var sel = RT.sel && bs.indexOf(RT.sel) >= 0 && RT.key === rgId + ':' + n ? RT.sel : (bs.indexOf(me) >= 0 ? me : r.legs[0].best);
       h += '<div class="co-sec"><h3>LEGS</h3><label class="co-selb">Boat <select id="coSel">' + bs.map(function (id) { return '<option value="' + esc(id) + '"' + (id === sel ? ' selected' : '') + '>' + esc(lbl(id)) + (id === me ? ' (you)' : '') + '</option>'; }).join('') + '</select></label>' +
-        '<p class="small">Turquoise lane = track of the boat that sailed the leg fastest. White dashed line = <b>AI ideal line</b> for the selected boat: the fastest way to the mark from where and when that boat started the leg, sailed at its own speeds and pointing, through the wind shifts and pressure the whole fleet showed at that time and place. Gain = time that line would have saved. Tap a leg to jump there.</p>' +
+        '<p class="small">Turquoise shaded lane = <b>AI ideal line</b> for the selected boat: the fastest way to the mark from where and when that boat started the leg, sailed at its own speeds and pointing, through the wind shifts and pressure the whole fleet showed at that time and place. Gold dashed line = track of the boat that sailed the leg fastest. Gain = time that line would have saved. Tap a leg to jump there.</p>' +
         '<div id="coLegs">' + legsTable(rg, r, sel, null) + '</div></div>';
       h += r.legs.map(function (L) {
         var rows = Object.keys(L.boats).map(function (id) { return Object.assign({ id: id }, L.boats[id]); }).sort(function (a, b) { return a.lost - b.lost; });
@@ -363,7 +388,7 @@
     $('coBody').innerHTML = h;
     if (r.legs && window.Track && window.RaceReplay) window.Track.get('f' + rgId + '_' + n).then(function (f) {
       if (!f || !f.boats) { $('rrBox').innerHTML = '<p class="small">Fleet tracks not found. Import the race files again.</p>'; return; }
-      window.RaceReplay.open($('rrBox'), r, f.boats, { me: me, label: lbl, short: function (id) { var c = (rg.comp || {})[id]; return c && c.sail ? String(c.sail).replace(/\D/g, '') : id.slice(-3); } });
+      window.RaceReplay.open($('rrBox'), r, f.boats, { me: me, label: lbl, short: function (id) { var c = (rg.comp || {})[id], h = c && c.name ? helmOf(c.name).split(' ') : null; return h && h.length > 1 ? h[h.length - 1] : c && c.sail ? String(c.sail).replace(/\D/g, '') : id.slice(-3); } });
       var k = rgId + ':' + n; if (RT.key !== k) { RT.key = k; RT.model = null; RT.opt = {}; RT.sel = null; }
       var calc = function (id) {
         RT.sel = id; var box = $('coLegs');
