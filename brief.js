@@ -161,6 +161,12 @@
     return L;
   }
 
+  // ciljevi iz polara klase za prognoziranu jačinu vetra
+  function polarCard(s) {
+    var PR = window.Profile, c = PR && PR.current(); if (!c || !c.polar) return '';
+    var w = Math.round(s.w), T = PR.targets(c.polar, w); if (!T) return '';
+    return card('wx', 'Targets for ' + w + ' kn (' + c.name + ' polar)', 'Upwind: ' + T.upTwa + '° to the wind, ' + T.upBs.toFixed(1) + ' kn boat speed, VMG ' + T.upVmg.toFixed(1) + ' kn. Downwind: ' + T.dnTwa + '° to the wind, ' + T.dnBs.toFixed(1) + ' kn, VMG ' + T.dnVmg.toFixed(1) + ' kn. Angles are through the water; over ground the tacking angle looks about 6–10° wider (leeway).');
+  }
   /* ---- 4) mapa polja iz istorije ---- */
   function historyRaces(ctx, dir) {
     var out = [];
@@ -262,7 +268,7 @@
         var s = fcStats(F), W = $('brWx'); if (!W) return null;
         if (!s) { W.innerHTML = '<p class="small">No forecast for today.</p>'; return null; }
         W.innerHTML = '<p class="br-fc"><b>' + Math.round(s.wMin) + '–' + Math.round(s.wMax) + ' kn</b>, gusts ' + Math.round(s.g) + ' · ' + compass(s.dir) + ' ' + d3(s.dir + s.d0) + '° → ' + d3(s.dir + s.d1) + '° · ' + s.from + '–' + s.to + ' h' + (s.wave !== null && s.wave !== undefined ? ' · waves ' + s.wave.toFixed(1) + ' m' : '') + '</p>' +
-          reminders(s).map(function (x) { return card('wx', x.h, x.t); }).join('');
+          reminders(s).map(function (x) { return card('wx', x.h, x.t); }).join('') + polarCard(s);
         return s.dir;
       }).catch(function () { var W = $('brWx'); if (W) W.innerHTML = '<p class="small">Forecast not available (offline?).</p>'; return null; }).then(function (dir) {
         var list = historyRaces(ctx, dir === undefined ? null : dir), Hh = $('brHist'); if (!Hh) return;

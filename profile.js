@@ -10,7 +10,13 @@
 
   // kind: keel / dinghy / multi · spi: sym / asym / none. Polari: null dok ne unesemo proverene podatke.
   var CLASSES = [
-    { id: 'seascape18', name: 'Seascape 18 / First 18', kind: 'keel', spi: 'asym' },
+    { id: 'seascape18', name: 'Seascape 18 / First 18', kind: 'keel', spi: 'asym', polarSrc: 'ORC, median of 8 certificates (via windregatta.com)', polar: {
+      tws: [4, 6, 8, 10, 12, 14, 16, 20, 24], twa: [52, 60, 75, 90, 110, 120, 135, 150],
+      v: [[3.29, 4.45, 5.21, 5.63, 5.93, 6.09, 6.20, 6.37, 6.44], [3.50, 4.65, 5.38, 5.80, 6.18, 6.40, 6.54, 6.76, 6.89], [3.62, 4.76, 5.47, 5.97, 6.46, 6.88, 7.14, 7.54, 7.76],
+        [3.65, 4.87, 5.69, 6.28, 6.66, 7.14, 7.68, 8.40, 8.95], [3.69, 4.91, 5.77, 6.53, 7.36, 7.98, 8.51, 9.63, 11.22], [3.55, 4.78, 5.64, 6.38, 7.25, 8.19, 9.12, 10.96, 12.43],
+        [3.12, 4.32, 5.27, 5.96, 6.66, 7.51, 8.45, 12.21, 14.24], [2.59, 3.69, 4.64, 5.39, 5.95, 6.53, 7.29, 9.99, 13.20]],
+      beat: { twa: [42.0, 41.9, 40.2, 38.3, 37.0, 36.9, 36.7, 37.0, 37.8], vmg: [2.18, 2.98, 3.58, 3.98, 4.21, 4.28, 4.34, 4.40, 4.39] },
+      run: { twa: [145.8, 145.8, 148.3, 149.8, 148.8, 145.8, 144.8, 136.1, 142.3], vmg: [2.25, 3.20, 4.02, 4.65, 5.16, 5.68, 6.32, 8.71, 11.40] } } },
     { id: 'j70', name: 'J/70', kind: 'keel', spi: 'asym' },
     { id: 'j80', name: 'J/80', kind: 'keel', spi: 'asym' },
     { id: 'melges24', name: 'Melges 24', kind: 'keel', spi: 'asym' },
@@ -56,12 +62,24 @@
     function ix(a, x) { if (x <= a[0]) return [0, 0, 0]; if (x >= a[a.length - 1]) return [a.length - 1, a.length - 1, 0]; for (var i = 1; i < a.length; i++) if (x <= a[i]) return [i - 1, i, (x - a[i - 1]) / (a[i] - a[i - 1])]; }
     var s = ix(P.tws, tws), a = ix(P.twa, twa), g = function (ai, si) { return P.v[ai][si]; };
     var v0 = g(a[0], s[0]) + (g(a[0], s[1]) - g(a[0], s[0])) * s[2], v1 = g(a[1], s[0]) + (g(a[1], s[1]) - g(a[1], s[0])) * s[2];
-    if (twa < P.twa[0]) return 0;
+    var lin = function (arr) { return arr[s[0]] + (arr[s[1]] - arr[s[0]]) * s[2]; };
+    if (twa < P.twa[0]) {
+      if (!P.beat) return 0;
+      var ba = lin(P.beat.twa), bs = lin(P.beat.vmg) / Math.cos(ba * Math.PI / 180);
+      if (twa >= ba) return bs + (v0 - bs) * (twa - ba) / (P.twa[0] - ba);
+      return Math.max(0, bs * (1 - (ba - twa) / 12));
+    }
+    if (twa > P.twa[P.twa.length - 1]) return v1 * (1 - 0.15 * (twa - P.twa[P.twa.length - 1]) / (180 - P.twa[P.twa.length - 1]));
     return v0 + (v1 - v0) * a[2];
   }
   // optimalni ugao na orci / krmi (najveći VMG) za datu jačinu vetra
   function targets(P, tws) {
     if (!P) return null; var up = [0, 0], dn = [0, 0];
+    if (P.beat && P.run) {
+      var ix = function (x) { var a = P.tws; if (x <= a[0]) return [0, 0, 0]; if (x >= a[a.length - 1]) return [a.length - 1, a.length - 1, 0]; for (var i = 1; i < a.length; i++) if (x <= a[i]) return [i - 1, i, (x - a[i - 1]) / (a[i] - a[i - 1])]; }, q = ix(tws), L = function (arr) { return arr[q[0]] + (arr[q[1]] - arr[q[0]]) * q[2]; };
+      var bt = L(P.beat.twa), bv = L(P.beat.vmg), rt = L(P.run.twa), rv = L(P.run.vmg);
+      return { upTwa: Math.round(bt), upVmg: bv, upBs: bv / Math.cos(bt * Math.PI / 180), dnTwa: Math.round(rt), dnVmg: rv, dnBs: rv / -Math.cos(rt * Math.PI / 180) };
+    }
     for (var a = 30; a <= 180; a++) { var v = speed(P, tws, a), vmg = v * Math.cos(a * Math.PI / 180); if (vmg > up[1]) up = [a, vmg]; if (-vmg > dn[1]) dn = [a, -vmg]; }
     return { upTwa: up[0], upVmg: up[1], upBs: speed(P, tws, up[0]), dnTwa: dn[0], dnVmg: dn[1], dnBs: speed(P, tws, dn[0]) };
   }
