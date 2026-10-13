@@ -112,7 +112,7 @@
     if (c) {
       var P = c.polar || null, T = P ? targets(P, 10) : null;
       h += '<p class="small">' + esc(c.name) + (c.custom ? ' <span class="pro">PRO</span> custom' : '') + ' · ' + { keel: 'keelboat', dinghy: 'dinghy', multi: 'multihull' }[c.kind || 'keel'] + ' · ' + { sym: 'spinnaker', asym: 'gennaker', none: 'no spinnaker' }[c.spi || 'none'] + '.</p>';
-      h += P ? '<canvas class="prof-polar" id="profPolar"></canvas><p class="small">Polar: ' + P.tws.length + ' wind speeds × ' + P.twa.length + ' angles. At 10 kn: upwind ' + T.upTwa + '° TWA, ' + T.upBs.toFixed(1) + ' kn · downwind ' + T.dnTwa + '° TWA, ' + T.dnBs.toFixed(1) + ' kn.</p>'
+      h += P ? '<canvas class="prof-polar" id="profPolar"></canvas><p class="small">Polar' + (c.polarSrc ? ' (' + esc(c.polarSrc) + ')' : '') + ': ' + P.tws.length + ' wind speeds × ' + P.twa.length + ' angles. At 10 kn: upwind ' + T.upTwa + '° TWA, ' + T.upBs.toFixed(1) + ' kn · downwind ' + T.dnTwa + '° TWA, ' + T.dnBs.toFixed(1) + ' kn.</p>'
         : '<p class="small">No polar for this class yet. ' + (c.custom ? 'Paste one below.' : 'We add class polars as we get reliable data; until then the app learns your speeds from your tracks.') + '</p>';
       if (c.custom) h += '<div class="prof-custom"><label class="prof-row">Class name<input id="pcName" type="text" maxlength="40" value="' + esc(c.name) + '"></label>' +
         '<label class="prof-row">Type<select id="pcKind"><option value="keel"' + (c.kind === 'keel' ? ' selected' : '') + '>Keelboat</option><option value="dinghy"' + (c.kind === 'dinghy' ? ' selected' : '') + '>Dinghy</option><option value="multi"' + (c.kind === 'multi' ? ' selected' : '') + '>Multihull</option></select></label>' +
