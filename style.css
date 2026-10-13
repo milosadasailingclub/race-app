@@ -492,3 +492,8 @@ body.trk-fs-on{overflow:hidden}
 .co-gain{color:var(--turq)}
 .co-wait{color:var(--muted);animation:coPulse 1s infinite alternate}
 @keyframes coPulse{from{opacity:.3}to{opacity:1}}
+
+.co-me{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0;font-size:14px}
+.co-me .btn.sm{padding:4px 10px;font-size:12px}
+.co-warn{border:1px solid #ffb020;color:#ffb020;border-radius:8px;padding:8px 10px;font-size:13px}
+.cl-card.on{border-color:var(--turq)}
