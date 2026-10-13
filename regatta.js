@@ -212,9 +212,10 @@
       var doc = new DOMParser().parseFromString(txt, 'text/html');
       Array.prototype.forEach.call(doc.querySelectorAll('tr'), function (tr) { rows.push(Array.prototype.map.call(tr.querySelectorAll('th,td'), function (c) { return c.textContent.replace(/\s+/g, ' ').trim(); })); });
     } else {
+      var hdr = (txt.split(/\r?\n/).filter(function (l) { return /\bR1\b/i.test(l); })[0] || ''), sep = hdr.indexOf('\t') >= 0 ? '\t' : hdr.indexOf(';') >= 0 ? ';' : hdr.indexOf(',') >= 0 ? ',' : null;
       txt.split(/\r?\n/).forEach(function (l) {
         if (!l.trim()) return;
-        var c = l.indexOf('\t') >= 0 ? l.split('\t') : l.indexOf(';') >= 0 ? l.split(';') : l.indexOf(',') >= 0 && !/\d,\d/.test(l) ? l.split(',') : l.split(/\s{2,}/);
+        var c = sep && l.indexOf(sep) >= 0 ? l.split(sep) : l.split(/\s{2,}/);
         rows.push(c.map(function (x) { return x.replace(/"/g, '').trim(); }));
       });
     }
