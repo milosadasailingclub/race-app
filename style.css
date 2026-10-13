@@ -508,3 +508,11 @@ body.trk-fs-on{overflow:hidden}
 .rr-stage.fs .rr-chips{max-height:22vh;overflow:auto}
 .rr-spd{font-family:var(--f-num);font-weight:800;font-size:15px;min-width:52px}
 .rr-sn{font-family:var(--f-num);font-weight:800;color:var(--fg)}
+
+.rr-wbtn{font-size:22px}
+.rr-wbtn.off{opacity:.45}
+.rr-map .trk-fsbtns .rr-wbtn:not([hidden]){display:inline-flex;align-items:center;justify-content:center}
+.rr-wkey{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);flex-wrap:wrap}
+.rr-wkey i{flex:0 0 120px;height:8px;border-radius:4px;background:linear-gradient(90deg,#3b4cc0,#2fa3d6,#35b779,#f2c12e,#e8572f)}
+.rr-wkey small{flex-basis:100%;font-size:10px}
+.rr-wbtn[hidden],.rr-wkey[hidden]{display:none!important}

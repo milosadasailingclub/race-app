@@ -86,12 +86,25 @@
     });
     PS = smooth(PS); PW = smooth(PW);
     function pressAt(t, x, y) { var c = cell(t, x, y), k = idx(c[0], c[1], c[2]); var w = PW[k]; return w > 0.3 ? Math.max(0.7, Math.min(1.3, PS[k] / w)) : 1; }
-    return { xy: xy, toLL: function (p) { return [o[0] + p[1] / ky, o[1] + p[0] / kx]; }, dirAt: dirAt, makePolar: makePolar, pressAt: pressAt, AX: AX };
+    var toLL = function (p) { return [o[0] + p[1] / ky, o[1] + p[0] / kx]; };
+    // polje za mapu u trenutku t: ćelije pritiska (samo gde je bilo brodova) + strelice smera vetra
+    function field(t) {
+      var ti = Math.max(0, Math.min(NT - 1, Math.round((t - tA) / DT))), cells = [], arrows = [], h = DS / 2;
+      for (var xi = 0; xi < NX; xi++) for (var yi = 0; yi < NY; yi++) {
+        var k = idx(ti, xi, yi), w = PW[k]; if (w < 1.5) continue;
+        var x = x0 + xi * DS, y = y0 + yi * DS, pr = Math.max(0.7, Math.min(1.3, PS[k] / w));
+        var a = toLL([x - h, y - h]), b = toLL([x + h, y + h]);
+        cells.push({ type: 'Feature', properties: { p: +pr.toFixed(3) }, geometry: { type: 'Polygon', coordinates: [[[a[1], a[0]], [b[1], a[0]], [b[1], b[0]], [a[1], b[0]], [a[1], a[0]]]] } });
+        if (xi % 3 === 1 && yi % 3 === 1) { var c = toLL([x, y]); arrows.push({ type: 'Feature', properties: { r: Math.round((dirAt(t, x, y) + 180) % 360) }, geometry: { type: 'Point', coordinates: [c[1], c[0]] } }); }
+      }
+      return { key: ti, cells: { type: 'FeatureCollection', features: cells }, arrows: { type: 'FeatureCollection', features: arrows } };
+    }
+    return { xy: xy, toLL: toLL, dirAt: dirAt, makePolar: makePolar, pressAt: pressAt, AX: AX, field: field };
   }
 
   // izohrone za jedan leg
-  function route(model, start, t0, target, up, pol, penaltyS, maxS) {
-    var M = model, tgt = M.xy(target[0], target[1]), dt = 10, R = 35;
+  function route(model, start, t0, target, up, pol, penaltyS, maxS, Rr) {
+    var M = model, tgt = M.xy(target[0], target[1]), dt = 10, R = Rr || 35;
     var sB = (Math.atan2(tgt[0] - start[0], tgt[1] - start[1]) * 180 / Math.PI + 360) % 360;
     var front = [{ p: start, t: t0, side: 0, par: null }], all = [];
     for (var step = 0; step * dt < maxS; step++) {
@@ -112,10 +125,24 @@
       front = Object.keys(next).map(function (k) { return next[k]; });
       if (!front.length) return null;
       front.sort(function (x, y) { return x.rem - y.rem; });
-      if (front[0].rem < R) { var path = [], s = front[0]; while (s) { path.unshift(M.toLL(s.p)); s = s.par; } var nt = 0; for (var u = front[0]; u && u.par; u = u.par) if (u.par.side && u.side !== u.par.side) nt++; return { path: path, secs: (front[0].t - t0) / 1000, tacks: nt }; }
+      if (front[0].rem < R) { var path = [], s = front[0]; while (s) { path.unshift(M.toLL(s.p)); s = s.par; } var nt = 0; for (var u = front[0]; u && u.par; u = u.par) if (u.par.side && u.side !== u.par.side) nt++; return { path: path, secs: (front[0].t - t0) / 1000, tacks: nt, end: front[0].p, tEnd: front[0].t }; }
       front = front.slice(0, 120);
     }
     return null;
+  }
+
+  // bove: vetrovna (najdalje uz vetar), ofset (ostale gornje) i donja kapija (najbliži par donjih; startna linija se ne računa)
+  function markTargets(race) {
+    var mk = race.marks || [], top = mk.filter(function (m) { return m.top; }), bot = mk.filter(function (m) { return !m.top; }), fin = mk.filter(function (m) { return m.fin; });
+    if (bot.some(function (m) { return m.start; }) && bot.some(function (m) { return !m.start; })) bot = bot.filter(function (m) { return !m.start; });
+    if (!top.length || !bot.length) return race.targets ? { top: race.targets.top, offset: null, bottom: race.targets.bottom } : null;
+    var w = rad(race.wind), up = function (m) { return Math.sin(w) * m.lon * Math.cos(rad(m.lat)) + Math.cos(w) * m.lat; };
+    top.sort(function (a, b) { return up(b) - up(a); });
+    var ww = top[0], off = top.slice(1), d = function (a, b) { return Math.hypot((a.lon - b.lon) * 111320 * Math.cos(rad(a.lat)), (a.lat - b.lat) * 110540); };
+    var gate = bot;
+    if (bot.length > 2) { var bp = null; for (var i = 0; i < bot.length; i++) for (var j = i + 1; j < bot.length; j++) { var dd = d(bot[i], bot[j]); if (!bp || dd < bp[0]) bp = [dd, [bot[i], bot[j]]]; } if (bp && bp[0] < 120) gate = bp[1]; }
+    var av = function (a, k) { return a.reduce(function (x, m) { return x + m[k]; }, 0) / a.length; };
+    return { top: [ww.lat, ww.lon], offset: off.length ? [av(off, 'lat'), av(off, 'lon')] : null, bottom: [av(gate, 'lat'), av(gate, 'lon')], finish: fin.length ? [av(fin, 'lat'), av(fin, 'lon')] : null };
   }
 
   // idealni put izabranog broda za sve legove trke
@@ -126,7 +153,7 @@
     race.legs.forEach(function (L) {
       var b = L.boats[boatId]; if (!b || !b.t0) { out.push(null); return; }
       var q = P.filter(function (x) { return x[0] <= b.t0; }).pop() || P[0], start = M.xy(q[1], q[2]);
-      var target = L.up ? race.targets.top : race.targets.bottom;
+      var TG = markTargets(race); if (!TG) { out.push(null); return; }
       var spd = L.up ? (bi.up || 4) : (bi.down || 4), pen = Math.max(4, Math.min(15, ((bi.tackLoss || 3) / Math.max(1, spd * 0.514)) + 4));
       // poravnanje modela sa samim brodom: sredina njegova dva kursa (levi/desni bok) na ovom legu = vetar (krma: +180)
       var segA = P.filter(function (x) { return x[0] >= b.t0 && x[0] <= b.t1; }), hs = [], ws = [];
@@ -139,7 +166,12 @@
       // ugao na orci koji je brod STVARNO držao na ovom legu (prema istom modelu vetra) -> polar ne može da "orca" više od broda
       var tw = []; for (var jj = 0; jj < hs.length; jj++) { var rr = Math.abs(nrm(hs[jj] - ((ws[jj] + off + 360) % 360))); if (L.up && rr > 25 && rr < 75) tw.push(rr); }
       var Bm = tw.length > 10 ? Math.max(34, Math.min(55, med(tw))) : null;
-      var pol = M.makePolar(bi, L.up ? Bm : null), r = route(M2, start, b.t0, target, L.up, pol, pen, b.dur * 1.6 + 60);
+      var pol = M.makePolar(bi, L.up ? Bm : null), maxS = b.dur * 1.6 + 60, r;
+      if (L.up || !TG.offset) r = route(M2, start, b.t0, L.up ? TG.top : (L.n === race.legs.length && TG.finish ? TG.finish : TG.bottom), L.up, pol, pen, maxS);
+      else { // krma: prvo kratak leg do ofset bove, pa niz vetar do kapije
+        var r1 = route(M2, start, b.t0, TG.offset, false, pol, pen, maxS, 20), last = L.n === race.legs.length && TG.finish, r2 = r1 ? route(M2, r1.end, r1.tEnd, last ? TG.finish : TG.bottom, false, pol, pen, maxS) : null;
+        r = r1 && r2 ? { path: r1.path.concat(r2.path.slice(1)), secs: r1.secs + r2.secs, tacks: r1.tacks + r2.tacks } : null;
+      }
       // kalibracija: stvarni put broda "odjedren" kroz isti model -> poređenje u istim jedinicama
       var seg0 = P.filter(function (x) { return x[0] >= b.t0 && x[0] <= b.t1; }), seg = [], mt = 0, tacks = 0, ps = null, Bq = pol.min + 10;
       seg0.forEach(function (x) { if (!seg.length || x[0] - seg[seg.length - 1][0] >= 10000) seg.push(x); }); if (seg0.length) seg.push(seg0[seg0.length - 1]);

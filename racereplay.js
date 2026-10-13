@@ -30,10 +30,11 @@
     var me = meta.me, col = {}, ci = 0; ids.forEach(function (id) { col[id] = id === me ? '#ffffff' : COLORS[ci++ % COLORS.length]; });
     var tMin = race.gun - 30000, tMax = Math.max.apply(null, ids.map(function (id) { var p = fleet[id]; return p[p.length - 1][0]; }));
     el.innerHTML = '<div class="rr-stage" id="rrStage"><div class="rr-map" id="rrMap"><div class="rr-leg" id="rrLeg"></div>' +
-      '<div class="trk-fsbtns"><button class="icon-btn" id="rrFs" title="Full screen">⛶</button><button class="icon-btn rr-z" id="rrZin">+</button><button class="icon-btn rr-z" id="rrZout">−</button></div></div>' +
+      '<div class="trk-fsbtns"><button class="icon-btn" id="rrFs" title="Full screen">⛶</button><button class="icon-btn rr-z" id="rrZin">+</button><button class="icon-btn rr-z" id="rrZout">−</button><button class="icon-btn rr-wbtn" id="rrWind" title="Wind field" hidden>≋</button></div></div>' +
       '<div class="trk-ctrl"><button class="icon-btn" id="rrPlay">▶</button><input type="range" id="rrSl" min="' + tMin + '" max="' + tMax + '" step="1000" value="' + race.gun + '"><button class="icon-btn rr-spd" id="rrSpd">×10</button><button class="icon-btn rr-full" id="rrFull" title="Full tracks / last 5 min">5′</button></div>' +
       '<div class="rr-time" id="rrTime"></div><div class="rr-chips">' + ids.map(function (id) { return '<span class="rr-chip' + (id === me ? ' me' : '') + '"><i style="background:' + col[id] + '"></i><b class="rr-sn">' + esc(meta.short(id)) + '</b> ' + esc(meta.label(id)) + '</span>'; }).join('') +
-      '<span class="rr-chip rr-key"><i class="rr-lane-i"></i><span id="rrIdN">AI ideal line (computing…)</span></span><span class="rr-chip rr-key"><i class="rr-best-i"></i>fastest boat of the leg</span></div></div>';
+      '<span class="rr-chip rr-key"><i class="rr-lane-i"></i><span id="rrIdN">AI ideal line (computing…)</span></span><span class="rr-chip rr-key"><i class="rr-best-i"></i>fastest boat of the leg</span></div>' +
+      '<div class="rr-wkey" id="rrWKey" hidden><span>less wind</span><i></i><span>more wind</span><small>colour = how fast boats sailed there vs. their own average · arrows = wind direction</small></div></div>';
     S = { t: race.gun, playing: false, speed: 10, map: null, mk: {}, race: race, fleet: fleet, legIdx: -1, ideal: null };
     var best = { type: 'FeatureCollection', features: (race.legs || []).map(function (L) { return { type: 'Feature', properties: { n: L.n }, geometry: { type: 'LineString', coordinates: L.lane.map(function (q) { return [q[1], q[0]]; }) } }; }) };
     function idealFc() { return { type: 'FeatureCollection', features: S.ideal ? S.ideal.o.map(function (x, i) { return x && x.path.length > 1 ? { type: 'Feature', properties: { n: race.legs[i].n }, geometry: { type: 'LineString', coordinates: x.path.map(function (q) { return [q[1], q[0]]; }) } } : null; }).filter(Boolean) : [] }; }
@@ -41,6 +42,15 @@
       S.ideal = o ? { o: o, name: name } : null; var e = $('rrIdN'); if (e) e.textContent = o ? 'AI ideal line · ' + name : 'AI ideal line (computing…)';
       if (S.map && S.ready && S.map.getSource('ideal')) S.map.getSource('ideal').setData(idealFc());
       S.legIdx = -2; setT(S.t);
+    };
+    S.wOn = true; S.fKey = null;
+    function drawField(t) {
+      if (!S.fieldFn || !S.map || !S.ready || !S.map.getSource('wf')) return;
+      var F = S.fieldFn(t); if (F.key === S.fKey) return; S.fKey = F.key;
+      S.map.getSource('wf').setData(F.cells); S.map.getSource('wa').setData(F.arrows);
+    }
+    S.setField = function (fn) {
+      S.fieldFn = fn; S.fKey = null; if (!$('rrWind')) return; $('rrWind').hidden = !fn; $('rrWKey').hidden = !fn || !S.wOn; drawField(S.t);
     };
     function trails(t) {
       return { type: 'FeatureCollection', features: ids.map(function (id) {
@@ -53,6 +63,7 @@
       S.t = t; $('rrSl').value = t;
       $('rrTime').textContent = (t < race.gun ? 'start in ' + mmss((race.gun - t) / 1000) : 'race time ' + mmss((t - race.gun) / 1000));
       if (!S.map || !S.ready) return;
+      if (S.wOn) drawField(t);
       S.map.getSource('tr').setData(trails(t));
       ids.forEach(function (id) { var q = at(fleet[id], t); if (q) S.mk[id].setLngLat([q[2], q[1]]); S.mk[id].getElement().style.opacity = q ? 1 : 0; });
       var k = legAt(t);
@@ -79,6 +90,11 @@
     $('rrSpd').addEventListener('click', function () { S.speed = SPEEDS[(SPEEDS.indexOf(S.speed) + 1) % SPEEDS.length]; $('rrSpd').textContent = '×' + S.speed; });
     $('rrFs').addEventListener('click', function (e) { e.stopPropagation(); setFs(!$('rrStage').classList.contains('fs')); });
     $('rrZin').addEventListener('click', function (e) { e.stopPropagation(); if (S.map) S.map.zoomIn(); });
+    $('rrWind').addEventListener('click', function (e) {
+      e.stopPropagation(); S.wOn = !S.wOn; $('rrWind').classList.toggle('off', !S.wOn); $('rrWKey').hidden = !S.wOn;
+      if (S.map && S.ready) ['wf', 'wa'].forEach(function (l) { S.map.setLayoutProperty(l, 'visibility', S.wOn ? 'visible' : 'none'); });
+      S.fKey = null; if (S.wOn) drawField(S.t);
+    });
     $('rrZout').addEventListener('click', function (e) { e.stopPropagation(); if (S.map) S.map.zoomOut(); });
     S.goLeg = function (k) { var L = race.legs[k]; if (!L) return; stop(); setT(L.t0); };
     window.Track.lib().then(function () {
@@ -88,7 +104,20 @@
       map.on('load', function () { map.fitBounds(b, { padding: 30, duration: 0, maxZoom: 17 }); });
       map.on('style.load', function () {
         if (map.getSource('ideal')) return;
-        var none = ['==', ['get', 'n'], -1];
+        var none = ['==', ['get', 'n'], -1], empty = { type: 'FeatureCollection', features: [] };
+        // polje vetra: boja = koliko su brodovi tu išli brže/sporije od svog proseka (pritisak), strelice = smer vetra
+        map.addSource('wf', { type: 'geojson', data: empty });
+        map.addLayer({ id: 'wf', type: 'fill', source: 'wf', paint: { 'fill-antialias': false, 'fill-opacity': 0.42,
+          'fill-color': ['interpolate', ['linear'], ['get', 'p'], 0.8, '#3b4cc0', 0.9, '#2fa3d6', 1.0, '#35b779', 1.1, '#f2c12e', 1.2, '#e8572f'] } });
+        if (!map.hasImage('wArrow')) {
+          var cv = document.createElement('canvas'); cv.width = cv.height = 32; var g = cv.getContext('2d');
+          g.strokeStyle = 'rgba(255,255,255,.85)'; g.fillStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 2.5; g.lineCap = 'round';
+          g.beginPath(); g.moveTo(16, 27); g.lineTo(16, 8); g.stroke(); g.beginPath(); g.moveTo(16, 3); g.lineTo(10, 12); g.lineTo(22, 12); g.closePath(); g.fill();
+          map.addImage('wArrow', { width: 32, height: 32, data: g.getImageData(0, 0, 32, 32).data });
+        }
+        map.addSource('wa', { type: 'geojson', data: empty });
+        map.addLayer({ id: 'wa', type: 'symbol', source: 'wa', layout: { 'icon-image': 'wArrow', 'icon-rotate': ['get', 'r'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true,
+          'icon-size': ['interpolate', ['linear'], ['zoom'], 12, 0.45, 16, 0.9] }, paint: { 'icon-opacity': 0.7 } });
         // AI idealna linija: široka fejdovana tirkizna traka + tanka sredina
         map.addSource('ideal', { type: 'geojson', data: idealFc() });
         map.addLayer({ id: 'ideal', type: 'line', source: 'ideal', filter: none, layout: { 'line-cap': 'round', 'line-join': 'round' },
@@ -111,5 +140,5 @@
     setT(race.gun);
     return S;
   }
-  window.RaceReplay = { open: open, close: close, go: function (k) { if (S && S.goLeg) S.goLeg(k); }, ideal: function (o, name) { if (S && S.setIdeal) S.setIdeal(o, name); } };
+  window.RaceReplay = { open: open, close: close, go: function (k) { if (S && S.goLeg) S.goLeg(k); }, ideal: function (o, name) { if (S && S.setIdeal) S.setIdeal(o, name); }, field: function (fn) { if (S && S.setField) S.setField(fn); } };
 })();

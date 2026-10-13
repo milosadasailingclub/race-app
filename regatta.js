@@ -212,7 +212,7 @@
     }
     var lg = legs();
     var boatInfo = {}; rows.forEach(function (x) { boatInfo[x.id] = { ta: x.ta, tackLoss: x.tackLoss, up: x.up, down: x.down }; });
-    return { legs: lg.legs, targets: lg.targets, boatInfo: boatInfo, marks: marks.map(function (m) { return { lat: mp[m][0], lon: mp[m][1], top: topMarks.indexOf(m) >= 0, name: info.marks[m] || '' }; }), fleet: lg.fleet, gun: gun, end: tLimit, wind: Math.round(AX), course: Math.round(G), laps: laps, startLine: startLn, finishLine: fin ? fin.ln : null, rows: rows, boats: boats.length };
+    return { legs: lg.legs, targets: lg.targets, boatInfo: boatInfo, marks: marks.map(function (m) { return { lat: mp[m][0], lon: mp[m][1], top: topMarks.indexOf(m) >= 0, start: (startLn || []).indexOf(m) >= 0, fin: !!(fin && fin.ln && fin.ln.indexOf(m) >= 0), name: info.marks[m] || '' }; }), fleet: lg.fleet, gun: gun, end: tLimit, wind: Math.round(AX), course: Math.round(G), laps: laps, startLine: startLn, finishLine: fin ? fin.ln : null, rows: rows, boats: boats.length };
   }
 
   /* ---- prepoznavanje sopstvenog broda iz traga snimljenog aplikacijom ---- */
