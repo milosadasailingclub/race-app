@@ -235,7 +235,7 @@
   }
   function resultsInto(rgId, txt) {
     var res = window.Regatta.parseResults(txt || '');
-    if (!res) { toast('Could not read the results. Copy the whole table including the header row (R1, R2, …).', null, null, 5000); return; }
+    if (!res) { toast('Could not read the results. Copy the whole results table from the page, from the header (Rank … R1, R2 …) to the last boat, and paste it again.', null, null, 6000); return; }
     var all = regattas(), rg = all.filter(function (x) { return x.id === rgId; })[0]; if (!rg) return;
     applyResults(rg, res);
     rg.races.forEach(function (r) { r.rows.forEach(function (row) { if (rg.comp[row.id]) { row.name = rg.comp[row.id].name; row.sail = rg.comp[row.id].sail; } }); });

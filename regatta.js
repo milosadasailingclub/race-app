@@ -220,7 +220,7 @@
     }
     var hi = -1, H = null;
     rows.some(function (r, i) { var low = r.map(function (x) { return x.toLowerCase(); }); if (low.some(function (x) { return /^r\d+$/.test(x); }) && low.some(function (x) { return /sail|helm|boat|skipper|crew/.test(x); })) { hi = i; H = low; return true; } return false; });
-    if (hi < 0) return null;
+    if (hi < 0) return parseResultsLoose(txt);
     function col(re) { for (var k = 0; k < H.length; k++) if (re.test(H[k])) return k; return -1; }
     var cSail = col(/sail\s*no|^sail|^no\.?$|^nr/), cHelm = col(/helm|skipper|name/), cCrew = col(/crew/), cBoat = col(/^boat|yacht/), RC = [];
     H.forEach(function (h, k) { var m = /^r(\d+)$/.exec(h); if (m) RC.push([+m[1], k]); });
@@ -237,6 +237,42 @@
       boats.push({ sail: sail, helm: helm, crew: cCrew >= 0 ? r[cCrew] : '', boat: cBoat >= 0 ? r[cBoat] : '', places: places });
     });
     return boats.length ? { boats: boats, races: RC.map(function (x) { return x[0]; }) } : null;
+  }
+  // rezerva: tekst kopiran sa telefona (svaka ćelija u svom redu, prazne ćelije nestanu)
+  function parseResultsLoose(txt) {
+    if (/<table/i.test(txt) && typeof DOMParser !== 'undefined') txt = new DOMParser().parseFromString(txt, 'text/html').body.innerText || '';
+    var T = [];
+    txt.split(/\r?\n/).forEach(function (l) { l.split('\t').forEach(function (x) { x = x.trim(); if (x) T.push(x); }); });
+    // spoji "(8.0" + "DNF)" i "8.0" + "RET"
+    var U = [];
+    T.forEach(function (x) {
+      var last = U[U.length - 1];
+      if (last && /^\(\d/.test(last) && !/\)$/.test(last)) { U[U.length - 1] = last + ' ' + x; return; }
+      if (last && /^\(?\d+(\.\d+)?$/.test(last) && /^(DNF|DNS|DNC|RET|DSQ|OCS|BFD|UFD|DNE|RAF|NSC)\)?$/i.test(x)) { U[U.length - 1] = last + ' ' + x; return; }
+      U.push(x);
+    });
+    var rIdx = []; U.forEach(function (x, i) { if (/^R\d+$/i.test(x)) rIdx.push(i); });
+    if (!rIdx.length) return null;
+    var N = rIdx.length, start = rIdx[rIdx.length - 1] + 1;
+    while (start < U.length && !/^\d+$/.test(U[start])) start++; // preskoči Total / Nett
+    var hasCrew = U.slice(0, rIdx[0]).some(function (x) { return /crew/i.test(x); });
+    var isScore = function (x) { return /^\(?\d+(\.\d+)?( ?[A-Z]{3})?\)?$/i.test(x); };
+    var boats = [], i = start, rank = 1;
+    while (i < U.length) {
+      if (U[i] !== String(rank)) { i++; continue; }
+      // skupljaj do niza od N+2 rezultata (trke + Total + Nett) ili N
+      var j = i + 1, pre = [];
+      while (j < U.length && !(isScore(U[j]) && U.slice(j, j + N).every(isScore))) { pre.push(U[j]); j++; }
+      if (j >= U.length) break;
+      var sc = U.slice(j, j + N), places = {};
+      sc.forEach(function (v, k) { var num = parseFloat(v.replace(/[()]/g, '')); places[k + 1] = !isNaN(num) && !/DNF|DNS|DNC|RET|DSQ|OCS|BFD|UFD|DNE|RAF|NSC/i.test(v) ? num : null; });
+      var ni = -1; pre.forEach(function (x, k) { if (ni < 0 && /^[A-Z]{3}$/.test(x) && k + 1 < pre.length && /\d/.test(pre[k + 1])) ni = k; });
+      var sail = ni >= 0 ? pre[ni] + ' ' + pre[ni + 1] : (pre.filter(function (x) { return /^\d{2,6}$/.test(x); })[0] || '');
+      var helm = hasCrew ? pre[pre.length - 2] : pre[pre.length - 1], crew = hasCrew ? pre[pre.length - 1] : '';
+      if (sail || helm) boats.push({ sail: sail, helm: helm || '', crew: crew || '', boat: '', places: places });
+      rank++; i = j + N;
+    }
+    return boats.length >= 2 ? { boats: boats, races: Object.keys(boats[0].places).map(Number) } : null;
   }
   // uređaj -> brod iz rezultata: redosled na cilju u svakoj trci glasa, pobeđuje najčešće povezivanje
   function mapByResults(races, res) {
