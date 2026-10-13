@@ -165,7 +165,7 @@
   function polarCard(s) {
     var PR = window.Profile, c = PR && PR.current(); if (!c || !c.polar) return '';
     var w = Math.round(s.w), T = PR.targets(c.polar, w); if (!T) return '';
-    return card('wx', 'Targets for ' + w + ' kn (' + c.name + ' polar)', 'Upwind: ' + T.upTwa + '° to the wind, ' + T.upBs.toFixed(1) + ' kn boat speed, VMG ' + T.upVmg.toFixed(1) + ' kn. Downwind: ' + T.dnTwa + '° to the wind, ' + T.dnBs.toFixed(1) + ' kn, VMG ' + T.dnVmg.toFixed(1) + ' kn. Angles are through the water; over ground the tacking angle looks about 6–10° wider (leeway).');
+    return card('wx', 'Targets for ' + w + ' kn (' + c.name + ' polar)', 'Upwind: ' + T.upTwa + '° to the wind, ' + T.upBs.toFixed(1) + ' kn boat speed, VMG ' + T.upVmg.toFixed(1) + ' kn. Downwind: ' + T.dnTwa + '° to the wind, ' + T.dnBs.toFixed(1) + ' kn, VMG ' + T.dnVmg.toFixed(1) + ' kn.');
   }
   /* ---- 4) mapa polja iz istorije ---- */
   function historyRaces(ctx, dir) {
