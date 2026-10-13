@@ -20,7 +20,7 @@
     return dbP;
   }
   function tx(mode, fn) { return db().then(function (d) { return new Promise(function (res, rej) { var t = d.transaction('tracks', mode), out = fn(t.objectStore('tracks')); t.oncomplete = function () { res(out && out.result !== undefined ? out.result : out); }; t.onerror = function () { rej(t.error); }; }); }); }
-  function allTracks() { return tx('readonly', function (s) { return s.getAll(); }).then(function (a) { return (a || []).sort(function (x, y) { return y.start - x.start; }); }); }
+  function allTracks() { return tx('readonly', function (s) { return s.getAll(); }).then(function (a) { return (a || []).filter(function (x) { return !x.fleet; }).sort(function (x, y) { return y.start - x.start; }); }); }
   function getTrack(id) { return tx('readonly', function (s) { return s.get(id); }); }
   function putTrack(t) { return tx('readwrite', function (s) { s.put(t); }); }
   function delTrack(id) { return tx('readwrite', function (s) { s.delete(id); }); }
@@ -347,5 +347,5 @@
   });
   setTimeout(renderRecBtn, 0);
 
-  window.Track = { get: getTrack, put: putTrack, all: allTracks, stats: stats, open: function (id) { if (window.RA) window.RA.show('tracking'); openTrack(id); }, onFix: onFix, autoStart: function () { startRec(true); }, stop: stopRec, showLive: showLive, openList: openList, _stats: stats, _rec: function () { return rec; } };
+  window.Track = { lib: loadLib, makeMap: function (el, c) { return makeMap(el, c); }, del: delTrack, get: getTrack, put: putTrack, all: allTracks, stats: stats, open: function (id) { if (window.RA) window.RA.show('tracking'); openTrack(id); }, onFix: onFix, autoStart: function () { startRec(true); }, stop: stopRec, showLive: showLive, openList: openList, _stats: stats, _rec: function () { return rec; } };
 })();

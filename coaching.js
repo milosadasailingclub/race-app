@@ -206,12 +206,14 @@
       out.sort(function (p, q) { return p.a.gun - q.a.gun; });
       var ev = info.event || {}, rg = { id: 'rg' + out[0].a.gun, name: ev.name || ('Regatta ' + new Date(out[0].a.gun).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })),
         place: ev.location || (function () { var D = out[0].D, k = Object.keys(D)[0], q = D[k][0]; return placeFor(q[1], q[2]); })(), comp: info.competitors, me: null, created: Date.now(),
-        races: out.map(function (x, i) { return { n: i + 1, gun: x.a.gun, end: x.a.end, wind: x.a.wind, laps: x.a.laps, rows: x.a.rows }; }) };
+        races: out.map(function (x, i) { return { n: i + 1, gun: x.a.gun, end: x.a.end, wind: x.a.wind, laps: x.a.laps, rows: x.a.rows, legs: x.a.legs, marks: x.a.marks }; }) };
       if (res) applyResults(rg, res);
       rg.races.forEach(function (r) { r.rows.forEach(function (row) { if (rg.comp[row.id]) { row.name = rg.comp[row.id].name; row.sail = rg.comp[row.id].sail; } }); });
       saveRegattas(regattas().filter(function (x) { return x.id !== rg.id; }).concat([rg]));
       regPending = { id: rg.id, out: out };
-      return findMe(rg, out).then(function (me) {
+      var fp = Promise.resolve();
+      if (window.Track) out.forEach(function (x, i) { fp = fp.then(function () { return window.Track.put({ id: 'f' + rg.id + '_' + (i + 1), fleet: true, boats: x.a.fleet, start: x.a.gun, points: [] }); }); });
+      return fp.then(function () { return findMe(rg, out); }).then(function (me) {
         if (me) return setMe(rg.id, me);
         // izbor broda
         var ids = {}; rg.races.forEach(function (r) { r.rows.forEach(function (x) { ids[x.id] = 1; }); });
@@ -293,6 +295,32 @@
     return tbl(r.rows.slice().sort(function (a, b) { var pa = a.offPlace !== undefined ? a.offPlace : a.place, pb = b.offPlace !== undefined ? b.offPlace : b.place; return (pa || 99) - (pb || 99); }), [['#', function (x) { var p = x.offPlace !== undefined ? x.offPlace : x.place; return p ? p : (x.offPlace === null ? 'DNF' : '–'); }], ['Boat', function (x) { return esc(nameOf(rg, x.id)); }], ['Time', function (x) { return fmtT(x.elapsed) + (x.finished ? '' : '*'); }], ['Start', function (x) { return x.start === null ? '–' : '+' + Math.round(x.start) + 's'; }], ['Up', function (x) { return n1(x.up) + '/' + n1(x.vmgUp); }], ['Dn', function (x) { return n1(x.down) + '/' + n1(x.vmgDown); }], ['TA', function (x) { return n0(x.ta); }], ['Tacks', function (x) { return x.tacks + (x.tackLoss !== null ? ' (' + n1(x.tackLoss) + ')' : ''); }]]) +
         (r.rows.some(function (x) { return !x.finished; }) ? '<p class="small">* not finished inside the file.</p>' : '') ;
   }
+  function renderRace(rgId, n) {
+    var rg = regattas().filter(function (x) { return x.id === rgId; })[0], r = rg && rg.races[n - 1]; if (!r) { cur = null; renderList(); return; }
+    $('coTitle').textContent = 'RACE ' + n;
+    var me = rg.me, lbl = function (id) { return nameOf(rg, id).split(' / ')[0]; };
+    var h = '<div class="co-when">' + esc(rg.name) + ' · ' + dateTxt(r.gun) + ' ' + timeTxt(r.gun) + ' · wind ' + d3(r.wind) + '° · ' + r.laps + ' laps</div><div id="rrBox"></div>';
+    if (r.legs && r.legs.length) {
+      h += '<div class="co-sec"><h3>LEGS</h3><p class="small">The turquoise lane is the track of the boat that sailed that leg fastest: the best way that day, in that wind. Lost = time behind the fastest boat on the leg. Off = how far you were from that lane on average (L / R looking upwind). Tap a leg to jump there.</p>' +
+        tblH(r.legs.map(function (L) { var x = L.boats[me] || {}; return { id: '', L: L, x: x }; }), [
+          ['Leg', function (o) { return '<button class="co-leg" data-leg="' + (o.L.n - 1) + '">' + o.L.n + (o.L.up ? ' ↑' : ' ↓') + '</button>'; }],
+          ['Wind', function (o) { return o.L.wind === null ? '–' : d3(o.L.wind) + (o.L.shift ? ' (' + (o.L.shift > 0 ? '+' : '') + o.L.shift + ')' : ''); }],
+          ['Paid', function (o) { return o.L.up ? (o.L.fav === 'middle' ? 'middle' : o.L.fav || '–') : '–'; }],
+          ['Fastest', function (o) { return esc(lbl(o.L.best)) + ' ' + fmtT(o.L.bestDur); }],
+          ['You lost', function (o) { return o.x.lost === undefined ? '–' : (o.x.lost < 1 ? '<b>fastest</b>' : '+' + Math.round(o.x.lost) + 's'); }],
+          ['Off', function (o) { return o.x.off === undefined || o.x.off === null ? '–' : Math.abs(Math.round(o.x.off)) + ' m ' + (o.x.off > 0 ? 'R' : 'L'); }]
+        ], null) + '</div>';
+      h += r.legs.map(function (L) {
+        var rows = Object.keys(L.boats).map(function (id) { return Object.assign({ id: id }, L.boats[id]); }).sort(function (a, b) { return a.lost - b.lost; });
+        return '<details class="co-sec co-race"><summary>LEG ' + L.n + (L.up ? ' ↑' : ' ↓') + ' · all boats</summary>' + tblH(rows, [['Boat', function (x) { return esc(lbl(x.id)); }], ['Time', function (x) { return fmtT(x.dur); }], ['Lost', function (x) { return x.lost < 1 ? '–' : '+' + Math.round(x.lost) + 's'; }], ['Off lane', function (x) { return x.off === null ? '–' : Math.abs(Math.round(x.off)) + ' m ' + (x.off > 0 ? 'R' : 'L'); }]], me) + '</details>';
+      }).join('');
+    } else h += '<p class="small">This regatta was imported before the replay existed. Import the race files again to get the fleet replay and the fastest lanes.</p>';
+    $('coBody').innerHTML = h;
+    if (r.legs && window.Track && window.RaceReplay) window.Track.get('f' + rgId + '_' + n).then(function (f) {
+      if (!f || !f.boats) { $('rrBox').innerHTML = '<p class="small">Fleet tracks not found. Import the race files again.</p>'; return; }
+      window.RaceReplay.open($('rrBox'), r, f.boats, { me: me, label: lbl, short: function (id) { var c = (rg.comp || {})[id]; return c && c.sail ? String(c.sail).replace(/\D/g, '') : id.slice(-3); } });
+    });
+  }
   function renderRegatta(id) {
     var rg = regattas().filter(function (x) { return x.id === id; })[0]; if (!rg) { cur = null; renderList(); return; }
     $('coTitle').textContent = 'REGATTA';
@@ -306,7 +334,7 @@
       var mine = r.rows.filter(function (x) { return x.id === me; })[0];
       var myE = entries().filter(function (e) { return e.regatta === rg.id && e.raceN === r.n; })[0];
       h += '<details class="co-sec co-race"><summary>RACE ' + r.n + ' · ' + timeTxt(r.gun) + ' · wind ' + d3(r.wind) + '° · ' + r.laps + ' laps' + (mine ? ' · you ' + ((mine.offPlace !== undefined ? mine.offPlace : mine.place) || 'not finished') : '') + '</summary>' +
-        raceTable(rg, r) + (myE ? '<button class="btn" data-le="' + myE.id + '">Open my Race Log entry</button>' : '') + '</details>';
+        raceTable(rg, r) + '<div class="row">' + (r.legs ? '<button class="btn" data-rr="' + rg.id + ':' + r.n + '">▶ Replay &amp; fastest lanes</button>' : '') + (myE ? '<button class="btn" data-le="' + myE.id + '">My Race Log entry</button>' : '') + '</div></details>';
     });
     h += '<div class="co-sec"><h3>RESULTS</h3><p class="small">' + (rg.hasResults ? 'Official results added: boats named and places from the results.' : 'Add the official results to name the boats and use the official places. Copy the results table from the results web page and paste it here, or pick the file (CSV / TXT / HTML).') + '</p>' +
       '<textarea id="coResTxt" rows="4" placeholder="Paste the results table here"></textarea><div class="row"><button class="btn" id="coResGo">Use pasted results</button><label class="btn co-imp">Results file<input type="file" id="coResFile" accept=".csv,.txt,.tsv,.html,.htm" hidden></label></div></div>';
@@ -320,7 +348,11 @@
   function isOpen() { return document.body.getAttribute('data-view') === 'coaching'; }
   function open(id) { if (window.RA && !isOpen()) window.RA.show('coaching'); cur = id || null; render(); }
   function list() { cur = null; render(); }
-  function render() { if (cur && cur.indexOf('rg:') === 0) renderRegatta(cur.slice(3)); else if (cur) renderEntry(); else renderList(); }
+  function render() {
+    if (!(cur && cur.indexOf('rr:') === 0) && window.RaceReplay) window.RaceReplay.close();
+    if (cur && cur.indexOf('rr:') === 0) renderRace(cur.split(':')[1], +cur.split(':')[2]);
+    else if (cur && cur.indexOf('rg:') === 0) renderRegatta(cur.slice(3)); else if (cur) renderEntry(); else renderList();
+  }
   function wxLine(w) {
     if (!w) return 'Loading weather…';
     if (w.err) return 'Weather not available (' + esc(w.err) + ')';
@@ -353,7 +385,7 @@
     var rg = regattas().filter(function (x) { return x.id === e.regatta; })[0]; if (!rg) return '';
     var n = e.raceN || +((/ Race (\d+)$/.exec(e.title || '') || [])[1]), r = rg.races[n - 1]; if (!r) return '';
     return '<div class="co-sec"><h3>FLEET · RACE ' + r.n + '</h3><p class="small">Wind ' + d3(r.wind) + '° · ' + r.laps + ' laps · ' + r.rows.length + ' boats. Up / Dn = speed / VMG kn.</p>' + raceTable(rg, r) +
-      '<button class="btn" data-rg="' + rg.id + '">Regatta overview</button></div>';
+      '<div class="row">' + (r.legs ? '<button class="btn" data-rr="' + rg.id + ':' + r.n + '">▶ Fleet replay &amp; fastest lanes</button>' : '') + '<button class="btn" data-rg="' + rg.id + '">Regatta overview</button></div></div>';
   }
   function renderEntry() {
     var e = entries().filter(function (x) { return x.id === cur; })[0]; if (!e) { cur = null; renderList(); return; }
@@ -388,6 +420,8 @@
     if (b.hasAttribute('data-le')) { cur = b.getAttribute('data-le'); render(); window.scrollTo(0, 0); return; }
     if (b.hasAttribute('data-pick')) { addFromTrack(b.getAttribute('data-pick')); return; }
     if (b.hasAttribute('data-boat')) { importBoat(+b.getAttribute('data-boat')); return; }
+    if (b.hasAttribute('data-rr')) { cur = 'rr:' + b.getAttribute('data-rr'); render(); window.scrollTo(0, 0); return; }
+    if (b.hasAttribute('data-leg')) { if (window.RaceReplay) window.RaceReplay.go(+b.getAttribute('data-leg')); var mpE = document.getElementById('rrMap'); if (mpE) mpE.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
     if (b.hasAttribute('data-rg')) { cur = 'rg:' + b.getAttribute('data-rg'); render(); window.scrollTo(0, 0); return; }
     if (b.hasAttribute('data-me')) { var rgP = regPending; setMe(rgP ? rgP.id : null, b.getAttribute('data-me')); return; }
     if (b.hasAttribute('data-me2')) { var all2 = regattas(), r2 = all2.filter(function (x) { return 'rg:' + x.id === cur; })[0]; if (r2) { r2.me = b.getAttribute('data-me2'); saveRegattas(all2); if (r2.comp[r2.me]) sset('myName', r2.comp[r2.me].name); render(); } return; }
@@ -433,6 +467,7 @@
     });
     $('coBack').addEventListener('click', function () {
       if (!cur) { window.RA.show('menu'); return; }
+      if (cur.indexOf('rr:') === 0) { cur = 'rg:' + cur.split(':')[1]; render(); window.scrollTo(0, 0); return; }
       var e = cur.indexOf('rg:') === 0 ? null : entries().filter(function (x) { return x.id === cur; })[0];
       cur = e && e.regatta && regattas().some(function (r) { return r.id === e.regatta; }) ? 'rg:' + e.regatta : null; render(); window.scrollTo(0, 0);
     });

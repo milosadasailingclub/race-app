@@ -143,6 +143,7 @@
     });
     var AX = axes.length ? cmean(axes) : G;
     // BROJKE po brodu, samo od starta do cilja
+    var allTk = [];
     var rows = boats.map(function (id) {
       var fT = finishT[id] || null, end = fT || tLimit;
       var P = D[id].filter(function (q) { return q[0] >= gun && q[0] <= end; }).map(function (q) { return [q[0], q[1], q[2], q[3], q[4], null, null]; });
@@ -151,6 +152,7 @@
       var up = [], vu = [], dn = [], vd = [], mx = 0;
       P.forEach(function (q) { if (q[3] > mx) mx = q[3]; if (q[3] === null || q[4] === null || q[3] < 1.5) return; var rel = Math.abs(nrm(q[4] - AX)); if (rel < 70) { up.push(q[3]); vu.push(q[3] * Math.cos(rad(rel))); } else if (rel > 110) { dn.push(q[3]); vd.push(q[3] * Math.cos(rad(180 - rel))); } });
       var tk = r.list.filter(function (m) { return m.kind === 'tack'; }), gy = r.list.filter(function (m) { return m.kind === 'gybe'; });
+      tk.forEach(function (m) { allTk.push({ t: m.t, mid: cmean([m.pre, m.post]) }); });
       var c = info.competitors[id] || {};
       return { id: id, name: c.name || ('Boat ' + id), sail: c.sail || '', finished: !!fT, elapsed: (end - gun) / 1000, start: st ? (st - gun) / 1000 : null,
         up: avg(up), vmgUp: avg(vu), down: avg(dn), vmgDown: avg(vd), ta: med(tk.map(function (m) { return m.turn; })), tacks: tk.length,
@@ -159,7 +161,54 @@
     });
     rows.sort(function (a, b) { return (a.finished ? a.elapsed : 1e9 + a.elapsed) - (b.finished ? b.elapsed : 1e9 + b.elapsed); });
     rows.forEach(function (r, i) { r.place = r.finished ? i + 1 : null; });
-    return { gun: gun, end: tLimit, wind: Math.round(AX), course: Math.round(G), laps: laps, startLine: startLn, finishLine: fin ? fin.ln : null, rows: rows, boats: boats.length };
+    // LEGOVI: obilasci gornje bove i prolazi kroz donju zonu; najbrži brod po legu = "idealna traka"
+    function legs() {
+      var bottom = marks.filter(function (m) { return topMarks.indexOf(m) < 0; }), bc = [avg(bottom.map(function (m) { return MX[m][0]; })), avg(bottom.map(function (m) { return MX[m][1]; }))];
+      var ev = {};
+      boats.forEach(function (id) {
+        var v = V[id], P = PX[id], e = [Math.max(gun, (best.c[id] || []).filter(function (t) { return t >= gun - 5000; })[0] || gun)];
+        v.forEach(function (tv, k) {
+          e.push(tv);
+          var nxt = k + 1 < v.length ? v[k + 1] : (finishT[id] || null);
+          if (k + 1 < v.length) { var bt = null, bd = 1e9; P.forEach(function (q) { if (q[0] > tv && q[0] < nxt) { var d = dist(q[1], bc); if (d < bd) { bd = d; bt = q[0]; } } }); if (bt) e.push(bt); }
+        });
+        if (finishT[id]) e.push(finishT[id]);
+        ev[id] = e;
+      });
+      var nLegs = 2 * laps, out = [], uv = [Math.sin(rad(AX)), Math.cos(rad(AX))];
+      function sample(id, a, b, step) { var r = [], lt = -1e12; D[id].forEach(function (q) { if (q[0] >= a && q[0] <= b && q[0] - lt >= step) { r.push(q); lt = q[0]; } }); return r; }
+      for (var L = 0; L < nLegs; L++) {
+        var durs = [];
+        boats.forEach(function (id) { var e = ev[id]; if (e.length > L + 1) durs.push([e[L + 1] - e[L], id]); });
+        if (!durs.length) break;
+        durs.sort(function (a, b) { return a[0] - b[0]; });
+        var bId = durs[0][1], lane = sample(bId, ev[bId][L], ev[bId][L + 1], 4000), laneXY = lane.map(function (q) { return xy(q[1], q[2]); });
+        var t0 = Math.min.apply(null, boats.filter(function (id) { return ev[id].length > L; }).map(function (id) { return ev[id][L]; }));
+        var t1 = Math.max.apply(null, durs.map(function (d) { return ev[d[1]][L + 1]; }));
+        var tm = allTk.filter(function (x) { return x.t >= t0 && x.t <= t1 && Math.abs(nrm(x.mid - AX)) < 35; }).map(function (x) { return x.mid; });
+        var w = tm.length >= 2 ? cmean(tm) : null, up = L % 2 === 0;
+        // rhumb line od donje do gornje zone -> na kojoj strani je bio najbrži
+        var tc = [avg(topMarks.map(function (m) { return MX[m][0]; })), avg(topMarks.map(function (m) { return MX[m][1]; }))];
+        function sideOff(pt) { var d = [pt[0] - bc[0], pt[1] - bc[1]], r = [tc[0] - bc[0], tc[1] - bc[1]], len = Math.hypot(r[0], r[1]) || 1; return (r[0] * d[1] - r[1] * d[0]) / len * -1; } // + = desno gledano uz vetar
+        var bOff = med(laneXY.map(sideOff)), fav = bOff > 40 ? 'right' : bOff < -40 ? 'left' : 'middle';
+        var bo = {};
+        durs.forEach(function (d) {
+          var id = d[1], pts = sample(id, ev[id][L], ev[id][L + 1], 3000).map(function (q) { return xy(q[1], q[2]); });
+          var offs = pts.map(function (p) {
+            var bi = 0, bd = 1e12; for (var k = 0; k < laneXY.length; k++) { var dd = (laneXY[k][0] - p[0]) * (laneXY[k][0] - p[0]) + (laneXY[k][1] - p[1]) * (laneXY[k][1] - p[1]); if (dd < bd) { bd = dd; bi = k; } }
+            var dv = [p[0] - laneXY[bi][0], p[1] - laneXY[bi][1]], cr = uv[0] * dv[1] - uv[1] * dv[0];
+            return Math.sqrt(bd) * (cr < 0 ? 1 : -1);
+          });
+          bo[id] = { dur: d[0] / 1000, lost: (d[0] - durs[0][0]) / 1000, off: med(offs), side: med(pts.map(sideOff)) };
+        });
+        out.push({ n: L + 1, up: up, t0: t0, t1: t1, best: bId, bestDur: durs[0][0] / 1000, lane: lane.map(function (q) { return [+q[1].toFixed(6), +q[2].toFixed(6)]; }), wind: w === null ? null : Math.round(w), shift: w === null ? null : Math.round(nrm(w - AX)), fav: up ? fav : null, boats: bo });
+      }
+      var fleet = {};
+      boats.forEach(function (id) { fleet[id] = sample(id, gun - 60000, finishT[id] ? finishT[id] + 60000 : tLimit, 2000).map(function (q) { return [q[0], +q[1].toFixed(6), +q[2].toFixed(6), q[3] === null ? null : +(+q[3]).toFixed(1)]; }); });
+      return { legs: out, fleet: fleet };
+    }
+    var lg = legs();
+    return { legs: lg.legs, marks: marks.map(function (m) { return { lat: mp[m][0], lon: mp[m][1], top: topMarks.indexOf(m) >= 0, name: info.marks[m] || '' }; }), fleet: lg.fleet, gun: gun, end: tLimit, wind: Math.round(AX), course: Math.round(G), laps: laps, startLine: startLn, finishLine: fin ? fin.ln : null, rows: rows, boats: boats.length };
   }
 
   /* ---- prepoznavanje sopstvenog broda iz traga snimljenog aplikacijom ---- */

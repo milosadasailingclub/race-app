@@ -466,3 +466,21 @@ body.trk-fs-on{overflow:hidden}
 .co-tbl tr.me td{color:var(--turq);font-weight:700}
 .co-race summary{font-family:var(--f-num);font-weight:700;letter-spacing:.04em;cursor:pointer;padding:2px 0}
 .co-rgt{font-size:20px}
+
+/* fleet replay */
+.rr-stage{display:flex;flex-direction:column;gap:8px;margin:8px 0}
+.rr-map{position:relative;height:52vh;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:var(--surface)}
+.rr-map .maplibregl-map{position:absolute!important;inset:0}
+.rr-leg{position:absolute;left:8px;top:8px;z-index:5;background:rgba(5,7,10,.82);border:1px solid var(--line);border-radius:8px;padding:6px 10px;display:flex;flex-direction:column;gap:2px;font-size:12px;max-width:70%}
+.rr-leg:empty{display:none}
+.rr-leg b{font-family:var(--f-num);letter-spacing:.08em;color:var(--turq);font-size:14px}
+.rr-time{font-family:var(--f-num);font-weight:700;letter-spacing:.06em;color:var(--muted);text-align:center}
+.rr-chips{display:flex;flex-wrap:wrap;gap:6px 10px;font-size:12px}
+.rr-chip{display:inline-flex;align-items:center;gap:5px;color:var(--muted)}
+.rr-chip.me{color:var(--fg);font-weight:700}
+.rr-chip i{width:12px;height:4px;border-radius:2px;display:inline-block}
+.rr-lane-i{width:18px!important;height:10px!important;background:rgba(0,224,198,.35)}
+.rr-boat{min-width:22px;height:18px;padding:0 3px;border-radius:9px;font:700 10px/18px var(--f-num);color:#05070a;text-align:center;border:1.5px solid #05070a;box-shadow:0 0 4px rgba(0,0,0,.6)}
+.rr-boat.me{box-shadow:0 0 10px #fff}
+.co-leg{background:none;border:1px solid var(--line);border-radius:6px;color:var(--turq);font:700 12px var(--f-num);padding:4px 8px}
+.rr-full{font-family:var(--f-num);font-weight:800;font-size:14px}
