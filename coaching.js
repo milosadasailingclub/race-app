@@ -458,9 +458,9 @@
       .filter(function (e) { return hit([e.title, e.place, e.notes, e.result].join(' ')); }).map(function (e) { return { t: e.m.start || 0, e: e }; })
       .concat(rgs.filter(function (r) { return hit([r.name, r.place].join(' ') + ' ' + all.filter(function (e) { return e.regatta === r.id; }).map(function (e) { return e.notes; }).join(' ')); }).map(function (r) { return { t: r.races[0].gun, r: r }; }))
       .sort(function (a, b) { return b.t - a.t; });
-    var h = '<div class="co-sec"><h3>RACE LOG</h3><p class="small">One entry per sail: your track, the measured numbers, the weather of the day, setup and notes. Import a file with only your boat and you get your numbers; import files with the whole fleet (tracking system of a regatta) and every race is also compared with the other boats.</p>' +
-      '<div class="row"><button class="btn" id="coAddTrack">+ From a saved track</button><label class="btn co-imp">Import files<input type="file" id="coImport" multiple accept=".gpx,.csv,.gz,.txt,.tsv,.json,.html,.htm,text/csv,application/gpx+xml" hidden></label></div>' +
-      '<p class="small co-hint">GPX / CSV of your boat, or the race files of a regatta (CSV / CSV.GZ with all boats). Add the official results or the competitor list in the same pick to name the boats.</p>' +
+    var h = '<div class="co-sec"><h3>RACE LOG</h3><p class="small">Every sail and regatta: your numbers, weather and notes. Regattas get a fleet replay, the AI ideal line and a wind map.</p>' +
+      '<div class="row"><button class="btn" id="coAddTrack">+ Saved track</button><label class="btn co-imp">Import files<input type="file" id="coImport" multiple accept=".gpx,.csv,.gz,.txt,.tsv,.json,.html,.htm,text/csv,application/gpx+xml" hidden></label></div>' +
+      '<p class="small co-hint">Your GPX / CSV, or all race files of a regatta together with the results.</p>' +
       (items.length || q ? '<input type="search" id="coFilter" class="co-filter" placeholder="Search place, notes… (e.g. Palić)" value="' + esc(q) + '">' : '') + '<div id="coPick"></div><div id="coRegPick"></div>';
     h += items.length ? items.map(function (it) {
       if (it.r) { var r = it.r; return '<button class="cl-card co-card co-rgcard" data-rg="' + r.id + '"><span class="cl-name">' + esc(r.name) + '</span><span class="cl-meta">' + r.races.length + ' races</span><span class="co-sub">' + esc(r.place || '') + ' · ' + dateTxt(r.races[0].gun) + ' · fleet of ' + r.races[0].rows.length + (r.me ? ' · you: ' + esc(nameOf(r, r.me).split(' / ')[0]) : '') + '</span></button>'; }
