@@ -25,9 +25,11 @@
   var SETUP = [['sails', 'Sails'], ['rig', 'Rig / shrouds / rake'], ['crew', 'Crew & weight'], ['other', 'Other settings']];
 
   /* ---- analiza traga: šta se izmerilo ---- */
-  function measure(points) {
+  function measure(points, t) {
+    t = t || {};
     var P = points.filter(function (q) { return q && q[1] !== null && q[2] !== null; });
-    var mn = window.Maneuvers ? window.Maneuvers.analyze(P) : null, ax = mn ? mn.axis : null;
+    if (t.raceStart) P = P.filter(function (q) { return q[0] >= t.raceStart - 60000 && (!t.raceEnd || q[0] <= t.raceEnd); }); // samo trka (uvezeni podaci sa regate)
+    var mn = window.Maneuvers ? window.Maneuvers.analyze(P, { upAt: t.raceStart || null, flip: !!t.flip }) : null, ax = mn ? mn.axis : null;
     var up = [], dn = [], heelUp = [], mx = 0, d = 0;
     for (var i = 0; i < P.length; i++) {
       var q = P[i]; if (i) d += distM(P[i - 1], q);
@@ -78,9 +80,9 @@
     if (ex) { open(ex.id); return Promise.resolve(ex); }
     return window.Track.get(trackId).then(function (t) {
       if (!t || !t.points || t.points.length < 20) { toast('Track too short for the Race Log'); return null; }
-      var m = measure(t.points), all = entries(), last = all[0];
+      var m = measure(t.points, t), all = entries(), last = all[0];
       var e = { id: 'l' + Date.now(), trackId: trackId, title: t.name, place: placeFor(m.lat, m.lon), m: m, wx: null,
-        setup: last && last.setup ? Object.assign({}, last.setup) : {}, notes: '', result: '', created: Date.now() };
+        setup: last && last.setup ? Object.assign({}, last.setup) : {}, notes: '', result: t.place ? t.place + ' of ' + t.fleet : '', created: Date.now() };
       all.unshift(e); all.sort(function (a, b) { return (b.m.start || 0) - (a.m.start || 0); }); saveEntries(all);
       fetchWx(e); open(e.id); toast('Added to the Race Log' + (last && last.setup ? ' (setup copied from the last entry)' : ''));
       return e;
@@ -113,27 +115,61 @@
     var L = txt.trim().split(/\r?\n/), h = L[0].toLowerCase().split(/[,;\t]/).map(function (s) { return s.trim().replace(/"/g, ''); });
     function col(names) { for (var k = 0; k < names.length; k++) { var i = h.indexOf(names[k]); if (i >= 0) return i; } return -1; }
     var cT = col(['time', 'timestamp', 'datetime', 'date', 'utc']), cLa = col(['lat', 'latitude']), cLo = col(['lon', 'lng', 'long', 'longitude']),
-      cS = col(['sog_kn', 'sog', 'speed_kn', 'speed']), cC = col(['cog', 'course', 'heading']), cH = col(['heel']);
+      cS = col(['sog_kn', 'sog', 'speed_kn', 'speed']), cC = col(['cog', 'course', 'heading']), cH = col(['heel']), cDev = col(['deviceid', 'device', 'boat', 'boatid', 'tracker']), cSt = col(['standing', 'rank', 'position']), boats = {};
     if (cT < 0 || cLa < 0 || cLo < 0) throw new Error('CSV needs time, lat and lon columns');
     var sep = L[0].indexOf(';') >= 0 && L[0].indexOf(',') < 0 ? ';' : L[0].indexOf('\t') >= 0 ? '\t' : ',', P = [];
     for (var r = 1; r < L.length; r++) {
       var c = L[r].split(sep); if (c.length < 3) continue;
-      var t = c[cT]; var tt = /^\d+(\.\d+)?$/.test(t) ? (+t < 1e12 ? +t * 1000 : +t) : Date.parse(t);
+      var t = c[cT]; var tt = /^\d+(\.\d+)?$/.test(t) ? (+t < 1e12 ? +t * 1000 : +t) : parseTime(t);
       var num = function (i) { return i < 0 || c[i] === '' || c[i] === undefined ? null : +c[i]; };
       if (isNaN(tt) || num(cLa) === null) continue;
-      P.push([tt, num(cLa), num(cLo), num(cS), num(cC), num(cH), null]);
+      var pt = [tt, num(cLa), num(cLo), num(cS), num(cC), num(cH), null];
+      if (cDev >= 0) { var id = c[cDev], B = boats[id] || (boats[id] = { id: id, P: [], s0: null, s1: null, fin: null }); B.P.push(pt); var sv = num(cSt); if (sv !== null) { if (B.s0 === null) B.s0 = tt; B.s1 = tt; B.fin = sv; } }
+      else P.push(pt);
+    }
+    if (cDev >= 0) {
+      // više brodova u jednom fajlu (npr. izvoz sa sistema za praćenje regata): bira se brod
+      var list = Object.keys(boats).map(function (k) { var B = boats[k]; B.P.sort(function (a, b) { return a[0] - b[0]; }); B.avg = avg(B.P.map(function (q) { return q[3] || 0; })); return B; })
+        .filter(function (B) { return B.P.length >= 20 && B.avg >= 1; }).sort(function (a, b) { return (a.fin || 99) - (b.fin || 99); });
+      return { name: null, boats: list };
     }
     return { name: null, points: fillSogCog(P) };
+  }
+  function parseTime(t) {
+    var s = String(t).trim().replace(/"/g, '');
+    if (/^\d{4}-\d\d-\d\d[ T]\d/.test(s)) { s = s.replace(' ', 'T').replace(/(\.\d{3})\d+/, '$1'); if (!/(Z|[+-]\d\d:?\d\d)$/.test(s)) s += 'Z'; }
+    return Date.parse(s);
   }
   function importFile(f) {
     return f.text().then(function (txt) {
       var r = /\.gpx$/i.test(f.name) || /<gpx/i.test(txt.slice(0, 500)) ? parseGpx(txt) : parseCsv(txt);
-      var P = r.points.filter(function (q) { return !isNaN(q[0]) && !isNaN(q[1]) && !isNaN(q[2]); }).sort(function (a, b) { return a[0] - b[0]; });
-      if (P.length < 20) throw new Error('No track points found in ' + f.name);
-      var t = { id: 't' + P[0][0] + 'i', name: r.name || f.name.replace(/\.(gpx|csv)$/i, ''), start: P[0][0], end: P[P.length - 1][0], points: P, imported: true };
+      if (r.boats) {
+        if (!r.boats.length) throw new Error('No moving boats found in ' + f.name);
+        pendingImp = { name: f.name.replace(/\.(gpx|csv)$/i, ''), boats: r.boats };
+        $('coPick').innerHTML = '<p class="small">This file has ' + r.boats.length + ' boats. Which one is yours?</p>' + r.boats.map(function (B, i) {
+          return '<button class="cl-card" data-boat="' + i + '"><span class="cl-name">' + (B.fin ? '#' + B.fin + ' · ' : '') + 'Boat ' + esc(B.id) + '</span><span class="cl-meta">avg ' + B.avg.toFixed(1) + ' kn</span></button>';
+        }).join('');
+        toast('Pick your boat');
+        return null;
+      }
+      return saveImported(r.points, r.name || f.name.replace(/\.(gpx|csv)$/i, ''), {});
+    });
+  }
+  var pendingImp = null;
+  function importBoat(i) {
+    var B = pendingImp && pendingImp.boats[i]; if (!B) return;
+    var others = pendingImp.boats.filter(function (x) { return x !== B; }).map(function (x) { return { id: x.id, fin: x.fin }; });
+    saveImported(fillSogCog(B.P), pendingImp.name + ' · boat ' + B.id + (B.fin ? ' (#' + B.fin + ')' : ''), { raceStart: B.s0, raceEnd: B.s1, fleet: others.length + 1, place: B.fin, dev: B.id });
+    pendingImp = null; $('coPick').innerHTML = '';
+  }
+  function saveImported(points, name, extra) {
+    {
+      var P = points.filter(function (q) { return !isNaN(q[0]) && !isNaN(q[1]) && !isNaN(q[2]); }).sort(function (a, b) { return a[0] - b[0]; });
+      if (P.length < 20) throw new Error('No track points found in ' + name);
+      var t = Object.assign({ id: 't' + P[0][0] + 'i' + (extra.dev || ''), name: name, start: P[0][0], end: P[P.length - 1][0], points: P, imported: true }, extra);
       t.stats = window.Track.stats(P);
       return window.Track.put(t).then(function () { return addFromTrack(t.id); });
-    });
+    }
   }
 
   /* ---- prikaz ---- */
@@ -176,7 +212,7 @@
       tile('TACK ANGLE', m.ta !== null ? Math.round(m.ta) + '°' : '–') + tile('HEEL UP', m.heelUp !== null ? Math.round(m.heelUp) + '°' : '–') +
       tile('TACKS', m.nTack + (m.tackLoss !== null ? ' · ' + (m.tackLoss > 0 ? '−' : '+') + Math.abs(Math.round(m.tackLoss)) + ' m' : '')) +
       tile('GYBES', m.nGybe + (m.gybeLoss !== null ? ' · ' + (m.gybeLoss > 0 ? '−' : '+') + Math.abs(Math.round(m.gybeLoss)) + ' m' : '')) + '</div>' +
-      '<button class="btn" id="coOpenTrk">Open track replay</button></div>' +
+      '<div class="row"><button class="btn" id="coOpenTrk">Open track replay</button><button class="btn" id="coFlip">Wind from the other side?</button></div></div>' +
       '<div class="co-sec"><h3>SETUP</h3>' + SETUP.map(function (s) { return '<label class="co-lbl">' + s[1] + '<input data-s="' + s[0] + '" value="' + esc((e.setup || {})[s[0]] || '') + '"></label>'; }).join('') + '</div>' +
       '<div class="co-sec"><h3>RESULT</h3><input class="co-full" data-f="result" placeholder="e.g. 3rd of 12, race 2: 1st" value="' + esc(e.result) + '"></div>' +
       '<div class="co-sec"><h3>NOTES</h3><textarea data-f="notes" rows="7" placeholder="What worked, what did not, which side paid, crew notes…">' + esc(e.notes) + '</textarea></div>' +
@@ -192,6 +228,12 @@
     var b = ev.target.closest('button, [data-le]'); if (!b) return;
     if (b.hasAttribute('data-le')) { cur = b.getAttribute('data-le'); render(); window.scrollTo(0, 0); return; }
     if (b.hasAttribute('data-pick')) { addFromTrack(b.getAttribute('data-pick')); return; }
+    if (b.hasAttribute('data-boat')) { importBoat(+b.getAttribute('data-boat')); return; }
+    if (b.id === 'coFlip') {
+      var ef = entries().filter(function (x) { return x.id === cur; })[0]; if (!ef) return;
+      window.Track.get(ef.trackId).then(function (t) { if (!t) return; t.flip = !t.flip; return window.Track.put(t).then(function () { update(ef.id, { m: measure(t.points, t) }); toast('Wind side flipped'); }); });
+      return;
+    }
     if (b.id === 'coAddTrack') {
       var used = entries().map(function (x) { return x.trackId; });
       window.Track.all().then(function (a) {

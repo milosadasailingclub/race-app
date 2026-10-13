@@ -60,7 +60,12 @@
         var A = cmean(mids.map(function (m) { return (2 * m) % 360; })) / 2; // osa mod 180
         // smer uz vetar: strana gde je nagib veći
         function heelScore(axis) { var hs = [], i2; for (i2 = 0; i2 < n; i2++) if (H[i2] !== null && P[i2][5] !== null && Math.abs(P[i2][5]) < 35 && Math.abs(nrm(H[i2] - axis)) < 70) hs.push(Math.abs(P[i2][5])); hs.sort(function (x, y) { return x - y; }); return hs.length ? hs[hs.length >> 1] : 0; }
-        est = heelScore(A) >= heelScore((A + 180) % 360) ? A : (A + 180) % 360;
+        var h1 = heelScore(A), h2 = heelScore((A + 180) % 360);
+        if (h1 === h2 && opt.upAt) {
+          // bez nagiba (uvezen trag sa drugog uređaja): posle starta prvi leg je uz vetar
+          var c0 = hd(range(opt.upAt / 1000 + 20, opt.upAt / 1000 + 120));
+          est = c0.length && Math.abs(nrm(cmean(c0) - A)) > 90 ? (A + 180) % 360 : A;
+        } else est = h1 >= h2 ? A : (A + 180) % 360;
       }
     }
     // halsovi (i gybe-ovi): oba kursa sa iste strane vetra, široko, i prelaz preko ose; sredina = osa (gybe: sredina + 180)
@@ -74,6 +79,7 @@
     }
     // na reci struja krivi kurs niz vetar, pa gybe-ovi pomažu samo kad halsova ima manje od 2
     function refs(ax) { var tm = axMids(ax, false); return tm.length >= 2 ? tm : tm.concat(axMids(ax, true)); }
+    if (opt.flip && est !== null) est = (est + 180) % 360; // ručna ispravka: vetar je sa suprotne strane
     var TM = est !== null ? refs(est) : [];
     for (var it = 0; it < 2 && TM.length; it++) { est = cmean(TM.map(function (x) { return x.mid; })); TM = refs(est); }
     function localAxis(m) {
