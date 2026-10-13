@@ -438,6 +438,7 @@
   function isOpen() { return document.body.getAttribute('data-view') === 'coaching'; }
   function open(id) { if (window.RA && !isOpen()) window.RA.show('coaching'); cur = id || null; render(); }
   function list() { cur = null; render(); }
+  function toTop() { var b = $('coBody'); if (b) b.scrollTop = 0; window.scrollTo(0, 0); }
   function render() {
     if (!(cur && cur.indexOf('rr:') === 0) && window.RaceReplay) window.RaceReplay.close();
     if (cur && cur.indexOf('rr:') === 0) renderRace(cur.split(':')[1], +cur.split(':')[2]);
@@ -507,12 +508,12 @@
   }
   function onClick(ev) {
     var b = ev.target.closest('button, [data-le]'); if (!b) return;
-    if (b.hasAttribute('data-le')) { cur = b.getAttribute('data-le'); render(); window.scrollTo(0, 0); return; }
+    if (b.hasAttribute('data-le')) { cur = b.getAttribute('data-le'); render(); toTop(); return; }
     if (b.hasAttribute('data-pick')) { addFromTrack(b.getAttribute('data-pick')); return; }
     if (b.hasAttribute('data-boat')) { importBoat(+b.getAttribute('data-boat')); return; }
-    if (b.hasAttribute('data-rr')) { cur = 'rr:' + b.getAttribute('data-rr'); render(); window.scrollTo(0, 0); return; }
+    if (b.hasAttribute('data-rr')) { cur = 'rr:' + b.getAttribute('data-rr'); render(); toTop(); return; }
     if (b.hasAttribute('data-leg')) { if (window.RaceReplay) window.RaceReplay.go(+b.getAttribute('data-leg')); var mpE = document.getElementById('rrMap'); if (mpE) mpE.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
-    if (b.hasAttribute('data-rg')) { cur = 'rg:' + b.getAttribute('data-rg'); render(); window.scrollTo(0, 0); return; }
+    if (b.hasAttribute('data-rg')) { cur = 'rg:' + b.getAttribute('data-rg'); render(); toTop(); return; }
     if (b.hasAttribute('data-me')) { var rgP = regPending; setMe(rgP ? rgP.id : null, b.getAttribute('data-me')); return; }
     if (b.hasAttribute('data-me2')) { var all2 = regattas(), r2 = all2.filter(function (x) { return 'rg:' + x.id === cur; })[0]; if (r2) { toast('Updating your Race Log…'); relinkMe(r2.id, b.getAttribute('data-me2')).then(function () { render(); toast('Your boat: ' + nameOf(r2, b.getAttribute('data-me2'))); }); } return; }
     if (b.id === 'coMeChg') { var pk = $('coMePick'); if (pk) pk.hidden = !pk.hidden; return; }
@@ -558,9 +559,9 @@
     });
     $('coBack').addEventListener('click', function () {
       if (!cur) { window.RA.show('menu'); return; }
-      if (cur.indexOf('rr:') === 0) { cur = 'rg:' + cur.split(':')[1]; render(); window.scrollTo(0, 0); return; }
+      if (cur.indexOf('rr:') === 0) { cur = 'rg:' + cur.split(':')[1]; render(); toTop(); return; }
       var e = cur.indexOf('rg:') === 0 ? null : entries().filter(function (x) { return x.id === cur; })[0];
-      cur = e && e.regatta && regattas().some(function (r) { return r.id === e.regatta; }) ? 'rg:' + e.regatta : null; render(); window.scrollTo(0, 0);
+      cur = e && e.regatta && regattas().some(function (r) { return r.id === e.regatta; }) ? 'rg:' + e.regatta : null; render(); toTop();
     });
   }
   init();
