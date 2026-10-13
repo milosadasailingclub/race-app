@@ -53,10 +53,12 @@
     var t = rec; rec = null; t.end = Date.now(); t.stats = stats(t.points);
     putTrack(t).then(function () { renderRecBtn(); toast('Track saved: ' + t.stats.dist.toFixed(2) + ' NM, ' + fmtDur(t.stats.dur)); });
   }
+  // vetromer (Calypso), ako je povezan: [AWS kn, AWA °]
+  function windNow() { var w = window.Calypso && window.Calypso.now(); return w ? [+w.aws.toFixed(1), Math.round(w.awa)] : null; }
   function onFix(f) {
     live.last = f;
     if (rec && !f.sim) {
-      rec.points.push([f.t, +f.lat.toFixed(6), +f.lon.toFixed(6), f.sog === null ? null : +f.sog.toFixed(2), f.cog === null || f.cog === undefined ? null : Math.round(f.cog), f.heel === null || f.heel === undefined ? null : +f.heel.toFixed(1), f.acc === null ? null : Math.round(f.acc), f.x || null]);
+      rec.points.push([f.t, +f.lat.toFixed(6), +f.lon.toFixed(6), f.sog === null ? null : +f.sog.toFixed(2), f.cog === null || f.cog === undefined ? null : Math.round(f.cog), f.heel === null || f.heel === undefined ? null : +f.heel.toFixed(1), f.acc === null ? null : Math.round(f.acc), f.x || null, windNow()]);
       if (Date.now() - lastSave > 15000) { lastSave = Date.now(); rec.stats = stats(rec.points); putTrack(rec); }
     }
     updateLive();

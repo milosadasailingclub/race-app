@@ -541,3 +541,9 @@ body.trk-fs-on{overflow:hidden}
 .br-fc{font-size:15px;margin:4px 0 8px}
 .br-map{position:relative;height:300px;border-radius:10px;overflow:hidden;border:1px solid var(--line);margin:6px 0}
 .br-map .maplibregl-map{position:absolute!important;inset:0}
+
+.wind-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;width:100%;max-width:520px}
+.wind-strip.hidden{display:none}
+.wind-strip div{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:4px 6px;text-align:center;display:flex;flex-direction:column}
+.wind-strip span{font-size:10px;letter-spacing:.08em;color:var(--muted)}
+.wind-strip b{font-family:var(--f-num);font-size:26px;line-height:1.1}

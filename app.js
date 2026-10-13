@@ -1,7 +1,7 @@
-/* The Race App — v0.9.50 */
+/* The Race App — v0.9.51 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.50';
+  var APP_VERSION = '0.9.51';
   // skriveni developer mod: 7 tapova na broj verzije (prikazuje trošak AI obrade samo vlasniku)
   (function () {
     var n = 0, t0 = 0, el = document.getElementById('version'); if (!el) return;
@@ -25,7 +25,7 @@
     damp: store.get('damp', 2),
     heelTau: store.get('heelTau', 0.35), // libela ima svoje (brže) prigušenje; histereza sprečava treptanje
     ledMirror: store.get('ledMirror', false),
-    heelStep: store.get('heelStepMig', false) ? store.get('heelStep', 5) : 5,  // v0.9.50: podrazumevano 5° po LED-u (manje osetljivo)
+    heelStep: store.get('heelStepMig', false) ? store.get('heelStep', 5) : 5,  // v0.9.51: podrazumevano 5° po LED-u (manje osetljivo)
     calOffset: store.get('calOffset', null),
     calTime: store.get('calTime', null),
     theme: store.get('theme', 'night'),
@@ -1272,6 +1272,24 @@
       WX.spot = 'gps'; store.set('wxSpot', 'gps'); wxRenderSpots(); wxFetch();
     }, 4000);
   });
+
+  /* ---------- Calypso vetromer: prikaz na SOG strani + podešavanja ---------- */
+  if (window.Calypso) (function () {
+    var C = window.Calypso, f1 = function (v) { return v === null || v === undefined ? '–' : v.toFixed(1); }, d3 = function (v) { return v === null || v === undefined ? '–' : ('00' + Math.round((v + 360) % 360)).slice(-3); };
+    $('wsOff').value = store.get('windOffset', 0);
+    $('wsOff').addEventListener('change', function (e) { store.set('windOffset', +e.target.value || 0); });
+    $('wsConn').addEventListener('click', function () { var st = C.state().state; if (st === 'on' || st === 'lost' || st === 'connecting') C.disconnect(); else C.connect(); });
+    C.on(function (W) {
+      var on = W.state === 'on', txt = { off: 'Not connected.', connecting: 'Connecting…', on: 'Connected' + (W.dev && W.dev.name ? ': ' + W.dev.name : ''), lost: 'Connection lost, reconnecting…', unsupported: 'Not supported here.' }[W.state] || W.state;
+      $('wsStat').textContent = txt + (W.err ? ' (' + W.err + ')' : '') + (W.bat !== null && on ? ' · battery ' + W.bat + '%' : '') + (W.temp !== null && on ? ' · ' + W.temp + ' °C' : '');
+      $('wsConn').textContent = W.state === 'off' || W.state === 'unsupported' ? 'Connect' : 'Disconnect';
+      $('wsRaw').textContent = W.n ? 'packets ' + W.n + ' · raw ' + W.raw + '\nAWS ' + f1(W.aws) + ' kn · AWA ' + Math.round(W.awa) + '°' : '';
+      $('windStrip').classList.toggle('hidden', W.state === 'off' || W.state === 'unsupported');
+      var tw = on ? C.trueWind(W.aws, W.awa, S.sog, S.hdg) : null;
+      $('wAws').textContent = on ? f1(W.aws) : '–'; $('wAwa').textContent = on ? (W.awa < 0 ? 'P ' : 'S ') + Math.abs(Math.round(W.awa)) + '°' : '–';
+      $('wTws').textContent = tw ? f1(tw.tws) : '–'; $('wTwd').textContent = tw ? d3(tw.twd) + '°' : '–';
+    });
+  })();
 
   window.RA = { tac: function () { return tacInfo(); }, setMark: function () { setMarkHere(); }, toast: toast, store: store, show: show };
   window.__ra = { S: S, T: T, L: L, FZ: FZ, LW: LW, cfg: cfg, calibrate: calibrate, show: show };
