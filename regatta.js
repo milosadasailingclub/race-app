@@ -105,11 +105,12 @@
     // KRUGOVI: posete gornjoj bovi (i bovama blizu nje)
     var topMarks = marks.filter(function (m) { return dist(MX[m], MX[wm]) < 120; });
     function visits(id) {
-      var P = PX[id], v = [], near = false;
+      // obilazak = trenutak najbližeg prilaza gornjoj bovi u toj poseti
+      var P = PX[id], v = [], near = false, bd = 1e9;
       P.forEach(function (q) {
         if (q[0] < gun || q[0] > tLimit) return;
         var d = Math.min.apply(null, topMarks.map(function (m) { return dist(q[1], MX[m]); }));
-        if (!near && d < 90) { near = true; v.push(q[0]); } else if (near && d > 250) near = false;
+        if (!near && d < 90) { near = true; bd = d; v.push(q[0]); } else if (near && d < bd) { bd = d; v[v.length - 1] = q[0]; } else if (near && d > 250) near = false;
       });
       return v;
     }
@@ -199,16 +200,19 @@
             var dv = [p[0] - laneXY[bi][0], p[1] - laneXY[bi][1]], cr = uv[0] * dv[1] - uv[1] * dv[0];
             return Math.sqrt(bd) * (cr < 0 ? 1 : -1);
           });
-          bo[id] = { dur: d[0] / 1000, lost: (d[0] - durs[0][0]) / 1000, off: med(offs), side: med(pts.map(sideOff)) };
+          bo[id] = { dur: d[0] / 1000, lost: (d[0] - durs[0][0]) / 1000, off: med(offs), side: med(pts.map(sideOff)), t0: ev[id][L], t1: ev[id][L + 1] };
         });
         out.push({ n: L + 1, up: up, t0: t0, t1: t1, best: bId, bestDur: durs[0][0] / 1000, lane: lane.map(function (q) { return [+q[1].toFixed(6), +q[2].toFixed(6)]; }), wind: w === null ? null : Math.round(w), shift: w === null ? null : Math.round(nrm(w - AX)), fav: up ? fav : null, boats: bo });
       }
       var fleet = {};
       boats.forEach(function (id) { fleet[id] = sample(id, gun - 60000, finishT[id] ? finishT[id] + 60000 : tLimit, 2000).map(function (q) { return [q[0], +q[1].toFixed(6), +q[2].toFixed(6), q[3] === null ? null : +(+q[3]).toFixed(1)]; }); });
-      return { legs: out, fleet: fleet };
+      var top = topMarks.map(function (m) { return mp[m]; }), bot = bottom.map(function (m) { return mp[m]; });
+      var tgt = { top: [avg(top.map(function (q) { return q[0]; })), avg(top.map(function (q) { return q[1]; }))], bottom: [avg(bot.map(function (q) { return q[0]; })), avg(bot.map(function (q) { return q[1]; }))] };
+      return { legs: out, fleet: fleet, targets: tgt };
     }
     var lg = legs();
-    return { legs: lg.legs, marks: marks.map(function (m) { return { lat: mp[m][0], lon: mp[m][1], top: topMarks.indexOf(m) >= 0, name: info.marks[m] || '' }; }), fleet: lg.fleet, gun: gun, end: tLimit, wind: Math.round(AX), course: Math.round(G), laps: laps, startLine: startLn, finishLine: fin ? fin.ln : null, rows: rows, boats: boats.length };
+    var boatInfo = {}; rows.forEach(function (x) { boatInfo[x.id] = { ta: x.ta, tackLoss: x.tackLoss, up: x.up, down: x.down }; });
+    return { legs: lg.legs, targets: lg.targets, boatInfo: boatInfo, marks: marks.map(function (m) { return { lat: mp[m][0], lon: mp[m][1], top: topMarks.indexOf(m) >= 0, name: info.marks[m] || '' }; }), fleet: lg.fleet, gun: gun, end: tLimit, wind: Math.round(AX), course: Math.round(G), laps: laps, startLine: startLn, finishLine: fin ? fin.ln : null, rows: rows, boats: boats.length };
   }
 
   /* ---- prepoznavanje sopstvenog broda iz traga snimljenog aplikacijom ---- */

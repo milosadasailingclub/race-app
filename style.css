@@ -484,3 +484,11 @@ body.trk-fs-on{overflow:hidden}
 .rr-boat.me{box-shadow:0 0 10px #fff}
 .co-leg{background:none;border:1px solid var(--line);border-radius:6px;color:var(--turq);font:700 12px var(--f-num);padding:4px 8px}
 .rr-full{font-family:var(--f-num);font-weight:800;font-size:14px}
+
+.rr-ideal-i{width:18px!important;height:0!important;border-top:2px dashed #fff;border-radius:0!important}
+.rr-ideal{color:#fff}
+.co-selb{display:flex;align-items:center;gap:8px;margin:4px 0 6px;font-size:13px;color:var(--muted)}
+.co-selb select{flex:1;max-width:260px}
+.co-gain{color:var(--turq)}
+.co-wait{color:var(--muted);animation:coPulse 1s infinite alternate}
+@keyframes coPulse{from{opacity:.3}to{opacity:1}}

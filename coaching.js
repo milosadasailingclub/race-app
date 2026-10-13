@@ -206,7 +206,7 @@
       out.sort(function (p, q) { return p.a.gun - q.a.gun; });
       var ev = info.event || {}, rg = { id: 'rg' + out[0].a.gun, name: ev.name || ('Regatta ' + new Date(out[0].a.gun).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })),
         place: ev.location || (function () { var D = out[0].D, k = Object.keys(D)[0], q = D[k][0]; return placeFor(q[1], q[2]); })(), comp: info.competitors, me: null, created: Date.now(),
-        races: out.map(function (x, i) { return { n: i + 1, gun: x.a.gun, end: x.a.end, wind: x.a.wind, laps: x.a.laps, rows: x.a.rows, legs: x.a.legs, marks: x.a.marks }; }) };
+        races: out.map(function (x, i) { return { n: i + 1, gun: x.a.gun, end: x.a.end, wind: x.a.wind, laps: x.a.laps, rows: x.a.rows, legs: x.a.legs, marks: x.a.marks, targets: x.a.targets, boatInfo: x.a.boatInfo }; }) };
       if (res) applyResults(rg, res);
       rg.races.forEach(function (r) { r.rows.forEach(function (row) { if (rg.comp[row.id]) { row.name = rg.comp[row.id].name; row.sail = rg.comp[row.id].sail; } }); });
       saveRegattas(regattas().filter(function (x) { return x.id !== rg.id; }).concat([rg]));
@@ -295,21 +295,38 @@
     return tbl(r.rows.slice().sort(function (a, b) { var pa = a.offPlace !== undefined ? a.offPlace : a.place, pb = b.offPlace !== undefined ? b.offPlace : b.place; return (pa || 99) - (pb || 99); }), [['#', function (x) { var p = x.offPlace !== undefined ? x.offPlace : x.place; return p ? p : (x.offPlace === null ? 'DNF' : '–'); }], ['Boat', function (x) { return esc(nameOf(rg, x.id)); }], ['Time', function (x) { return fmtT(x.elapsed) + (x.finished ? '' : '*'); }], ['Start', function (x) { return x.start === null ? '–' : '+' + Math.round(x.start) + 's'; }], ['Up', function (x) { return n1(x.up) + '/' + n1(x.vmgUp); }], ['Dn', function (x) { return n1(x.down) + '/' + n1(x.vmgDown); }], ['TA', function (x) { return n0(x.ta); }], ['Tacks', function (x) { return x.tacks + (x.tackLoss !== null ? ' (' + n1(x.tackLoss) + ')' : ''); }]]) +
         (r.rows.some(function (x) { return !x.finished; }) ? '<p class="small">* not finished inside the file.</p>' : '') ;
   }
+  var RT = { key: null, model: null, opt: {} }; // keš: model vetra po trci + idealne linije po brodu
+  function raceTargets(r) {
+    if (r.targets) return r.targets;
+    var av = function (a, k) { return a.reduce(function (s, m) { return s + m[k]; }, 0) / a.length; }, tp = (r.marks || []).filter(function (m) { return m.top; }), bt = (r.marks || []).filter(function (m) { return !m.top; });
+    return tp.length && bt.length ? { top: [av(tp, 'lat'), av(tp, 'lon')], bottom: [av(bt, 'lat'), av(bt, 'lon')] } : null;
+  }
+  function raceInfo(r) { if (r.boatInfo) return r.boatInfo; var o = {}; (r.rows || []).forEach(function (x) { o[x.id] = { ta: x.ta, tackLoss: x.tackLoss, up: x.up, down: x.down }; }); return o; }
+  function legsTable(rg, r, sel, opt) {
+    var lbl = function (id) { return nameOf(rg, id).split(' / ')[0]; };
+    return tblH(r.legs.map(function (L, i) { var x = L.boats[sel] || {}; return { id: '', L: L, x: x, o: opt ? opt[i] : undefined }; }), [
+      ['Leg', function (o) { return '<button class="co-leg" data-leg="' + (o.L.n - 1) + '">' + o.L.n + (o.L.up ? ' ↑' : ' ↓') + '</button>'; }],
+      ['Wind', function (o) { return o.L.wind === null ? '–' : d3(o.L.wind) + (o.L.shift ? ' (' + (o.L.shift > 0 ? '+' : '') + o.L.shift + ')' : ''); }],
+      ['Paid', function (o) { return o.L.up ? (o.L.fav === 'middle' ? 'middle' : o.L.fav || '–') : '–'; }],
+      ['Fastest', function (o) { return esc(lbl(o.L.best)) + ' ' + fmtT(o.L.bestDur); }],
+      ['Time', function (o) { return o.x.dur === undefined ? '–' : fmtT(o.x.dur); }],
+      ['Lost', function (o) { return o.x.lost === undefined ? '–' : (o.x.lost < 1 ? '<b>fastest</b>' : '+' + Math.round(o.x.lost) + 's'); }],
+      ['Off', function (o) { return o.x.off === undefined || o.x.off === null ? '–' : Math.abs(Math.round(o.x.off)) + ' m ' + (o.x.off > 0 ? 'R' : 'L'); }],
+      ['Ideal', function (o) { return o.o === undefined ? '<span class="co-wait">…</span>' : o.o ? fmtT(o.o.secs) : '–'; }],
+      ['Gain', function (o) { return o.o ? '<b class="co-gain">' + (o.o.gain < 3 ? '≈0' : '−' + Math.round(o.o.gain) + 's') + '</b>' : '–'; }]
+    ], null);
+  }
   function renderRace(rgId, n) {
     var rg = regattas().filter(function (x) { return x.id === rgId; })[0], r = rg && rg.races[n - 1]; if (!r) { cur = null; renderList(); return; }
     $('coTitle').textContent = 'RACE ' + n;
-    var me = rg.me, lbl = function (id) { return nameOf(rg, id).split(' / ')[0]; };
+    var me = rg.me, lbl = function (id) { return nameOf(rg, id).split(' / ')[0]; }, tg = raceTargets(r);
     var h = '<div class="co-when">' + esc(rg.name) + ' · ' + dateTxt(r.gun) + ' ' + timeTxt(r.gun) + ' · wind ' + d3(r.wind) + '° · ' + r.laps + ' laps</div><div id="rrBox"></div>';
     if (r.legs && r.legs.length) {
-      h += '<div class="co-sec"><h3>LEGS</h3><p class="small">The turquoise lane is the track of the boat that sailed that leg fastest: the best way that day, in that wind. Lost = time behind the fastest boat on the leg. Off = how far you were from that lane on average (L / R looking upwind). Tap a leg to jump there.</p>' +
-        tblH(r.legs.map(function (L) { var x = L.boats[me] || {}; return { id: '', L: L, x: x }; }), [
-          ['Leg', function (o) { return '<button class="co-leg" data-leg="' + (o.L.n - 1) + '">' + o.L.n + (o.L.up ? ' ↑' : ' ↓') + '</button>'; }],
-          ['Wind', function (o) { return o.L.wind === null ? '–' : d3(o.L.wind) + (o.L.shift ? ' (' + (o.L.shift > 0 ? '+' : '') + o.L.shift + ')' : ''); }],
-          ['Paid', function (o) { return o.L.up ? (o.L.fav === 'middle' ? 'middle' : o.L.fav || '–') : '–'; }],
-          ['Fastest', function (o) { return esc(lbl(o.L.best)) + ' ' + fmtT(o.L.bestDur); }],
-          ['You lost', function (o) { return o.x.lost === undefined ? '–' : (o.x.lost < 1 ? '<b>fastest</b>' : '+' + Math.round(o.x.lost) + 's'); }],
-          ['Off', function (o) { return o.x.off === undefined || o.x.off === null ? '–' : Math.abs(Math.round(o.x.off)) + ' m ' + (o.x.off > 0 ? 'R' : 'L'); }]
-        ], null) + '</div>';
+      var bs = Object.keys(r.legs[0].boats);
+      var sel = RT.sel && bs.indexOf(RT.sel) >= 0 && RT.key === rgId + ':' + n ? RT.sel : (bs.indexOf(me) >= 0 ? me : r.legs[0].best);
+      h += '<div class="co-sec"><h3>LEGS</h3><label class="co-selb">Boat <select id="coSel">' + bs.map(function (id) { return '<option value="' + esc(id) + '"' + (id === sel ? ' selected' : '') + '>' + esc(lbl(id)) + (id === me ? ' (you)' : '') + '</option>'; }).join('') + '</select></label>' +
+        '<p class="small">Turquoise lane = track of the boat that sailed the leg fastest. White dashed line = <b>AI ideal line</b> for the selected boat: the fastest way to the mark from where and when that boat started the leg, sailed at its own speeds and pointing, through the wind shifts and pressure the whole fleet showed at that time and place. Gain = time that line would have saved. Tap a leg to jump there.</p>' +
+        '<div id="coLegs">' + legsTable(rg, r, sel, null) + '</div></div>';
       h += r.legs.map(function (L) {
         var rows = Object.keys(L.boats).map(function (id) { return Object.assign({ id: id }, L.boats[id]); }).sort(function (a, b) { return a.lost - b.lost; });
         return '<details class="co-sec co-race"><summary>LEG ' + L.n + (L.up ? ' ↑' : ' ↓') + ' · all boats</summary>' + tblH(rows, [['Boat', function (x) { return esc(lbl(x.id)); }], ['Time', function (x) { return fmtT(x.dur); }], ['Lost', function (x) { return x.lost < 1 ? '–' : '+' + Math.round(x.lost) + 's'; }], ['Off lane', function (x) { return x.off === null ? '–' : Math.abs(Math.round(x.off)) + ' m ' + (x.off > 0 ? 'R' : 'L'); }]], me) + '</details>';
@@ -319,6 +336,21 @@
     if (r.legs && window.Track && window.RaceReplay) window.Track.get('f' + rgId + '_' + n).then(function (f) {
       if (!f || !f.boats) { $('rrBox').innerHTML = '<p class="small">Fleet tracks not found. Import the race files again.</p>'; return; }
       window.RaceReplay.open($('rrBox'), r, f.boats, { me: me, label: lbl, short: function (id) { var c = (rg.comp || {})[id]; return c && c.sail ? String(c.sail).replace(/\D/g, '') : id.slice(-3); } });
+      var k = rgId + ':' + n; if (RT.key !== k) { RT.key = k; RT.model = null; RT.opt = {}; RT.sel = null; }
+      var calc = function (id) {
+        RT.sel = id; var box = $('coLegs');
+        var done = function (o) { if (RT.sel !== id || !$('coLegs')) return; $('coLegs').innerHTML = legsTable(rg, r, id, o); window.RaceReplay.ideal(o, lbl(id)); };
+        if (RT.opt[id]) { done(RT.opt[id]); return; }
+        if (box) box.innerHTML = legsTable(rg, r, id, null); window.RaceReplay.ideal(null);
+        if (!window.Router || !tg) { done(r.legs.map(function () { return null; })); return; }
+        setTimeout(function () { // posle iscrtavanja; računanje traje 1–3 s na telefonu
+          var race = { gun: r.gun, wind: r.wind, legs: r.legs, targets: tg }, o;
+          try { if (!RT.model) RT.model = window.Router.buildModel(race, f.boats, raceInfo(r)); o = window.Router.optimal(race, f.boats, id, raceInfo(r), RT.model); } catch (e) { console.warn(e); o = r.legs.map(function () { return null; }); }
+          RT.opt[id] = o; done(o);
+        }, 60);
+      };
+      calc(sel);
+      var sEl = $('coSel'); if (sEl) sEl.addEventListener('change', function () { calc(sEl.value); });
     });
   }
   function renderRegatta(id) {

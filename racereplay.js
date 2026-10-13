@@ -15,8 +15,8 @@
     el.innerHTML = '<div class="rr-stage"><div class="rr-map" id="rrMap"><div class="rr-leg" id="rrLeg"></div></div>' +
       '<div class="trk-ctrl"><button class="icon-btn" id="rrPlay">▶</button><input type="range" id="rrSl" min="' + tMin + '" max="' + tMax + '" step="1000" value="' + race.gun + '"><button class="icon-btn" id="rrSpd">×30</button><button class="icon-btn rr-full" id="rrFull" title="Full tracks / last 5 min">5′</button></div>' +
       '<div class="rr-time" id="rrTime"></div><div class="rr-chips">' + ids.map(function (id) { return '<span class="rr-chip' + (id === me ? ' me' : '') + '"><i style="background:' + col[id] + '"></i>' + esc(meta.label(id)) + '</span>'; }).join('') +
-      '<span class="rr-chip"><i class="rr-lane-i"></i>fastest lane of the leg</span></div></div>';
-    S = { t: race.gun, playing: false, speed: 30, map: null, mk: {}, race: race, fleet: fleet, legIdx: -1 };
+      '<span class="rr-chip"><i class="rr-lane-i"></i>fastest lane of the leg</span><span class="rr-chip"><i class="rr-ideal-i"></i><span id="rrIdN">AI ideal line</span></span></div></div>';
+    S = { t: race.gun, playing: false, speed: 30, map: null, mk: {}, race: race, fleet: fleet, legIdx: -1, ideal: null };
     var lanes = { type: 'FeatureCollection', features: (race.legs || []).map(function (L) { return { type: 'Feature', properties: { n: L.n }, geometry: { type: 'LineString', coordinates: L.lane.map(function (q) { return [q[1], q[0]]; }) } }; }) };
     function trails(t) {
       return { type: 'FeatureCollection', features: ids.map(function (id) {
@@ -24,6 +24,8 @@
         return { type: 'Feature', properties: { id: id, me: id === me ? 1 : 0, c: col[id] }, geometry: { type: 'LineString', coordinates: c.length > 1 ? c : [[0, 0], [0, 0]] } };
       }) };
     }
+    function idealFc() { return { type: 'FeatureCollection', features: S.ideal ? S.ideal.o.map(function (x, i) { return x ? { type: 'Feature', properties: { n: race.legs[i].n }, geometry: { type: 'LineString', coordinates: x.path.map(function (q) { return [q[1], q[0]]; }) } } : null; }).filter(Boolean) : [] }; }
+    S.setIdeal = function (o, name) { S.ideal = o ? { o: o, name: name } : null; var e = $('rrIdN'); if (e) e.textContent = o ? 'AI ideal line · ' + name : 'AI ideal line (computing…)'; if (S.map && S.ready && S.map.getSource('ideal')) { S.map.getSource('ideal').setData(idealFc()); } S.legIdx = -2; setT(S.t); };
     function legAt(t) { var k = -1; (race.legs || []).forEach(function (L, i) { if (L.t0 <= t) k = i; }); return k; }
     function setT(t) {
       S.t = t; $('rrSl').value = t;
@@ -34,10 +36,10 @@
       var k = legAt(t);
       if (k !== S.legIdx) {
         S.legIdx = k;
-        S.map.setFilter('lane', ['==', ['get', 'n'], k >= 0 ? race.legs[k].n : -1]); S.map.setFilter('laneC', ['==', ['get', 'n'], k >= 0 ? race.legs[k].n : -1]);
+        S.map.setFilter('lane', ['==', ['get', 'n'], k >= 0 ? race.legs[k].n : -1]); S.map.setFilter('laneC', ['==', ['get', 'n'], k >= 0 ? race.legs[k].n : -1]); S.map.setFilter('ideal', ['==', ['get', 'n'], k >= 0 ? race.legs[k].n : -1]);
         var L = race.legs[k];
         $('rrLeg').innerHTML = L ? '<b>LEG ' + L.n + ' ' + (L.up ? '↑ UPWIND' : '↓ DOWNWIND') + '</b><span>fastest: ' + esc(meta.label(L.best)) + ' ' + mmss(L.bestDur) + '</span>' +
-          (L.wind !== null ? '<span>wind ' + ('00' + L.wind).slice(-3) + '° (' + (L.shift > 0 ? '+' : '') + L.shift + '°)' + (L.up && L.fav && L.fav !== 'middle' ? ' · ' + L.fav + ' side paid' : '') + '</span>' : '') : '';
+          (L.wind !== null ? '<span>wind ' + ('00' + L.wind).slice(-3) + '° (' + (L.shift > 0 ? '+' : '') + L.shift + '°)' + (L.up && L.fav && L.fav !== 'middle' ? ' · ' + L.fav + ' side paid' : '') + '</span>' : '') + (S.ideal && S.ideal.o[k] ? '<span class="rr-ideal">AI ideal ' + esc(S.ideal.name) + ': ' + mmss(S.ideal.o[k].secs) + (S.ideal.o[k].gain >= 3 ? ' (−' + Math.round(S.ideal.o[k].gain) + 's)' : '') + '</span>' : '') : '';
         if (meta.onLeg) meta.onLeg(k);
       }
     }
@@ -64,6 +66,8 @@
         map.addLayer({ id: 'lane', type: 'line', source: 'lane', filter: ['==', ['get', 'n'], -1], layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: { 'line-color': '#00e0c6', 'line-opacity': 0.4, 'line-blur': ['interpolate', ['exponential', 2], ['zoom'], 10, 0.3, 18, 70], 'line-width': ['interpolate', ['exponential', 2], ['zoom'], 10, 1.5, 13, 10, 18, 170] } });
         map.addLayer({ id: 'laneC', type: 'line', source: 'lane', filter: ['==', ['get', 'n'], -1], paint: { 'line-color': '#00e0c6', 'line-opacity': 0.55, 'line-width': 1.5, 'line-dasharray': [2, 2] } });
+        map.addSource('ideal', { type: 'geojson', data: idealFc() });
+        map.addLayer({ id: 'ideal', type: 'line', source: 'ideal', filter: ['==', ['get', 'n'], -1], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#ffffff', 'line-opacity': 0.9, 'line-width': 2.2, 'line-dasharray': [1.5, 1.5] } });
         map.addSource('mk', { type: 'geojson', data: { type: 'FeatureCollection', features: (race.marks || []).map(function (m) { return { type: 'Feature', properties: { top: m.top ? 1 : 0 }, geometry: { type: 'Point', coordinates: [m.lon, m.lat] } }; }) } });
         map.addLayer({ id: 'mk', type: 'circle', source: 'mk', paint: { 'circle-radius': 5, 'circle-color': ['case', ['==', ['get', 'top'], 1], '#ffb020', '#ff6b00'], 'circle-stroke-width': 2, 'circle-stroke-color': '#05070a' } });
         map.addSource('tr', { type: 'geojson', data: trails(S.t) });
@@ -79,5 +83,5 @@
     return S;
   }
   function $(id) { return document.getElementById(id); }
-  window.RaceReplay = { open: open, close: close, go: function (k) { if (S && S.goLeg) S.goLeg(k); } };
+  window.RaceReplay = { open: open, close: close, go: function (k) { if (S && S.goLeg) S.goLeg(k); }, ideal: function (o, name) { if (S && S.setIdeal) S.setIdeal(o, name); } };
 })();
