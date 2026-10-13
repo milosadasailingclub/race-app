@@ -103,7 +103,7 @@
     P.m.slice().sort(function (a, b) { return b.score - a.score; }).forEach(function (o) {
       if (o.score < 0.33) return;
       var t = null;
-      if (o.k === 'ta' && taGap >= 3) t = 'Tacking angle ' + Math.round(o.mine) + '° against ' + Math.round(o.best) + '° for the best VMG boats. Point higher: aim for about ' + Math.round(o.best + 3) + '° and judge it by VMG, not speed.';
+      if (o.k === 'ta' && taGap >= 3) { var MCg = window.Profile && window.Profile.current(), gu = MCg && MCg.guide ? MCg.guide.up.turn : null; t = 'Tacking angle ' + Math.round(o.mine) + '° against ' + Math.round(o.best) + '° for the best VMG boats' + (gu ? ' (' + (MCg.guideSrc || 'class guide') + ': ' + Math.min.apply(null, gu) + '–' + Math.max.apply(null, gu) + '° depending on the wind)' : '') + '. Point higher: aim for about ' + Math.round(o.best + 3) + '° and judge it by VMG, not speed.'; }
       else if (o.k === 'vmgUp') t = place(o) + '.' + (taGap >= 3 ? ' Mostly pointing (see tacking angle).' : ' Play the shifts: tack on headers, stay in the pressure, avoid the laylines early.');
       else if (o.k === 'up') t = place(o) + '. Check the trim: jib leads and sheet tension, main twist, keep the heel in the green.';
       else if (o.k === 'vmgDown') t = place(o) + (o.best ? ' (best ' + o.best.toFixed(2) + ' kn VMG, you ' + o.mine.toFixed(2) + ')' : '') + '. Sail lower in the puffs, heat up in the lulls, gybe on the shifts and stay in the pressure.';
@@ -163,8 +163,10 @@
 
   // ciljevi iz polara klase za prognoziranu jačinu vetra
   function polarCard(s) {
-    var PR = window.Profile, c = PR && PR.current(); if (!c || !c.polar) return '';
-    var w = Math.round(s.w), T = PR.targets(c.polar, w); if (!T) return '';
+    var PR = window.Profile, c = PR && PR.current(); if (!c || !(c.polar || c.guide)) return '';
+    var w = Math.round(s.w), G = c.guide ? PR.guideAt(c.guide, w) : null;
+    if (G) return card('wx', 'Targets for ' + w + ' kn (' + (c.guideSrc || c.name) + ')', 'Upwind: ' + G.up.bs.toFixed(1) + ' kn, ' + Math.round(G.up.twa) + '° to the wind, tacking angle ' + Math.round(G.up.turn) + '°, heel ' + Math.round(G.up.heel) + '°. Downwind: ' + G.dn.bs.toFixed(1) + ' kn, ' + Math.round(G.dn.twa) + '° to the wind, gybing angle ' + Math.round(G.dn.turn) + '°.');
+    var T = PR.targets(c.polar, w); if (!T) return '';
     return card('wx', 'Targets for ' + w + ' kn (' + c.name + ' polar)', 'Upwind: ' + T.upTwa + '° to the wind, ' + T.upBs.toFixed(1) + ' kn boat speed, VMG ' + T.upVmg.toFixed(1) + ' kn. Downwind: ' + T.dnTwa + '° to the wind, ' + T.dnBs.toFixed(1) + ' kn, VMG ' + T.dnVmg.toFixed(1) + ' kn.');
   }
   /* ---- 4) mapa polja iz istorije ---- */

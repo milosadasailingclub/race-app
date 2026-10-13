@@ -16,7 +16,11 @@
         [3.65, 4.87, 5.69, 6.28, 6.66, 7.14, 7.68, 8.40, 8.95], [3.69, 4.91, 5.77, 6.53, 7.36, 7.98, 8.51, 9.63, 11.22], [3.55, 4.78, 5.64, 6.38, 7.25, 8.19, 9.12, 10.96, 12.43],
         [3.12, 4.32, 5.27, 5.96, 6.66, 7.51, 8.45, 12.21, 14.24], [2.59, 3.69, 4.64, 5.39, 5.95, 6.53, 7.29, 9.99, 13.20]],
       beat: { twa: [42.0, 41.9, 40.2, 38.3, 37.0, 36.9, 36.7, 37.0, 37.8], vmg: [2.18, 2.98, 3.58, 3.98, 4.21, 4.28, 4.34, 4.40, 4.39] },
-      run: { twa: [145.8, 145.8, 148.3, 149.8, 148.8, 145.8, 144.8, 136.1, 142.3], vmg: [2.25, 3.20, 4.02, 4.65, 5.16, 5.68, 6.32, 8.71, 11.40] } } },
+      run: { twa: [145.8, 145.8, 148.3, 149.8, 148.8, 145.8, 144.8, 136.1, 142.3], vmg: [2.25, 3.20, 4.02, 4.65, 5.16, 5.68, 6.32, 8.71, 11.40] } },
+      // North Sails speed guide: TACK / JIBE = pravi ugao letanja / halsovanja (uključuje zanošenje), uporedivo sa GPS merenjem
+      guideSrc: 'North Sails Seascape 18 speed guide', guide: {
+        up: { tws: [6, 8, 10, 12, 14, 16, 20], bs: [3.9, 4.7, 5.1, 5.2, 5.3, 5.3, 5.4], vmg: [2.9, 3.5, 4.0, 4.2, 4.3, 4.3, 4.4], heel: [9, 10, 12, 15, 16, 16, 18], twa: [42, 40, 38, 36, 36, 35, 35], turn: [90, 86, 84, 80, 75, 75, 75] },
+        dn: { tws: [6, 8, 10, 12, 14, 16, 20], bs: [3.9, 4.8, 5.4, 5.8, 6.2, 7.6, 12.1], vmg: [3.2, 4.1, 4.7, 5.0, 5.4, 6.1, 8.8], heel: [5, 5, 6, 6, 6, 7, 10], twa: [147, 148, 150, 150, 150, 143, 137], turn: [85, 80, 70, 65, 65, 75, 80] } } },
     { id: 'j70', name: 'J/70', kind: 'keel', spi: 'asym' },
     { id: 'j80', name: 'J/80', kind: 'keel', spi: 'asym' },
     { id: 'melges24', name: 'Melges 24', kind: 'keel', spi: 'asym' },
@@ -83,6 +87,12 @@
     for (var a = 30; a <= 180; a++) { var v = speed(P, tws, a), vmg = v * Math.cos(a * Math.PI / 180); if (vmg > up[1]) up = [a, vmg]; if (-vmg > dn[1]) dn = [a, -vmg]; }
     return { upTwa: up[0], upVmg: up[1], upBs: speed(P, tws, up[0]), dnTwa: dn[0], dnVmg: dn[1], dnBs: speed(P, tws, dn[0]) };
   }
+  // vrednosti iz speed guide-a za datu jačinu vetra (linearno između redova)
+  function guideAt(G, tws) {
+    if (!G) return null;
+    function at(T) { var a = T.tws, i = 1; if (tws <= a[0]) i = 1; else if (tws >= a[a.length - 1]) i = a.length - 1; else while (a[i] < tws) i++; var f = Math.max(0, Math.min(1, (tws - a[i - 1]) / (a[i] - a[i - 1]))), o = {}; ['bs', 'vmg', 'heel', 'twa', 'turn'].forEach(function (k) { o[k] = T[k][i - 1] + (T[k][i] - T[k][i - 1]) * f; }); return o; }
+    return { up: at(G.up), dn: at(G.dn) };
+  }
   function drawPolar(cv, P) {
     var g = cv.getContext('2d'), W = cv.width = cv.clientWidth * 2, H = cv.height = cv.clientHeight * 2, cx = W * 0.1, cy = H / 2, R = Math.min(W * 0.86, H * 0.47);
     g.clearRect(0, 0, W, H);
@@ -110,6 +120,8 @@
       '<label class="prof-row">Sail number<input id="profSail" type="text" maxlength="12" value="' + esc(sget('mySail', '')) + '" placeholder="e.g. SRB 344"></label>' +
       '<label class="prof-row">Boat class<select id="profClass">' + opts + '</select></label>';
     if (c) {
+      var GT = c.guide ? '<details class="prof-guide"><summary>Speed guide (' + esc(c.guideSrc || '') + ')</summary><table class="co-tbl"><tr><th>TWS</th><th>Up BS</th><th>TWA</th><th>Tack</th><th>Heel</th><th>Dn BS</th><th>TWA</th><th>Gybe</th></tr>' +
+        c.guide.up.tws.map(function (w, i) { var u = c.guide.up, d = c.guide.dn; return '<tr><td>' + w + '</td><td>' + u.bs[i] + '</td><td>' + u.twa[i] + '°</td><td>' + u.turn[i] + '°</td><td>' + u.heel[i] + '°</td><td>' + d.bs[i] + '</td><td>' + d.twa[i] + '°</td><td>' + d.turn[i] + '°</td></tr>'; }).join('') + '</table></details>' : '';
       var P = c.polar || null, T = P ? targets(P, 10) : null;
       h += '<p class="small">' + esc(c.name) + (c.custom ? ' <span class="pro">PRO</span> custom' : '') + ' · ' + { keel: 'keelboat', dinghy: 'dinghy', multi: 'multihull' }[c.kind || 'keel'] + ' · ' + { sym: 'spinnaker', asym: 'gennaker', none: 'no spinnaker' }[c.spi || 'none'] + '.</p>';
       h += P ? '<canvas class="prof-polar" id="profPolar"></canvas><p class="small">Polar' + (c.polarSrc ? ' (' + esc(c.polarSrc) + ')' : '') + ': ' + P.tws.length + ' wind speeds × ' + P.twa.length + ' angles. At 10 kn: upwind ' + T.upTwa + '° TWA, ' + T.upBs.toFixed(1) + ' kn · downwind ' + T.dnTwa + '° TWA, ' + T.dnBs.toFixed(1) + ' kn.</p>'
@@ -122,6 +134,7 @@
         '<p class="small" id="pcMsg"></p><div class="row"><button class="btn primary" id="pcSave">Save class</button><button class="btn danger" id="pcDel">Delete</button></div>' +
         '<p class="small">Coming: read the class rules and the polar from a PDF with AI (PRO), and learn the polar from your own tracks with the Calypso wind sensor.</p></div>';
     }
+    if (c && GT) h += GT;
     box.innerHTML = h;
     if (c && c.polar) drawPolar($('profPolar'), c.polar);
   }
@@ -152,6 +165,6 @@
       if (e.target.id === 'pcDel') { sset('customClasses', customs().filter(function (c) { return c.id !== cid; })); sset('boatClass', ''); render(); }
     });
   }
-  window.Profile = { classes: all, get: get, current: current, parsePolar: parsePolar, speed: speed, targets: targets, render: render };
+  window.Profile = { classes: all, get: get, current: current, parsePolar: parsePolar, speed: speed, targets: targets, guideAt: guideAt, render: render };
   if (document.readyState !== 'loading') { bind(); render(); } else document.addEventListener('DOMContentLoaded', function () { bind(); render(); });
 })();
