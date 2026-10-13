@@ -529,3 +529,15 @@ body.trk-fs-on{overflow:hidden}
 .rr-stage.fs .rr-chips{display:none}
 
 .trk-imp{display:inline-block;font:700 9px/14px var(--f-num);letter-spacing:.08em;color:#ffc83d;border:1px solid #ffc83d;border-radius:4px;padding:0 4px;margin-right:4px;vertical-align:1px}
+
+.br-sec{margin:14px 0}
+.br-sec h3{font-family:var(--f-num);letter-spacing:.1em;font-size:14px;color:var(--muted);margin:0 0 6px}
+.br-item{display:flex;flex-direction:column;gap:2px;border-left:3px solid var(--line);background:var(--surface);border-radius:6px;padding:8px 10px;margin:6px 0;font-size:14px}
+.br-item b{font-size:14px}
+.br-item span{color:var(--muted);line-height:1.35}
+.br-item.focus{border-left-color:#ff6b6b}
+.br-item.good{border-left-color:#35b779}
+.br-item.wx{border-left-color:#2fa3d6}
+.br-fc{font-size:15px;margin:4px 0 8px}
+.br-map{position:relative;height:300px;border-radius:10px;overflow:hidden;border:1px solid var(--line);margin:6px 0}
+.br-map .maplibregl-map{position:absolute!important;inset:0}

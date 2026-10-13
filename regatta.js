@@ -240,16 +240,18 @@
       var p = per[id], o = { id: id, name: p.name, races: p.n };
       ['up', 'vmgUp', 'vmgDown', 'ta'].forEach(function (k) { o[k] = p[k] ? avg(p[k]) : null; });
       o.tackLoss = p.tackLoss ? med(p.tackLoss) : null; o.start = p.start ? med(p.start) : null;
-      o.rkUp = p.rk.up ? avg(p.rk.up) : null; o.rkVmgUp = p.rk.vmgUp ? avg(p.rk.vmgUp) : null; o.rkVmgDown = p.rk.vmgDown ? avg(p.rk.vmgDown) : null;
+      o.rkUp = p.rk.up ? avg(p.rk.up) : null; o.rkVmgUp = p.rk.vmgUp ? avg(p.rk.vmgUp) : null; o.rkVmgDown = p.rk.vmgDown ? avg(p.rk.vmgDown) : null; o.rk = p.rk;
       return o;
     }).sort(function (a, b) { return (b.vmgUp || 0) - (a.vmgUp || 0); });
-    var tips = [], m = list.filter(function (x) { return x.id === me; })[0];
+    var tips = [], m = list.filter(function (x) { return x.id === me; })[0], N = list.length;
+    // "prosečno 1.4. mesto od 7 (najbrži u 6 od 9 trka)"
+    function rk(k) { var a = m.rk[k] || [], v = avg(a), b = a.filter(function (x) { return x === 1; }).length; return 'average place ' + v.toFixed(1) + ' of ' + N + (b ? ', best in ' + b + ' of ' + a.length + ' races' : ''); }
     if (m && list.length > 2) {
       var others = list.filter(function (x) { return x !== m; }), bestUp = others.slice().sort(function (a, b) { return b.vmgUp - a.vmgUp; })[0];
       var taRef = avg(others.slice().sort(function (a, b) { return b.vmgUp - a.vmgUp; }).slice(0, 2).map(function (x) { return x.ta; }).filter(function (v) { return v !== null; }));
-      if (m.rkUp !== null && m.rkVmgUp !== null && m.rkUp + 1 <= m.rkVmgUp) tips.push('Upwind you are among the fastest boats (speed rank ' + m.rkUp.toFixed(1) + ') but not in VMG (rank ' + m.rkVmgUp.toFixed(1) + ').' + (m.ta !== null && taRef && m.ta - taRef >= 4 ? ' Your tacking angle is ' + Math.round(m.ta) + '° against ' + Math.round(taRef) + '° for the best VMG boats: you sail about ' + Math.round((m.ta - taRef) / 2) + '° lower on each tack. Try to point higher and watch VMG, not only speed.' : ''));
-      else if (m.rkVmgUp !== null && m.rkVmgUp <= 2) tips.push('Upwind VMG is one of your strengths (rank ' + m.rkVmgUp.toFixed(1) + ').');
-      if (m.rkVmgDown !== null) tips.push(m.rkVmgDown <= 2 ? 'Downwind VMG is a strength (rank ' + m.rkVmgDown.toFixed(1) + ').' : 'Downwind VMG rank ' + m.rkVmgDown.toFixed(1) + ' (best: ' + others.slice().sort(function (a, b) { return b.vmgDown - a.vmgDown; })[0].name + ').');
+      if (m.rkUp !== null && m.rkVmgUp !== null && m.rkUp + 1 <= m.rkVmgUp) tips.push('Upwind boat speed: ' + rk('up') + '. But upwind VMG (how fast you really get to the mark): ' + rk('vmgUp') + '.' + (m.ta !== null && taRef && m.ta - taRef >= 4 ? ' Your tacking angle is ' + Math.round(m.ta) + '° against ' + Math.round(taRef) + '° for the best VMG boats: you sail about ' + Math.round((m.ta - taRef) / 2) + '° lower on each tack. Try to point higher and watch VMG, not only speed.' : ''));
+      else if (m.rkVmgUp !== null && m.rkVmgUp <= 2) tips.push('Upwind VMG is one of your strengths: ' + rk('vmgUp') + '.');
+      if (m.rkVmgDown !== null) tips.push(m.rkVmgDown <= 2 ? 'Downwind VMG is a strength: ' + rk('vmgDown') + '.' : 'Downwind VMG: ' + rk('vmgDown') + ' (best: ' + others.slice().sort(function (a, b) { return b.vmgDown - a.vmgDown; })[0].name + ').');
       var tl = list.filter(function (x) { return x.tackLoss !== null; }).sort(function (a, b) { return a.tackLoss - b.tackLoss; });
       var ti = tl.indexOf(m); if (ti >= 0) tips.push(ti === 0 ? 'Your tacks lose the least in the fleet (' + m.tackLoss.toFixed(1) + ' m per tack).' : 'Tacks: ' + m.tackLoss.toFixed(1) + ' m per tack (best ' + tl[0].tackLoss.toFixed(1) + ' m, ' + tl[0].name + ').');
       var sl = list.filter(function (x) { return x.start !== null; }).sort(function (a, b) { return a.start - b.start; }), si = sl.indexOf(m);

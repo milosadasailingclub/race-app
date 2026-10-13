@@ -1,7 +1,7 @@
-/* The Race App — v0.9.47 */
+/* The Race App — v0.9.48 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.47';
+  var APP_VERSION = '0.9.48';
   // skriveni developer mod: 7 tapova na broj verzije (prikazuje trošak AI obrade samo vlasniku)
   (function () {
     var n = 0, t0 = 0, el = document.getElementById('version'); if (!el) return;
@@ -25,7 +25,7 @@
     damp: store.get('damp', 2),
     heelTau: store.get('heelTau', 0.35), // libela ima svoje (brže) prigušenje; histereza sprečava treptanje
     ledMirror: store.get('ledMirror', false),
-    heelStep: store.get('heelStepMig', false) ? store.get('heelStep', 5) : 5,  // v0.9.47: podrazumevano 5° po LED-u (manje osetljivo)
+    heelStep: store.get('heelStepMig', false) ? store.get('heelStep', 5) : 5,  // v0.9.48: podrazumevano 5° po LED-u (manje osetljivo)
     calOffset: store.get('calOffset', null),
     calTime: store.get('calTime', null),
     theme: store.get('theme', 'night'),
@@ -98,6 +98,7 @@
     if (i !== pageIdx) {
       pageIdx = i;
       if (i === 2 && window.Track) window.Track.showLive();
+      var pgE = pager.children[i]; if (pgE && pgE.id === 'p-brief' && window.Brief) window.Brief.render();
       document.querySelectorAll('#dots i').forEach(function (d, k) { d.classList.toggle('on', k === i); });
     }
   }, { passive: true });

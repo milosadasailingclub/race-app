@@ -19,6 +19,7 @@
     x0 -= 200; y0 -= 200; x1 += 200; y1 += 200;
     var DT = 20000, DS = 60, NT = Math.ceil((tB - tA) / DT) + 1, NX = Math.ceil((x1 - x0) / DS) + 1, NY = Math.ceil((y1 - y0) / DS) + 1;
     // 1) smer vetra: uzorci (t, x, y, smer, težina)
+    var MK = (race.marks || []).map(function (m) { return xy(m.lat, m.lon); }), nearMark = function (p) { return MK.some(function (m) { return Math.hypot(m[0] - p[0], m[1] - p[1]) < 70; }); };
     var dirS = [], spdRaw = [], GY = 75; // ugao halsovanja (krma) po COG, tipično 65–80°
     ids.forEach(function (id) {
       var P = fleet[id], bi = (info && info[id]) || {}, ta = bi.ta || 88;
@@ -32,7 +33,7 @@
         if (Math.abs(nrm(c1 - c2)) > 12) continue;
         if (Math.abs(rel) < 75) { var w = rel < 0 ? cog + ta / 2 : cog - ta / 2; if (Math.abs(nrm(w - AX)) < 35) dirS.push([q[0], p[0], p[1], w, 1]); }
         else if (Math.abs(rel) > 110) { var rd = nrm(cog - AX - 180), w2 = cog + 180 + (rd < 0 ? GY / 2 : -GY / 2); if (Math.abs(nrm(w2 - AX)) < 35) dirS.push([q[0], p[0], p[1], w2, 0.5]); }
-        spdRaw.push([q[0], p[0], p[1], q[3], cog, id]);
+        if (q[0] > race.gun + 30000 && !nearMark(p)) spdRaw.push([q[0], p[0], p[1], q[3], cog, id]); // bez starta i okretanja oko bova (tu su svi spori)
       }
     });
     function grid() { return { v: new Float64Array(NT * NX * NY), s: new Float64Array(NT * NX * NY), c: new Float64Array(NT * NX * NY), w: new Float64Array(NT * NX * NY) }; }
@@ -118,7 +119,19 @@
       var p = xy(lat, lon), c = cell(t, p[0], p[1]), k = idx(c[0], c[1], c[2]), w = PW[k];
       return { dir: Math.round(dirAt(t, p[0], p[1])), p: w > 0.3 ? PS[k] / w : null, conf: alphaW(w) };
     }
-    return { xy: xy, toLL: toLL, dirAt: dirAt, makePolar: makePolar, pressAt: pressAt, AX: AX, field: field, probe: probe };
+    // prosek cele trke po ćeliji (za Brief: mapa polja iz istorije)
+    function summaryCells() {
+      var out = [];
+      for (var xi = 0; xi < NX; xi++) for (var yi = 0; yi < NY; yi++) {
+        var ps = 0, pw = 0, ss = 0, cc = 0, ww = 0;
+        for (var ti = 0; ti < NT; ti++) { var k = idx(ti, xi, yi); ps += PS[k]; pw += PW[k]; ss += S1[k]; cc += C1[k]; ww += W1[k]; }
+        if (pw < 3) continue;
+        var ll = toLL([x0 + xi * DS, y0 + yi * DS]);
+        out.push({ lat: ll[0], lon: ll[1], p: ps / pw, w: pw, dir: ww > 0.5 ? (Math.atan2(ss, cc) * 180 / Math.PI + 360) % 360 : null, rel: ww > 0.5 ? nrm((Math.atan2(ss, cc) * 180 / Math.PI) - AX) : null });
+      }
+      return out;
+    }
+    return { xy: xy, toLL: toLL, dirAt: dirAt, makePolar: makePolar, pressAt: pressAt, AX: AX, field: field, probe: probe, summaryCells: summaryCells };
   }
 
   // izohrone za jedan leg

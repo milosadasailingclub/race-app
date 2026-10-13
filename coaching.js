@@ -449,7 +449,7 @@
     return (Math.round(w.min) === Math.round(w.max) ? Math.round(w.min) : Math.round(w.min) + '–' + Math.round(w.max)) + ' kn, gusts ' + (w.gust !== null ? Math.round(w.gust) : '–') + ' · from ' + d3(w.dir) + '° ' + compass(w.dir) + (w.temp !== null ? ' · ' + Math.round(w.temp) + '°C' : '');
   }
   function renderList() {
-    $('coTitle').textContent = 'COACHING';
+    $('coTitle').textContent = 'DEBRIEF';
     var q = (sget('coFilter', '') || '').toLowerCase(), all = entries(), rgs = regattas();
     var hit = function (s) { return !q || s.toLowerCase().indexOf(q) >= 0; };
     // jedna lista: pojedinačni zapisi + regate (grupa trka) po datumu
