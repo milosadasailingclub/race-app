@@ -272,7 +272,7 @@
             if (!F) { H2.innerHTML = '<h3>THE FIELD HERE</h3><p class="small">Fleet tracks not found. Import the regatta files again in Debrief.</p>'; return; }
             var n = F.fav.left + F.fav.right + F.fav.middle, favT = n ? 'Upwind legs: left paid in ' + F.fav.left + ', right in ' + F.fav.right + ', no clear side in ' + F.fav.middle + ' (of ' + n + ').' : '';
             H2.innerHTML = '<h3>THE FIELD HERE</h3><p class="small">' + list.length + ' race' + (list.length > 1 ? 's' : '') + ' at this place' + (dir !== null && dir !== undefined ? ' with wind ' + d3(dir - 25) + '–' + d3(dir + 25) + '°' : '') + '. ' + esc(favT) + '</p><div class="br-map" id="brMap"></div>' +
-              '<div class="rr-wkey"><span>less wind</span><i></i><span>more wind</span><small>colour = where boats were faster (yellow / orange) or slower (blue) than their average here · arrows = wind direction (turned to today\'s forecast)</small></div>';
+              '<div class="rr-wkey"><span>less wind</span><i></i><span>more wind</span><small>colour = where there was more (orange) or less (blue) wind than on the rest of the course at the same moment, averaged over these races · arrows = wind direction (turned to today\'s forecast)</small></div>';
             drawField($('brMap'), F);
           });
         }, 50);

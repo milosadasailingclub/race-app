@@ -34,7 +34,7 @@
       '<div class="trk-ctrl"><button class="icon-btn" id="rrPlay">▶</button><input type="range" id="rrSl" min="' + tMin + '" max="' + tMax + '" step="1000" value="' + race.gun + '"><button class="icon-btn rr-spd" id="rrSpd">×10</button><button class="icon-btn rr-full" id="rrFull" title="Full tracks / last 5 min">5′</button></div>' +
       '<div class="rr-time" id="rrTime"></div><div class="rr-leg" id="rrLeg"></div><div class="rr-chips">' +
       '<span class="rr-chip rr-key"><i class="rr-lane-i"></i><span id="rrIdN">AI ideal line (computing…)</span></span><span class="rr-chip rr-key"><i class="rr-best-i"></i>fastest boat of the leg</span></div>' +
-      '<div class="rr-wkey" id="rrWKey" hidden><span>less wind</span><i></i><span>more wind</span><small>colour = how fast boats sailed there vs. their own average · arrows = wind direction</small></div></div>';
+      '<div class="rr-wkey" id="rrWKey" hidden><span>less wind</span><i></i><span>more wind</span><small>colour = where there is more / less wind than on the rest of the course at that moment (from boat speeds) · arrows = wind direction</small></div></div>';
     S = { t: race.gun, playing: false, speed: 10, map: null, mk: {}, race: race, fleet: fleet, legIdx: -1, ideal: null };
     var best = { type: 'FeatureCollection', features: (race.legs || []).map(function (L) { return { type: 'Feature', properties: { n: L.n }, geometry: { type: 'LineString', coordinates: L.lane.map(function (q) { return [q[1], q[0]]; }) } }; }) };
     function idealFc() { return { type: 'FeatureCollection', features: S.ideal ? S.ideal.o.map(function (x, i) { return x && x.path.length > 1 ? { type: 'Feature', properties: { n: race.legs[i].n }, geometry: { type: 'LineString', coordinates: x.path.map(function (q) { return [q[1], q[0]]; }) } } : null; }).filter(Boolean) : [] }; }
@@ -62,7 +62,13 @@
       if (!S.probeFn || !S.probeAt || !S.map) return;
       var q = S.probeFn(S.t, S.probeAt[1], S.probeAt[0]), h;
       if (!q || q.conf < 0.1) h = '<b>No boats here</b><span>no wind data at this time</span>';
-      else h = '<b>Wind ' + ('00' + q.dir).slice(-3) + '°</b><span>' + (q.p === null ? '–' : (q.p >= 1 ? '+' : '−') + Math.abs(Math.round((q.p - 1) * 100)) + '% pressure vs. average') + '</span>' + (q.conf < 0.5 ? '<span class="rr-pq">few boats here, rough estimate</span>' : '');
+      else {
+        var pc = q.p === null ? null : Math.round((q.p - 1) * 100);
+        h = '<b>Wind ' + ('00' + q.dir).slice(-3) + '°</b>' +
+          '<span>' + (Math.abs(q.shift) < 2 ? 'same direction as the rest of the course' : Math.abs(q.shift) + '° ' + (q.shift > 0 ? 'to the right (veered)' : 'to the left (backed)') + ' vs. the rest of the course') + '</span>' +
+          '<span>' + (pc === null ? '–' : Math.abs(pc) < 2 ? 'pressure like the rest of the course' : (pc > 0 ? 'more' : 'less') + ' pressure than the rest of the course (' + (pc > 0 ? '+' : '−') + Math.abs(pc) + '%)') + '</span>' +
+          (q.conf < 0.5 ? '<span class="rr-pq">few boats here, rough estimate</span>' : '');
+      }
       if (!S.pop) { S.pop = new maplibregl.Popup({ closeButton: true, closeOnClick: false, className: 'rr-pop', offset: 8 }); S.pop.on('close', function () { if (S) { S.probeAt = null; S.pop = null; } }); }
       S.pop.setLngLat(S.probeAt).setHTML(h); if (!S.pop.isOpen()) S.pop.addTo(S.map);
     }

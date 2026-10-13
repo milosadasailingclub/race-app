@@ -86,6 +86,15 @@
       var c = cell(r[0], r[1], r[2]), k = idx(c[0], c[1], c[2]); PS[k] += Math.max(0.5, Math.min(1.6, r[3] / base)); PW[k] += 1;
     });
     PS = smooth(PS); PW = smooth(PW);
+    // prosek celog polja u tom trenutku (±2 min): prikaz je "gde je SADA više/manje vetra nego na ostatku polja"
+    var mT = new Float64Array(NT), dS = new Float64Array(NT), dC = new Float64Array(NT);
+    (function () {
+      var a = new Float64Array(NT), b = new Float64Array(NT);
+      for (var ti = 0; ti < NT; ti++) for (var xi = 0; xi < NX; xi++) for (var yi = 0; yi < NY; yi++) { var k = idx(ti, xi, yi); if (PW[k] > 1) { a[ti] += PS[k]; b[ti] += PW[k]; } dS[ti] += S1[k]; dC[ti] += C1[k]; }
+      for (var t2 = 0; t2 < NT; t2++) { var sa = 0, sb = 0; for (var j = -6; j <= 6; j++) { var u = t2 + j; if (u < 0 || u >= NT) continue; sa += a[u]; sb += b[u]; } mT[t2] = sb > 0 ? sa / sb : 1; }
+    })();
+    function relP(k, ti) { return PS[k] / PW[k] / (mT[ti] || 1); }
+    function meanDir(ti) { return (Math.atan2(dS[ti], dC[ti]) * 180 / Math.PI + 360) % 360; }
     function pressAt(t, x, y) { var c = cell(t, x, y), k = idx(c[0], c[1], c[2]); var w = PW[k]; return w > 0.3 ? Math.max(0.7, Math.min(1.3, PS[k] / w)) : 1; }
     var toLL = function (p) { return [o[0] + p[1] / ky, o[1] + p[0] / kx]; };
     // polje za mapu u trenutku t: glatka slika pritiska (fejduje se tamo gde nije bilo brodova) + guste strelice smera vetra
@@ -100,7 +109,7 @@
         var g = cv.getContext('2d'), id = g.createImageData(NX, NY);
         for (var xi = 0; xi < NX; xi++) for (var yi = 0; yi < NY; yi++) {
           var k = idx(ti, xi, yi), w = PW[k], al = alphaW(w); if (al <= 0) continue;
-          var c = rampC(Math.max(0.7, Math.min(1.3, PS[k] / w))), o4 = ((NY - 1 - yi) * NX + xi) * 4;
+          var c = rampC(Math.max(0.7, Math.min(1.3, relP(k, ti)))), o4 = ((NY - 1 - yi) * NX + xi) * 4;
           id.data[o4] = c[0]; id.data[o4 + 1] = c[1]; id.data[o4 + 2] = c[2]; id.data[o4 + 3] = Math.round(al * 255);
         }
         g.putImageData(id, 0, 0); img = cv.toDataURL('image/png');
@@ -117,14 +126,15 @@
     // vetar u tački (za dodir na mapi)
     function probe(t, lat, lon) {
       var p = xy(lat, lon), c = cell(t, p[0], p[1]), k = idx(c[0], c[1], c[2]), w = PW[k];
-      return { dir: Math.round(dirAt(t, p[0], p[1])), p: w > 0.3 ? PS[k] / w : null, conf: alphaW(w) };
+      var d = dirAt(t, p[0], p[1]);
+      return { dir: Math.round(d), shift: Math.round(nrm(d - meanDir(c[0]))), p: w > 0.3 ? relP(k, c[0]) : null, conf: alphaW(w) };
     }
     // prosek cele trke po ćeliji (za Brief: mapa polja iz istorije)
     function summaryCells() {
       var out = [];
       for (var xi = 0; xi < NX; xi++) for (var yi = 0; yi < NY; yi++) {
         var ps = 0, pw = 0, ss = 0, cc = 0, ww = 0;
-        for (var ti = 0; ti < NT; ti++) { var k = idx(ti, xi, yi); ps += PS[k]; pw += PW[k]; ss += S1[k]; cc += C1[k]; ww += W1[k]; }
+        for (var ti = 0; ti < NT; ti++) { var k = idx(ti, xi, yi); if (PW[k] > 0.05) ps += relP(k, ti) * PW[k]; pw += PW[k]; ss += S1[k]; cc += C1[k]; ww += W1[k]; }
         if (pw < 3) continue;
         var ll = toLL([x0 + xi * DS, y0 + yi * DS]);
         out.push({ lat: ll[0], lon: ll[1], p: ps / pw, w: pw, dir: ww > 0.5 ? (Math.atan2(ss, cc) * 180 / Math.PI + 360) % 360 : null, rel: ww > 0.5 ? nrm((Math.atan2(ss, cc) * 180 / Math.PI) - AX) : null });
