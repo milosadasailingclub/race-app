@@ -465,7 +465,7 @@
     else h += '<p class="small">Open a race below and tap <b>▶ Replay</b> to see the fleet map.</p>';
     var AT = angleTip(rg); if (AT) S.tips.unshift(AT);
     if (!rg.angDone && rg.races.some(function (r) { return r.legs && r.rows.some(function (x) { return x.upAng === undefined; }); })) backfillAngles(rg.id);
-    if (S.tips.length) h += '<div class="co-sec"><h3>WHAT THE NUMBERS SAY</h3>' + S.tips.map(function (t) { return '<p class="co-tip">' + esc(t) + '</p>'; }).join('') + '<p class="small">Tacking angle is measured over ground (includes leeway), the same way for every boat.</p></div>';
+    if (S.tips.length) h += '<div class="co-sec"><h3>WHAT THE NUMBERS SAY</h3>' + S.tips.map(function (t) { return '<p class="co-tip">' + esc(t) + '</p>'; }).join('') + '<p class="small">All speeds and angles are over ground (GPS: SOG / COG), the same way for every boat.</p></div>';
     var tbl = function (rows, cols) { return tblH(rows, cols, me); };
     h += '<div class="co-sec"><h3>ALL RACES (AVERAGE)</h3>' + tbl(S.list, [['Boat', function (x) { return esc(nameOf(rg, x.id)); }], ['Up kn', function (x) { return n2(x.up); }], ['VMG up', function (x) { return n2(x.vmgUp); }], ['VMG dn', function (x) { return n2(x.vmgDown); }], ['TA°', function (x) { return n0(x.ta); }], ['Tack m', function (x) { return n1(x.tackLoss); }], ['Start s', function (x) { return n0(x.start); }]]) + '</div>';
     rg.races.forEach(function (r) {
