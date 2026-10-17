@@ -19,7 +19,8 @@
       run: { twa: [145.8, 145.8, 148.3, 149.8, 148.8, 145.8, 144.8, 136.1, 142.3], vmg: [2.25, 3.20, 4.02, 4.65, 5.16, 5.68, 6.32, 8.71, 11.40] } },
       // North Sails speed guide: TACK / JIBE = pravi ugao letanja / halsovanja (uključuje zanošenje), uporedivo sa GPS merenjem
       // naučeno iz trekera (privremeno, Palić 2026: 9 trka, nestabilan vetar, ~8 kn): norme klase za ocenu manevara i uglova
-      learned: { src: 'Palić 2026 fleet tracks (9 races, shifty, ~8 kn)', tackLossM: 3.0, tackRecS: 12, gybeLossM: 1.6, gybeRecS: 10, steadyTackAt8: 79, dnDeeperDeg: 4 },
+      // po stanju mora: flat = ravna voda (brzo ubrzanje, mali gubici); chop / swell se popunjavaju kad stignu tragovi
+      learned: { flat: { src: 'Palić 2026 fleet tracks (9 races, flat water, shifty, ~8 kn)', tackLossM: 3.0, tackRecS: 12, gybeLossM: 1.6, gybeRecS: 10, steadyTackAt8: 79, dnDeeperDeg: 4 }, chop: null, swell: null },
       guideSrc: 'North Sails Seascape 18 speed guide', guide: {
         up: { tws: [6, 8, 10, 12, 14, 16, 20], bs: [3.9, 4.7, 5.1, 5.2, 5.3, 5.3, 5.4], vmg: [2.9, 3.5, 4.0, 4.2, 4.3, 4.3, 4.4], heel: [9, 10, 12, 15, 16, 16, 18], twa: [42, 40, 38, 36, 36, 35, 35], turn: [90, 86, 84, 80, 75, 75, 75] },
         dn: { tws: [6, 8, 10, 12, 14, 16, 20], bs: [3.9, 4.8, 5.4, 5.8, 6.2, 7.6, 12.1], vmg: [3.2, 4.1, 4.7, 5.0, 5.4, 6.1, 8.8], heel: [5, 5, 6, 6, 6, 7, 10], twa: [147, 148, 150, 150, 150, 143, 137], turn: [85, 80, 70, 65, 65, 75, 80] } } },
@@ -182,6 +183,8 @@
       if (e.target.id === 'pcDel') { sset('customClasses', customs().filter(function (c) { return c.id !== cid; })); sset('boatClass', ''); render(); }
     });
   }
-  window.Profile = { classes: all, get: get, current: current, parsePolar: parsePolar, speed: speed, targets: targets, guideAt: guideAt, estTws: estTws, theory: theory, render: render };
+  window.Profile = { classes: all, get: get, current: current, parsePolar: parsePolar, speed: speed, targets: targets, guideAt: guideAt, estTws: estTws,
+    // norme klase za dato stanje mora; ako za to stanje nema podataka, ravna voda + tolerancija (u talasu su gubici veći)
+    norms: function (c, sea) { var L = c && c.learned; if (!L) return null; if (sea && L[sea]) return Object.assign({ sea: sea, exact: true }, L[sea]); return L.flat ? Object.assign({ sea: 'flat', exact: sea === 'flat' || !sea, tol: sea && sea !== 'flat' ? 1.6 : 1 }, L.flat) : null; }, theory: theory, render: render };
   if (document.readyState !== 'loading') { bind(); render(); } else document.addEventListener('DOMContentLoaded', function () { bind(); render(); });
 })();

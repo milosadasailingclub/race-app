@@ -113,9 +113,9 @@
     });
     var w = P.own;
     if (w.n && w.heel !== null && w.heel > 21) F.push({ h: 'Heel upwind', t: 'Average ' + Math.round(w.heel) + '° in your trainings. Depower earlier: traveller down, more backstay / outhaul, hike hard. Keep the LEDs green.' });
-    var CL = window.Profile && window.Profile.current(), LN = CL && CL.learned;
+    var CL = window.Profile && window.Profile.current(), LN = CL && window.Profile.norms(CL, null);
     if (LN && !P.races && w.n && w.tackLoss !== null) {
-      if (w.tackLoss > LN.tackLossM * 1.6) F.push({ h: 'Tacks', t: w.tackLoss.toFixed(1) + ' m lost per tack in your trainings; good crews in this class lose about ' + LN.tackLossM.toFixed(0) + ' m and are back to speed in ~' + LN.tackRecS + ' s. Smooth turn, flat boat, build speed before pointing.' });
+      if (w.tackLoss > LN.tackLossM * 1.6) F.push({ h: 'Tacks', t: w.tackLoss.toFixed(1) + ' m lost per tack in your trainings; on flat water good crews in this class lose about ' + LN.tackLossM.toFixed(0) + ' m and are back to speed in ~' + LN.tackRecS + ' s (more in chop). Smooth turn, flat boat, build speed before pointing.' });
       else if (w.tackLoss <= LN.tackLossM) S.push({ h: 'Tacks', t: 'Clean tacks: ' + w.tackLoss.toFixed(1) + ' m lost per tack, as good as the best crews in this class.' });
     }
     return { S: S.slice(0, 3), F: F.slice(0, 3) };
@@ -158,7 +158,7 @@
     else if (s.w < 16) L.push({ h: 'Fresh wind', t: 'Set up for the top of the range: more shroud / backstay tension, flatten the main (outhaul, cunningham), traveller down in the puffs, keep the heel under 20°.' });
     else L.push({ h: 'Strong wind', t: 'Depower before the start: max rig tension, flattest sails, consider the small jib. Gybe at full speed with a smooth bear-away, keep the crew together.' });
     if (s.g - s.w >= 8 || s.g / Math.max(1, s.w) >= 1.5) L.push({ h: 'Gusty (up to ' + Math.round(s.g) + ' kn)', t: 'Play the main and traveller all the time, call the puffs early, bear away in the big ones downwind to keep control.' });
-    if (s.wave !== null && s.wave !== undefined ? s.wave >= 0.35 : s.w >= 12) L.push({ h: 'Chop', t: 'Foot a few degrees for speed, more twist and power (ease jib and main a little), steer through the waves, weight together in the middle.' });
+    if (s.wave !== null && s.wave !== undefined ? s.wave >= 0.35 : s.w >= 12) L.push({ h: 'Chop', t: 'Foot a few degrees for speed, more twist and power (ease jib and main a little), steer through the waves, weight together in the middle. Tacks and gybes cost more than on flat water: fewer manoeuvres, pick flat spots between waves.' });
     if (s.dMax - s.dMin >= 25) L.push({ h: 'Shifty / turning wind', t: 'Forecast turns from ' + d3(s.dir + s.d0) + '° to ' + d3(s.dir + s.d1) + '° (' + (nrm(s.d1 - s.d0) > 0 ? 'veering, right' : 'backing, left') + '). Take compass readings before the start, tack on the headers, do not hit a layline early.' });
     if (Math.abs(s.trend) >= 5) L.push({ h: s.trend > 0 ? 'Building wind' : 'Dropping wind', t: (s.trend > 0 ? 'About ' + Math.round(s.trend) + ' kn more later: set up one step harder than it feels at the start.' : 'About ' + Math.round(-s.trend) + ' kn less later: be ready to add power between races.') });
     if (s.tMin < 14) L.push({ h: 'Cold (' + Math.round(s.tMin) + ' °C)', t: 'Layers and spray top, eat and drink between races.' });
@@ -271,7 +271,7 @@
       else h += '<p class="small">No races or trainings yet. Record with Tracking or import files in Debrief, and the Brief fills in.</p>';
       if (I.F.length) h += '<div class="br-sec"><h3>WATCH TODAY</h3>' + I.F.map(function (x) { return card('focus', x.h, x.t); }).join('') + '</div>';
       if (I.S.length) h += '<div class="br-sec"><h3>YOUR STRENGTHS</h3>' + I.S.map(function (x) { return card('good', x.h, x.t); }).join('') + '</div>';
-      if (P.own.n && !P.races) h += '<div class="br-sec"><h3>YOUR NUMBERS</h3><p class="small">' + [P.own.ta !== null ? 'tacking angle ' + Math.round(P.own.ta) + '°' : null, P.own.up !== null ? 'upwind ' + P.own.up.toFixed(1) + ' kn' : null, P.own.down !== null ? 'downwind ' + P.own.down.toFixed(1) + ' kn' : null, P.own.heel !== null ? 'heel ' + Math.round(P.own.heel) + '°' : null, P.own.tackLoss !== null ? P.own.tackLoss.toFixed(1) + ' m per tack' + (MC && MC.learned ? ' (good crews in this class ~' + MC.learned.tackLossM.toFixed(0) + ' m)' : '') : null].filter(Boolean).join(' · ') + '</p></div>';
+      if (P.own.n && !P.races) h += '<div class="br-sec"><h3>YOUR NUMBERS</h3><p class="small">' + [P.own.ta !== null ? 'tacking angle ' + Math.round(P.own.ta) + '°' : null, P.own.up !== null ? 'upwind ' + P.own.up.toFixed(1) + ' kn' : null, P.own.down !== null ? 'downwind ' + P.own.down.toFixed(1) + ' kn' : null, P.own.heel !== null ? 'heel ' + Math.round(P.own.heel) + '°' : null, P.own.tackLoss !== null ? P.own.tackLoss.toFixed(1) + ' m per tack' + (MC && MC.learned && MC.learned.flat ? ' (good crews in this class ~' + MC.learned.flat.tackLossM.toFixed(0) + ' m on flat water)' : '') : null].filter(Boolean).join(' · ') + '</p></div>';
       h += '<div class="br-sec"><h3>CONDITIONS</h3><div id="brWx"><p class="small">Loading the forecast…</p></div></div><div class="br-sec" id="brHist"></div>';
       box.innerHTML = h;
       if (!ctx.loc) { $('brWx').innerHTML = '<p class="small">No location: allow location or pick a spot in Weather.</p>'; return; }
