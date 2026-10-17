@@ -151,14 +151,15 @@
       trend: avg(ws.slice(-n3)) - avg(ws.slice(0, n3)), tMin: Math.min.apply(null, R.map(function (r) { return r.t; })), rain: Math.max.apply(null, R.map(function (r) { return r.p || 0; })),
       wave: avg(R.map(function (r) { return r.wave; })) };
   }
-  function reminders(s) {
+  function reminders(s, loc) {
+    var LS = locAt(loc), seaLoc = LS && LS.sea ? LS.sea(s.dir) : undefined;
     var L = [];
     if (s.wMax < 6) L.push({ h: 'Light air', t: 'Crew weight forward and to leeward, ease outhaul and halyards, soft sheets. Sail for speed, do not pinch, fewer tacks, move the helm smoothly.' });
     else if (s.w < 12) L.push({ h: 'Medium wind', t: 'Full power: base rig tension, full sails, hike flat and steer for speed in the lulls, point in the puffs.' });
     else if (s.w < 16) L.push({ h: 'Fresh wind', t: 'Set up for the top of the range: more shroud / backstay tension, flatten the main (outhaul, cunningham), traveller down in the puffs, keep the heel under 20°.' });
     else L.push({ h: 'Strong wind', t: 'Depower before the start: max rig tension, flattest sails, consider the small jib. Gybe at full speed with a smooth bear-away, keep the crew together.' });
     if (s.g - s.w >= 8 || s.g / Math.max(1, s.w) >= 1.5) L.push({ h: 'Gusty (up to ' + Math.round(s.g) + ' kn)', t: 'Play the main and traveller all the time, call the puffs early, bear away in the big ones downwind to keep control.' });
-    if (s.wave !== null && s.wave !== undefined ? s.wave >= 0.35 : s.w >= 12) L.push({ h: 'Chop', t: 'Foot a few degrees for speed, more twist and power (ease jib and main a little), steer through the waves, weight together in the middle. Tacks and gybes cost more than on flat water: fewer manoeuvres, pick flat spots between waves.' });
+    if (seaLoc === 'chop' ? s.w >= 6 : seaLoc === 'flat' ? false : (s.wave !== null && s.wave !== undefined ? s.wave >= 0.35 : s.w >= 12)) L.push({ h: 'Chop', t: 'Foot a few degrees for speed, more twist and power (ease jib and main a little), steer through the waves, weight together in the middle. Tacks and gybes cost more than on flat water: fewer manoeuvres, pick flat spots between waves.' });
     if (s.dMax - s.dMin >= 25) L.push({ h: 'Shifty / turning wind', t: 'Forecast turns from ' + d3(s.dir + s.d0) + '° to ' + d3(s.dir + s.d1) + '° (' + (nrm(s.d1 - s.d0) > 0 ? 'veering, right' : 'backing, left') + '). Take compass readings before the start, tack on the headers, do not hit a layline early.' });
     if (Math.abs(s.trend) >= 5) L.push({ h: s.trend > 0 ? 'Building wind' : 'Dropping wind', t: (s.trend > 0 ? 'About ' + Math.round(s.trend) + ' kn more later: set up one step harder than it feels at the start.' : 'About ' + Math.round(-s.trend) + ' kn less later: be ready to add power between races.') });
     if (s.tMin < 14) L.push({ h: 'Cold (' + Math.round(s.tMin) + ' °C)', t: 'Layers and spray top, eat and drink between races.' });
@@ -177,7 +178,16 @@
   // profili lokacija (naučeno iz trekera; raste sa svakom regatom)
   var LOCS = [{ name: 'Palić', lat: 46.088, lon: 19.757, r: 6, src: '9 races, Oct 2026',
     t: 'Shifty lake: the wind oscillates about ±5–11° (up to 45° in a race) every 9–30 minutes, in two regimes (NW 330–340° and ENE 55–65°). Take compass readings before the start, tack on the headers, stay away from the laylines early and keep near the middle until the pattern is clear.' }];
-  function locCard(loc) { if (!loc) return ''; var L = LOCS.filter(function (x) { return km(x, loc) <= x.r; })[0]; return L ? card('wx', L.name + ': what this place is like (' + L.src + ')', L.t) : ''; }
+  // reke (Sava, Dunav): talas kad vetar duva uzvodno (E, SE, S), ravna voda kad je N, NW, W
+  var RIVER = { t: 'River: wind against the current (E, SE, S) builds short steep waves; N, NW and W give flat water. Mind the current near the banks and marks.', sea: function (d) { d = ((d % 360) + 360) % 360; if (d >= 80 && d <= 200) return 'chop'; if (d >= 260 || d <= 20) return 'flat'; return null; } };
+  [{ name: 'Sava (Ada Ciganlija)', lat: 44.787, lon: 20.398 }, { name: 'Belgrade (Sava / Danube)', lat: 44.828, lon: 20.448 }, { name: 'Danube (Smederevo)', lat: 44.665, lon: 20.930 }, { name: 'Danube (Golubac)', lat: 44.653, lon: 21.630 }]
+    .forEach(function (x) { LOCS.push({ name: x.name, lat: x.lat, lon: x.lon, r: 8, src: 'club knowledge', t: RIVER.t, sea: RIVER.sea }); });
+  function locAt(loc) { return loc ? LOCS.filter(function (x) { return km(x, loc) <= x.r; })[0] || null : null; }
+  function locCard(loc, s) {
+    var L = locAt(loc); if (!L) return '';
+    var st = L.sea && s ? L.sea(s.dir) : null;
+    return card('wx', L.name + ': what this place is like (' + L.src + ')', L.t + (st ? ' Today (' + compass(s.dir) + '): ' + (st === 'chop' ? 'expect waves.' : 'expect flat water.') : ''));
+  }
   /* ---- 4) mapa polja iz istorije ---- */
   function historyRaces(ctx, dir) {
     var out = [];
@@ -279,7 +289,7 @@
         var s = fcStats(F), W = $('brWx'); if (!W) return null;
         if (!s) { W.innerHTML = '<p class="small">No forecast for today.</p>'; return null; }
         W.innerHTML = '<p class="br-fc"><b>' + Math.round(s.wMin) + '–' + Math.round(s.wMax) + ' kn</b>, gusts ' + Math.round(s.g) + ' · ' + compass(s.dir) + ' ' + d3(s.dir + s.d0) + '° → ' + d3(s.dir + s.d1) + '° · ' + s.from + '–' + s.to + ' h' + (s.wave !== null && s.wave !== undefined ? ' · waves ' + s.wave.toFixed(1) + ' m' : '') + '</p>' +
-          reminders(s).map(function (x) { return card('wx', x.h, x.t); }).join('') + polarCard(s) + locCard(ctx.loc);
+          reminders(s, ctx.loc).map(function (x) { return card('wx', x.h, x.t); }).join('') + polarCard(s) + locCard(ctx.loc, s);
         return s.dir;
       }).catch(function () { var W = $('brWx'); if (W) W.innerHTML = '<p class="small">Forecast not available (offline?).</p>'; return null; }).then(function (dir) {
         var list = historyRaces(ctx, dir === undefined ? null : dir), Hh = $('brHist'); if (!Hh) return;
