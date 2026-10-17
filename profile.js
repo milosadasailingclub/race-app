@@ -18,6 +18,8 @@
       beat: { twa: [42.0, 41.9, 40.2, 38.3, 37.0, 36.9, 36.7, 37.0, 37.8], vmg: [2.18, 2.98, 3.58, 3.98, 4.21, 4.28, 4.34, 4.40, 4.39] },
       run: { twa: [145.8, 145.8, 148.3, 149.8, 148.8, 145.8, 144.8, 136.1, 142.3], vmg: [2.25, 3.20, 4.02, 4.65, 5.16, 5.68, 6.32, 8.71, 11.40] } },
       // North Sails speed guide: TACK / JIBE = pravi ugao letanja / halsovanja (uključuje zanošenje), uporedivo sa GPS merenjem
+      // naučeno iz trekera (privremeno, Palić 2026: 9 trka, nestabilan vetar, ~8 kn): norme klase za ocenu manevara i uglova
+      learned: { src: 'Palić 2026 fleet tracks (9 races, shifty, ~8 kn)', tackLossM: 3.0, tackRecS: 12, gybeLossM: 1.6, gybeRecS: 10, steadyTackAt8: 79, dnDeeperDeg: 4 },
       guideSrc: 'North Sails Seascape 18 speed guide', guide: {
         up: { tws: [6, 8, 10, 12, 14, 16, 20], bs: [3.9, 4.7, 5.1, 5.2, 5.3, 5.3, 5.4], vmg: [2.9, 3.5, 4.0, 4.2, 4.3, 4.3, 4.4], heel: [9, 10, 12, 15, 16, 16, 18], twa: [42, 40, 38, 36, 36, 35, 35], turn: [90, 86, 84, 80, 75, 75, 75] },
         dn: { tws: [6, 8, 10, 12, 14, 16, 20], bs: [3.9, 4.8, 5.4, 5.8, 6.2, 7.6, 12.1], vmg: [3.2, 4.1, 4.7, 5.0, 5.4, 6.1, 8.8], heel: [5, 5, 6, 6, 6, 7, 10], twa: [147, 148, 150, 150, 150, 143, 137], turn: [85, 80, 70, 65, 65, 75, 80] } } },

@@ -113,6 +113,11 @@
     });
     var w = P.own;
     if (w.n && w.heel !== null && w.heel > 21) F.push({ h: 'Heel upwind', t: 'Average ' + Math.round(w.heel) + '° in your trainings. Depower earlier: traveller down, more backstay / outhaul, hike hard. Keep the LEDs green.' });
+    var CL = window.Profile && window.Profile.current(), LN = CL && CL.learned;
+    if (LN && !P.races && w.n && w.tackLoss !== null) {
+      if (w.tackLoss > LN.tackLossM * 1.6) F.push({ h: 'Tacks', t: w.tackLoss.toFixed(1) + ' m lost per tack in your trainings; good crews in this class lose about ' + LN.tackLossM.toFixed(0) + ' m and are back to speed in ~' + LN.tackRecS + ' s. Smooth turn, flat boat, build speed before pointing.' });
+      else if (w.tackLoss <= LN.tackLossM) S.push({ h: 'Tacks', t: 'Clean tacks: ' + w.tackLoss.toFixed(1) + ' m lost per tack, as good as the best crews in this class.' });
+    }
     return { S: S.slice(0, 3), F: F.slice(0, 3) };
   }
 
@@ -169,6 +174,10 @@
     var T = PR.targets(c.polar, w); if (!T) return '';
     return card('wx', 'Targets for ' + w + ' kn (' + c.name + ' polar)', 'Upwind: ' + T.upTwa + '° to the wind, ' + T.upBs.toFixed(1) + ' kn boat speed, VMG ' + T.upVmg.toFixed(1) + ' kn. Downwind: ' + T.dnTwa + '° to the wind, ' + T.dnBs.toFixed(1) + ' kn, VMG ' + T.dnVmg.toFixed(1) + ' kn.');
   }
+  // profili lokacija (naučeno iz trekera; raste sa svakom regatom)
+  var LOCS = [{ name: 'Palić', lat: 46.088, lon: 19.757, r: 6, src: '9 races, Oct 2026',
+    t: 'Shifty lake: the wind oscillates about ±5–11° (up to 45° in a race) every 9–30 minutes, in two regimes (NW 330–340° and ENE 55–65°). Take compass readings before the start, tack on the headers, stay away from the laylines early and keep near the middle until the pattern is clear.' }];
+  function locCard(loc) { if (!loc) return ''; var L = LOCS.filter(function (x) { return km(x, loc) <= x.r; })[0]; return L ? card('wx', L.name + ': what this place is like (' + L.src + ')', L.t) : ''; }
   /* ---- 4) mapa polja iz istorije ---- */
   function historyRaces(ctx, dir) {
     var out = [];
@@ -262,7 +271,7 @@
       else h += '<p class="small">No races or trainings yet. Record with Tracking or import files in Debrief, and the Brief fills in.</p>';
       if (I.F.length) h += '<div class="br-sec"><h3>WATCH TODAY</h3>' + I.F.map(function (x) { return card('focus', x.h, x.t); }).join('') + '</div>';
       if (I.S.length) h += '<div class="br-sec"><h3>YOUR STRENGTHS</h3>' + I.S.map(function (x) { return card('good', x.h, x.t); }).join('') + '</div>';
-      if (P.own.n && !P.races) h += '<div class="br-sec"><h3>YOUR NUMBERS</h3><p class="small">' + [P.own.ta !== null ? 'tacking angle ' + Math.round(P.own.ta) + '°' : null, P.own.up !== null ? 'upwind ' + P.own.up.toFixed(1) + ' kn' : null, P.own.down !== null ? 'downwind ' + P.own.down.toFixed(1) + ' kn' : null, P.own.heel !== null ? 'heel ' + Math.round(P.own.heel) + '°' : null, P.own.tackLoss !== null ? P.own.tackLoss.toFixed(1) + ' m per tack' : null].filter(Boolean).join(' · ') + '</p></div>';
+      if (P.own.n && !P.races) h += '<div class="br-sec"><h3>YOUR NUMBERS</h3><p class="small">' + [P.own.ta !== null ? 'tacking angle ' + Math.round(P.own.ta) + '°' : null, P.own.up !== null ? 'upwind ' + P.own.up.toFixed(1) + ' kn' : null, P.own.down !== null ? 'downwind ' + P.own.down.toFixed(1) + ' kn' : null, P.own.heel !== null ? 'heel ' + Math.round(P.own.heel) + '°' : null, P.own.tackLoss !== null ? P.own.tackLoss.toFixed(1) + ' m per tack' + (MC && MC.learned ? ' (good crews in this class ~' + MC.learned.tackLossM.toFixed(0) + ' m)' : '') : null].filter(Boolean).join(' · ') + '</p></div>';
       h += '<div class="br-sec"><h3>CONDITIONS</h3><div id="brWx"><p class="small">Loading the forecast…</p></div></div><div class="br-sec" id="brHist"></div>';
       box.innerHTML = h;
       if (!ctx.loc) { $('brWx').innerHTML = '<p class="small">No location: allow location or pick a spot in Weather.</p>'; return; }
@@ -270,7 +279,7 @@
         var s = fcStats(F), W = $('brWx'); if (!W) return null;
         if (!s) { W.innerHTML = '<p class="small">No forecast for today.</p>'; return null; }
         W.innerHTML = '<p class="br-fc"><b>' + Math.round(s.wMin) + '–' + Math.round(s.wMax) + ' kn</b>, gusts ' + Math.round(s.g) + ' · ' + compass(s.dir) + ' ' + d3(s.dir + s.d0) + '° → ' + d3(s.dir + s.d1) + '° · ' + s.from + '–' + s.to + ' h' + (s.wave !== null && s.wave !== undefined ? ' · waves ' + s.wave.toFixed(1) + ' m' : '') + '</p>' +
-          reminders(s).map(function (x) { return card('wx', x.h, x.t); }).join('') + polarCard(s);
+          reminders(s).map(function (x) { return card('wx', x.h, x.t); }).join('') + polarCard(s) + locCard(ctx.loc);
         return s.dir;
       }).catch(function () { var W = $('brWx'); if (W) W.innerHTML = '<p class="small">Forecast not available (offline?).</p>'; return null; }).then(function (dir) {
         var list = historyRaces(ctx, dir === undefined ? null : dir), Hh = $('brHist'); if (!Hh) return;
