@@ -10,11 +10,11 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/saira-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=0.9.62">
+<link rel="stylesheet" href="style.css?v=0.9.63">
 </head>
 <body class="theme-night">
 
-<div id="version" class="version">v0.9.62</div>
+<div id="version" class="version">v0.9.63</div>
 <div id="update" class="update hidden">New version available. Tap to update</div>
 <div id="toast" class="toast hidden"></div>
 
@@ -326,6 +326,14 @@
     </div>
 
     <div class="card">
+      <h3>GPS receiver (RaceBox)</h3>
+      <p class="small">RaceBox Mini / Mini S / Micro over Bluetooth (Chrome on Android): 25 Hz GNSS instead of the phone's GPS. Mount it with the arrow to the bow. Tap Marine mode once (needs firmware 3.3+): it is saved in the device.</p>
+      <div class="row"><button class="btn" id="rbConn">Connect</button><button class="btn" id="rbMarine" disabled>Marine mode</button></div>
+      <p class="small" id="rbStat">Not connected.</p>
+      <pre id="rbRaw" class="diag" style="min-height:0"></pre>
+    </div>
+
+    <div class="card">
       <h3>Wind sensor (Calypso)</h3>
       <p class="small">Calypso Ultrasonic Portable over Bluetooth (Chrome on Android). Turn the sensor on, mount it with its mark pointing to the bow, then tap Connect and pick it from the list.</p>
       <div class="row"><button class="btn" id="wsConn">Connect</button></div>
@@ -342,21 +350,22 @@
   </div>
 </section>
 
-<script src="regatta.js?v=0.9.62"></script>
-<script src="router.js?v=0.9.62"></script>
-<script src="racereplay.js?v=0.9.62"></script>
-<script src="coaching.js?v=0.9.62"></script>
-<script src="brief.js?v=0.9.62"></script>
-<script src="calypso.js?v=0.9.62"></script>
-<script src="profile.js?v=0.9.62"></script>
-<script src="wxmap.js?v=0.9.62"></script>
-<script src="public-lists.js?v=0.9.62"></script>
-<script src="checklist.js?v=0.9.62"></script>
-<script src="samples/portcup-2026.js?v=0.9.62"></script>
-<script src="courses.js?v=0.9.62"></script>
-<script src="nor.js?v=0.9.62"></script>
-<script src="maneuvers.js?v=0.9.62"></script>
-<script src="track.js?v=0.9.62"></script>
-<script src="app.js?v=0.9.62"></script>
+<script src="regatta.js?v=0.9.63"></script>
+<script src="router.js?v=0.9.63"></script>
+<script src="racereplay.js?v=0.9.63"></script>
+<script src="coaching.js?v=0.9.63"></script>
+<script src="brief.js?v=0.9.63"></script>
+<script src="calypso.js?v=0.9.63"></script>
+<script src="racebox.js?v=0.9.63"></script>
+<script src="profile.js?v=0.9.63"></script>
+<script src="wxmap.js?v=0.9.63"></script>
+<script src="public-lists.js?v=0.9.63"></script>
+<script src="checklist.js?v=0.9.63"></script>
+<script src="samples/portcup-2026.js?v=0.9.63"></script>
+<script src="courses.js?v=0.9.63"></script>
+<script src="nor.js?v=0.9.63"></script>
+<script src="maneuvers.js?v=0.9.63"></script>
+<script src="track.js?v=0.9.63"></script>
+<script src="app.js?v=0.9.63"></script>
 </body>
 </html>

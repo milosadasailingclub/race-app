@@ -1,7 +1,7 @@
-/* The Race App — v0.9.62 */
+/* The Race App — v0.9.63 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.62';
+  var APP_VERSION = '0.9.63';
   // skriveni developer mod: 7 tapova na broj verzije (prikazuje trošak AI obrade samo vlasniku)
   (function () {
     var n = 0, t0 = 0, el = document.getElementById('version'); if (!el) return;
@@ -25,7 +25,7 @@
     damp: store.get('damp', 2),
     heelTau: store.get('heelTau', 0.35), // libela ima svoje (brže) prigušenje; histereza sprečava treptanje
     ledMirror: store.get('ledMirror', false),
-    heelStep: store.get('heelStepMig', false) ? store.get('heelStep', 5) : 5,  // v0.9.62: podrazumevano 5° po LED-u (manje osetljivo)
+    heelStep: store.get('heelStepMig', false) ? store.get('heelStep', 5) : 5,  // v0.9.63: podrazumevano 5° po LED-u (manje osetljivo)
     calOffset: store.get('calOffset', null),
     calTime: store.get('calTime', null),
     theme: store.get('theme', 'night'),
@@ -368,6 +368,7 @@
   var FZ_MAX = 40000;
   function onFix(p) {
     if (S.sim && !p.__sim) return;
+    if (!p.__ext && !p.__sim && window.RaceBox && window.RaceBox.active()) return; // RaceBox zamenjuje GPS telefona
     S.fixes++; S.geoPerm = 'granted'; S.geoError = '';
     var c = p.coords, fix = { lat: c.latitude, lon: c.longitude, t: p.timestamp || now() };
     var repKn = (c.speed !== null && c.speed !== undefined && !isNaN(c.speed)) ? c.speed * 1.943844 : null;
@@ -1291,6 +1292,21 @@
     });
   })();
 
-  window.RA = { tac: function () { return tacInfo(); }, setMark: function () { setMarkHere(); }, toast: toast, store: store, show: show };
+  /* ---------- RaceBox (spoljni GNSS 25 Hz) ---------- */
+  if (window.RaceBox) (function () {
+    var B = window.RaceBox;
+    $('rbConn').addEventListener('click', function () { var st = B.state().state; if (st === 'on' || st === 'lost' || st === 'connecting') B.disconnect(); else B.connect(); });
+    $('rbMarine').addEventListener('click', function () { B.marine().then(function () { toast('RaceBox set to marine mode'); }).catch(function (e) { toast('Could not set: ' + e.message); }); });
+    B.on(function (R) {
+      var on = R.state === 'on', d = R.last, txt = { off: 'Not connected.', connecting: 'Connecting…', on: 'Connected' + (R.model ? ': ' + R.model + (R.fw ? ' (fw ' + R.fw + ')' : '') : ''), lost: 'Connection lost, reconnecting…', unsupported: 'Not supported here.' }[R.state] || R.state;
+      $('rbStat').textContent = txt + (R.err ? ' (' + R.err + ')' : '') + (on && R.bat !== null ? ' · battery ' + R.bat + '%' : '');
+      $('rbConn').textContent = R.state === 'off' || R.state === 'unsupported' ? 'Connect' : 'Disconnect';
+      $('rbMarine').disabled = !on;
+      $('rbRaw').textContent = on && d ? (d.ok ? 'GNSS fix' : 'no fix') + ' · ' + d.sv + ' sat · ±' + d.hAcc.toFixed(1) + ' m · ' + R.hz + ' Hz\nSOG ' + d.sog.toFixed(2) + ' kn · COG ' + Math.round(d.cog) + '° · heel ' + d.heel.toFixed(1) + '°' + (R.platform !== null ? '\nGNSS mode: ' + ({ 4: 'automotive', 5: 'marine', 0: 'portable' }[R.platform] || R.platform) : '') + (R.bad ? ' · bad packets ' + R.bad : '') : '';
+      $('gpsNote').textContent = on && d && d.ok ? 'GPS: RaceBox ' + R.hz + ' Hz · ±' + d.hAcc.toFixed(1) + ' m' : $('gpsNote').textContent;
+    });
+  })();
+
+  window.RA = { extFix: function (p) { p.__ext = true; onFix(p); }, tac: function () { return tacInfo(); }, setMark: function () { setMarkHere(); }, toast: toast, store: store, show: show };
   window.__ra = { S: S, T: T, L: L, FZ: FZ, LW: LW, cfg: cfg, calibrate: calibrate, show: show };
 })();
