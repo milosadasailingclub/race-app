@@ -36,7 +36,10 @@
   /* ---- event i ruta ---- */
   function events() { return sget('norEvents', []); }
   // Race Map koristi samo event koji korisnik sam poveže (ne prati automatski izabrani event sa NoR / SI)
-  function curEv() { var id = sget('rmEv', null); return id ? events().filter(function (x) { return x.id === id; })[0] || null : null; }
+  function ymd(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  // samo događaji koji nisu završeni (prošle regate, npr. Palić, se ovde ne nude)
+  function live(x) { return !x.dateFrom || (x.dateTo || x.dateFrom) >= ymd(new Date()); }
+  function curEv() { var id = sget('rmEv', null), e = id ? events().filter(function (x) { return x.id === id; })[0] || null : null; return e && live(e) ? e : null; }
   function saveEv(ev) { sset('norEvents', events().map(function (x) { return x.id === ev.id ? ev : x; })); }
   // više staza po eventu (po klasama); aktivna staza = ev.courses[ev.ci]
   function route(ev) {
@@ -105,8 +108,9 @@
     var box = $('rmBody'); if (!box) return;
     var ev = curEv();
     if (!ev) {
-      var E = events().slice().sort(function (a, b) { return String(b.dateFrom || '').localeCompare(String(a.dateFrom || '')); });
-      box.innerHTML = '<div class="nor-empty"><h2>RACE MAP</h2><p>For distance races with waypoints. Add the event and its NoR / SI on the <b>NOR / SI</b> page, then link it here.</p>' +
+      var E = events().filter(live).sort(function (a, b) { return String(a.dateFrom || '').localeCompare(String(b.dateFrom || '')); });
+      box.innerHTML = '<div class="nor-empty"><h2>RACE MAP</h2><p>For distance races with waypoints. Add the event and upload its NoR / SI on the <b>NOR / SI</b> page, then link it here.</p>' +
+        '<div class="row rm-link"><button class="btn" id="rmGoNor">Go to NOR / SI</button></div>' +
         (E.length ? '<div class="row rm-link"><select id="rmPick">' + E.map(function (x) { return '<option value="' + esc(x.id) + '">' + esc((x.summary && x.summary.event) || x.name) + (x.dateFrom ? ' · ' + x.dateFrom : '') + '</option>'; }).join('') + '</select><button class="btn primary" id="rmLink">Link event</button></div>' : '') + '</div>';
       return;
     }
@@ -239,6 +243,7 @@
     var box = $('rmBody'); if (!box) return;
     box.addEventListener('click', function (e) {
       var t = e.target;
+      if (t.id === 'rmGoNor') { if (window.RA && RA.goPageId) RA.goPageId('p-nor'); return; }
       if (t.id === 'rmLink') { sset('rmEv', $('rmPick').value); render(); return; }
       var ev = curEv(); if (!ev) return; var R = route(ev);
       if (t.id === 'rmEdit') { S.edit = !S.edit; render(); return; }

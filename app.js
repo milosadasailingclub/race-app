@@ -1,7 +1,7 @@
-/* The Race App — v0.9.72 */
+/* The Race App — v0.9.73 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.72';
+  var APP_VERSION = '0.9.73';
   // skriveni developer mod: 7 tapova na broj verzije (prikazuje trošak AI obrade samo vlasniku)
   (function () {
     var n = 0, t0 = 0, el = document.getElementById('version'); if (!el) return;
@@ -1339,6 +1339,6 @@
   });
   $('pagesReset').addEventListener('click', function () { store.set('pages', null); applyPages(); renderPagesSet(); });
 
-  window.RA = { nav: function () { return S.lastFix ? { lat: S.lastFix.lat, lon: S.lastFix.lon, t: S.lastFix.t, sog: S.sog, hdg: S.hdg } : null; }, extFix: function (p) { p.__ext = true; onFix(p); }, tac: function () { return tacInfo(); }, setMark: function () { setMarkHere(); }, toast: toast, store: store, show: show };
+  window.RA = { nav: function () { return S.lastFix ? { lat: S.lastFix.lat, lon: S.lastFix.lon, t: S.lastFix.t, sog: S.sog, hdg: S.hdg } : null; }, extFix: function (p) { p.__ext = true; onFix(p); }, tac: function () { return tacInfo(); }, setMark: function () { setMarkHere(); }, toast: toast, store: store, show: show, goPageId: function (id) { goPageId(id); } };
   window.__ra = { S: S, T: T, L: L, FZ: FZ, LW: LW, cfg: cfg, calibrate: calibrate, show: show };
 })();
