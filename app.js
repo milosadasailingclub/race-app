@@ -1,7 +1,7 @@
-/* The Race App — v0.9.65 */
+/* The Race App — v0.9.66 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.65';
+  var APP_VERSION = '0.9.66';
   // skriveni developer mod: 7 tapova na broj verzije (prikazuje trošak AI obrade samo vlasniku)
   (function () {
     var n = 0, t0 = 0, el = document.getElementById('version'); if (!el) return;
@@ -25,7 +25,7 @@
     damp: store.get('damp', 2),
     heelTau: store.get('heelTau', 0.35), // libela ima svoje (brže) prigušenje; histereza sprečava treptanje
     ledMirror: store.get('ledMirror', false),
-    heelStep: store.get('heelStepMig', false) ? store.get('heelStep', 5) : 5,  // v0.9.65: podrazumevano 5° po LED-u (manje osetljivo)
+    heelStep: store.get('heelStepMig', false) ? store.get('heelStep', 5) : 5,  // v0.9.66: podrazumevano 5° po LED-u (manje osetljivo)
     calOffset: store.get('calOffset', null),
     calTime: store.get('calTime', null),
     theme: store.get('theme', 'night'),
@@ -98,7 +98,7 @@
     if (i !== pageIdx) {
       pageIdx = i;
       if (i === 2 && window.Track) window.Track.showLive();
-      var pgE = pager.children[i]; if (pgE && pgE.id === 'p-brief' && window.Brief) window.Brief.render();
+      var pgE = pager.children[i]; if (pgE && pgE.id === 'p-brief' && window.Brief) window.Brief.render(); if (pgE && pgE.id === 'p-map' && window.RaceMap) window.RaceMap.render();
       document.querySelectorAll('#dots i').forEach(function (d, k) { d.classList.toggle('on', k === i); });
     }
   }, { passive: true });
@@ -1307,6 +1307,6 @@
     });
   })();
 
-  window.RA = { extFix: function (p) { p.__ext = true; onFix(p); }, tac: function () { return tacInfo(); }, setMark: function () { setMarkHere(); }, toast: toast, store: store, show: show };
+  window.RA = { nav: function () { return S.lastFix ? { lat: S.lastFix.lat, lon: S.lastFix.lon, t: S.lastFix.t, sog: S.sog, hdg: S.hdg } : null; }, extFix: function (p) { p.__ext = true; onFix(p); }, tac: function () { return tacInfo(); }, setMark: function () { setMarkHere(); }, toast: toast, store: store, show: show };
   window.__ra = { S: S, T: T, L: L, FZ: FZ, LW: LW, cfg: cfg, calibrate: calibrate, show: show };
 })();

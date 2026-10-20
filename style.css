@@ -561,3 +561,33 @@ body.trk-fs-on{overflow:hidden}
 
 .prof-guide{margin:8px 0}.prof-guide summary{font-size:13px;color:var(--turq);cursor:pointer}.prof-guide .co-tbl td,.prof-guide .co-tbl th{padding:3px 5px;font-size:12px}
 .co-theory{border-left:3px solid #2fa3d6;padding-left:8px}
+
+.rm-docs{margin:4px 0 8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.rm-nav{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px;margin:6px 0}
+.rm-next{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rm-k{font-family:var(--f-num);color:var(--muted)}
+.rm-tn{font-family:var(--f-num);font-size:22px;letter-spacing:.04em}
+.rm-side{font:800 11px/18px var(--f-num);letter-spacing:.08em;padding:0 6px;border-radius:4px;background:#555;color:#fff}
+.rm-side.p{background:#e8413a}.rm-side.s{background:#2bbf5a}
+.rm-side.big{font-size:14px;line-height:24px;padding:0 10px}
+.rm-nums{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px;text-align:center}
+.rm-nums span{display:block;font-size:10px;letter-spacing:.08em;color:var(--muted)}
+.rm-nums b{font-family:var(--f-num);font-size:30px;line-height:1.1}
+.rm-step{margin-top:6px;justify-content:space-between}
+.rm-map{position:relative;height:42vh;border-radius:10px;overflow:hidden;border:1px solid var(--line);margin:6px 0}
+.rm-map .maplibregl-map{position:absolute!important;inset:0}
+.rm-sec{margin:10px 0}
+.rm-head{display:flex;justify-content:space-between;align-items:center}
+.rm-head h3{font-family:var(--f-num);letter-spacing:.1em;font-size:14px;color:var(--muted);margin:0}
+.rm-wp{display:flex;align-items:center;gap:8px;padding:8px 6px;border-bottom:1px solid var(--line)}
+.rm-wp.on{background:rgba(0,224,198,.08)}
+.rm-n{font-family:var(--f-num);font-weight:800;width:22px;text-align:center;color:var(--turq)}
+.rm-nm{flex:1;display:flex;flex-direction:column}
+.rm-nm small{color:var(--muted);font-size:11px}
+.rm-wp.ed{align-items:flex-start}
+.rm-edf{flex:1;display:flex;flex-direction:column;gap:4px}
+.rm-in,.rm-add input,.rm-add select{background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:14px}
+.rm-in.bad{border-color:#e8413a}
+.rm-add{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.btn.sm{padding:4px 10px;font-size:12px}
+.rm-head .btn{flex:0 0 auto;width:auto}
