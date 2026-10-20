@@ -62,9 +62,21 @@
   }
   // staze iz SI-ja koje smo već pročitali (The Challenge 2026, Jezera / Murter); tačke bez koordinata dopunjava korisnik
   var TEMPLATES = [
-    { name: 'The Challenge 2026 · First 18 / 24', txt: 'Start\nZ isolated danger NW of Iž (STBD)\nOtočič Mrtovnjak (STBD) 44.010643, 15.175301\nOtočič Krknata (PORT) 43.966763, 15.138605\nD Lavdara mala island (PORT)\nE Balabra mala island (STBD)\nFinish' },
-    { name: 'The Challenge 2026 · First 27', txt: 'Start\nM Hrid Mišine (PORT)\nE2 Brusnjak island (STBD)\nE1 Hrid Galiolica (PORT)\nZ isolated danger NW of Iž (STBD)\nOtočič Mrtovnjak (STBD) 44.010643, 15.175301\nOtočič Krknata (PORT) 43.966763, 15.138605\nD Lavdara mala island (PORT)\nE Balabra mala island (STBD)\nO Hrid Mala Mare (STBD)\nK Mrtovnjak island (STBD)\nFinish' }
+    { name: 'The Challenge 2026 · First 18 / Seascape 18', cls: ['seascape18'], txt: 'Start\nWP 2 (on the course map, not named in the SI)\nZ isolated danger NW of Iž (STBD)\nOtočič Mrtovnjak (STBD) 44.010643, 15.175301\nOtočič Krknata (PORT) 43.966763, 15.138605\nD Lavdara mala island (PORT)\nE Balabra mala island (STBD)\nFinish' },
+    { name: 'The Challenge 2026 · First 24 / Seascape 24', cls: ['seascape24'], txt: 'Start\nWP 2 (on the course map, not named in the SI)\nZ isolated danger NW of Iž (STBD)\nOtočič Mrtovnjak (STBD) 44.010643, 15.175301\nOtočič Krknata (PORT) 43.966763, 15.138605\nD Lavdara mala island (PORT)\nE Balabra mala island (STBD)\nFinish' },
+    { name: 'The Challenge 2026 · First 27 / Seascape 27', cls: ['seascape27'], txt: 'Start\nWP 2 (on the course map, not named in the SI)\nM Hrid Mišine (PORT)\nE2 Brusnjak island (STBD)\nE1 Hrid Galiolica (PORT)\nZ isolated danger NW of Iž (STBD)\nOtočič Mrtovnjak (STBD) 44.010643, 15.175301\nOtočič Krknata (PORT) 43.966763, 15.138605\nD Lavdara mala island (PORT)\nE Balabra mala island (STBD)\nO Hrid Mala Mare (STBD)\nK Mrtovnjak island (STBD)\nFinish' }
   ];
+  function myCls() { return sget('boatClass', ''); }
+  // iz SI-ja sa više staza ("Race course First 18 SE / Seascape 18 class ...") uzmi samo stazu moje klase
+  var CLS_RE = { seascape18: /\b18\b/, seascape24: /\b24\b/, seascape27: /\b27\b/ };
+  function pickSection(txt, cls) {
+    var parts = String(txt || '').split(/(?=^\s*Race course\b)/im); if (parts.length < 2 || !CLS_RE[cls]) return txt;
+    // zaglavlja koja stoje jedno ispod drugog dele istu listu tačaka
+    var hit = null; for (var i = 0; i < parts.length; i++) { var head = parts[i].split(/\r?\n/)[0]; if (/^\s*Race course/i.test(head) && CLS_RE[cls].test(head)) { hit = i; break; } }
+    if (hit === null) return txt;
+    for (var j = hit; j < parts.length; j++) { var body = parts[j].split(/\r?\n/).slice(1).join('\n'); if (/\S/.test(body.replace(/^\s*Race course.*$/gim, ''))) return body; }
+    return txt;
+  }
   var S = { map: null, ready: false, edit: false, timer: null, boat: null, near: false, minD: null, close: null, paste: false, rep: null };
 
   function docsOf(ev) {
@@ -81,8 +93,8 @@
     var h = '<div class="nor-title"><b>RACE MAP</b><span>' + esc((ev.summary && ev.summary.event) || ev.name) + '</span></div>';
     h += '<div class="rm-docs" id="rmDocs"><span class="small">Documents from this event…</span></div>';
     h += '<div class="row rm-cs"><select id="rmCourse">' + ev.courses.map(function (c, i) { return '<option value="' + i + '"' + (i === ev.ci ? ' selected' : '') + '>' + esc(c.name) + ' (' + c.wps.length + ')</option>'; }).join('') + '</select><button class="btn sm" id="rmPasteBtn">+ Course</button></div>';
-    if (S.paste) h += '<div class="rm-paste"><input id="rmCName" placeholder="Course name (e.g. First 18 / 24)"><textarea id="rmPasteTxt" rows="7" placeholder="Paste the course list from the SI, one point per line:\nStart\nZ isolated danger NW of Iž (STBD)\nOtočič Mrtovnjak (STBD) 44.010643, 15.175301\n…\nFinish"></textarea>' +
-      '<div class="row"><select id="rmTpl"><option value="">…or a course we already read</option>' + TEMPLATES.map(function (t, i) { return '<option value="' + i + '">' + esc(t.name) + '</option>'; }).join('') + '</select></div><div class="row"><button class="btn primary" id="rmImport">Create course</button><button class="btn" id="rmPasteX">Cancel</button>' + (ev.courses.length > 1 || w.length ? '<button class="btn danger" id="rmCDel">Delete this course</button>' : '') + '</div><p class="small" id="rmPMsg">Points without coordinates (natural marks named in the SI) are marked orange: add their coordinates from the NoR list of waypoints or by tapping the map.</p></div>';
+    if (S.paste) h += '<div class="rm-paste"><input id="rmCName" placeholder="Course name (e.g. First 18 / 24)"><textarea id="rmPasteTxt" rows="7" placeholder="Paste the course list from the SI (only your class is used), one point per line:\nStart\nZ isolated danger NW of Iž (STBD)\nOtočič Mrtovnjak (STBD) 44.010643, 15.175301\n…\nFinish"></textarea>' +
+      '<div class="row"><select id="rmTpl"><option value="">…or a course we already read</option>' + (function () { var c = myCls(), mine = [], oth = []; TEMPLATES.forEach(function (t, i) { (c && t.cls.indexOf(c) >= 0 ? mine : oth).push('<option value="' + i + '">' + esc(t.name) + '</option>'); }); return (mine.length ? '<optgroup label="Your class">' + mine.join('') + '</optgroup>' : '') + (oth.length ? '<optgroup label="Other classes">' + oth.join('') + '</optgroup>' : ''); })() + '</select></div><div class="row"><button class="btn primary" id="rmImport">Create course</button><button class="btn" id="rmPasteX">Cancel</button>' + (ev.courses.length > 1 || w.length ? '<button class="btn danger" id="rmCDel">Delete this course</button>' : '') + '</div><p class="small" id="rmPMsg">Points without coordinates (natural marks named in the SI) are marked orange: add their coordinates from the NoR list of waypoints or by tapping the map.</p></div>';
     if (w.length) {
       h += '<div class="rm-nav" id="rmNav"></div>';
       if (w.some(has)) h += '<div class="rm-map" id="rmMap"></div>';
@@ -178,10 +190,10 @@
     box.addEventListener('click', function (e) {
       var t = e.target, ev = curEv(); if (!ev) return; var R = route(ev);
       if (t.id === 'rmEdit') { S.edit = !S.edit; render(); return; }
-      if (t.id === 'rmPasteBtn') { S.paste = !S.paste; render(); return; }
+      if (t.id === 'rmPasteBtn') { S.paste = !S.paste; render(); var c = myCls(), ti = TEMPLATES.map(function (x) { return x.cls.indexOf(c) >= 0; }).indexOf(true); if (S.paste && ti >= 0 && $('rmTpl')) { $('rmTpl').value = String(ti); $('rmCName').value = TEMPLATES[ti].name; } return; }
       if (t.id === 'rmPasteX') { S.paste = false; render(); return; }
       if (t.id === 'rmImport') {
-        var tp = $('rmTpl').value, txt = tp !== '' ? TEMPLATES[+tp].txt : $('rmPasteTxt').value, list = parseCourse(txt);
+        var tp = $('rmTpl').value, txt = tp !== '' ? TEMPLATES[+tp].txt : pickSection($('rmPasteTxt').value, myCls()), list = parseCourse(txt);
         if (!list.length) { $('rmPMsg').textContent = 'Nothing to import. Paste the list of points (one per line) or pick a course.'; return; }
         var nm = $('rmCName').value.trim() || (tp !== '' ? TEMPLATES[+tp].name : 'Course ' + (ev.courses.length + 1));
         var cur0 = route(ev); if (!cur0.wps.length && ev.courses.length === 1) ev.courses = [];
@@ -220,6 +232,6 @@
     });
     S.timer = setInterval(function () { var pg = $('p-map'); if (pg && pg.getBoundingClientRect().left > -10 && pg.getBoundingClientRect().left < 10) tick(); }, 1000);
   }
-  window.RaceMap = { render: render, parsePair: parsePair, parseOne: parseOne, parseCourse: parseCourse };
+  window.RaceMap = { render: render, parsePair: parsePair, parseOne: parseOne, parseCourse: parseCourse, pickSection: pickSection };
   if (document.readyState !== 'loading') { bind(); render(); } else document.addEventListener('DOMContentLoaded', function () { bind(); render(); });
 })();

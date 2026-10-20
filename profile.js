@@ -24,6 +24,8 @@
       guideSrc: 'North Sails Seascape 18 speed guide', guide: {
         up: { tws: [6, 8, 10, 12, 14, 16, 20], bs: [3.9, 4.7, 5.1, 5.2, 5.3, 5.3, 5.4], vmg: [2.9, 3.5, 4.0, 4.2, 4.3, 4.3, 4.4], heel: [9, 10, 12, 15, 16, 16, 18], twa: [42, 40, 38, 36, 36, 35, 35], turn: [90, 86, 84, 80, 75, 75, 75] },
         dn: { tws: [6, 8, 10, 12, 14, 16, 20], bs: [3.9, 4.8, 5.4, 5.8, 6.2, 7.6, 12.1], vmg: [3.2, 4.1, 4.7, 5.0, 5.4, 6.1, 8.8], heel: [5, 5, 6, 6, 6, 7, 10], twa: [147, 148, 150, 150, 150, 143, 137], turn: [85, 80, 70, 65, 65, 75, 80] } } },
+    { id: 'seascape24', name: 'Seascape 24 / First 24', kind: 'keel', spi: 'asym' },
+    { id: 'seascape27', name: 'Seascape 27 / First 27', kind: 'keel', spi: 'asym' },
     { id: 'j70', name: 'J/70', kind: 'keel', spi: 'asym' },
     { id: 'j80', name: 'J/80', kind: 'keel', spi: 'asym' },
     { id: 'melges24', name: 'Melges 24', kind: 'keel', spi: 'asym' },
