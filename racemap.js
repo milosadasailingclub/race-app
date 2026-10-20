@@ -130,6 +130,9 @@
     h += '<div class="row rm-cs"><select id="rmCourse">' + ev.courses.map(function (c, i) { return '<option value="' + i + '"' + (i === ev.ci ? ' selected' : '') + '>' + esc(c.name) + ' (' + c.wps.length + ')</option>'; }).join('') + '</select><button class="btn sm" id="rmPasteBtn">+ Course</button></div>';
     if (S.paste) h += '<div class="rm-paste"><input id="rmCName" placeholder="Course name (e.g. First 18 / 24)"><textarea id="rmPasteTxt" rows="7" placeholder="Paste the course list from the SI (only your class is used), one point per line:\nStart\nZ isolated danger NW of Iž (STBD)\nOtočič Mrtovnjak (STBD) 44.010643, 15.175301\n…\nFinish"></textarea>' +
       '<div class="row"><select id="rmTpl"><option value="">…or a course we already read</option>' + (function () { var c = myCls(), mine = [], oth = []; TEMPLATES.forEach(function (t, i) { (c && t.cls.indexOf(c) >= 0 ? mine : oth).push('<option value="' + i + '">' + esc(t.name) + '</option>'); }); return (mine.length ? '<optgroup label="Your class">' + mine.join('') + '</optgroup>' : '') + (oth.length ? '<optgroup label="Other classes">' + oth.join('') + '</optgroup>' : ''); })() + '</select></div><div class="row"><button class="btn primary" id="rmImport">Create course</button><button class="btn" id="rmPasteX">Cancel</button>' + (ev.courses.length > 1 || w.length ? '<button class="btn danger" id="rmCDel">Delete this course</button>' : '') + '</div><p class="small" id="rmPMsg"></p></div>';
+    var sa = startAt(ev);
+    h += '<label class="small rm-st">Start <input type="datetime-local" id="rmStart" value="' + (sa ? dtLocal(sa) : '') + '"> <span>' + (ev.startAt ? 'edited' : sa ? 'from SI' : '') + '</span>' + (ev.startAt ? ' <button class="btn sm" id="rmStartX">SI time</button>' : '') + '</label>';
+    h += '<div class="row"><button class="btn sm" id="rmFlagC">Flag C → go to finish</button><button class="btn sm" id="rmCopy">Copy position</button></div>';
     h += '<label class="small rm-rep"><input type="checkbox" id="rmRep"' + (R.rep ? ' checked' : '') + '> Position report reminder · ' + (R.repH || 4) + ' h</label></div>';
     }
     if (w.length) {
@@ -217,13 +220,34 @@
   function wxBar() {
     if (!S.wxOn && !S.idealOn) return '';
     var H = hrs(), i = Math.max(0, H.indexOf(S.wxT)), id = S.ideal;
-    var chip = S.idealBusy ? 'Ideal route… ' : id ? (id.ok ? (id.legs && id.legs.length > 1 ? '→ ' + esc(id.next) + ' <b>' + dur(id.legs[0].t - id.t0) + '</b> · ' : '') + 'from ' + esc(id.from) + ' to finish <b>' + dur(id.t1 - id.t0) + '</b> · ETA ' + ('0' + new Date(id.t1).getHours()).slice(-2) + ':' + ('0' + new Date(id.t1).getMinutes()).slice(-2) + (id.land ? '' : ' · no land check') : 'No route ' + esc(id.failName) + ': add a via point') : '';
+    var chip = S.idealBusy ? 'Ideal route… ' : !id ? '' : id.msg ? esc(id.msg) :
+      (id.ok || id.tNext ? (id.live ? 'Now' : 'At ' + esc(id.from) + ' <b>' + (id.est ? '~' : '') + hm(id.tFrom) + '</b>') + (id.tNext ? ' · → ' + esc(id.next) + ' <b>' + dur(id.tNext - id.tFrom) + '</b>' : '') + (id.ok ? ' · finish <b>' + hm(id.t1) + '</b>' : '') + (id.land ? '' : ' · no land check') : '') +
+      (id.ok ? '' : (id.tNext ? '<br>' : '') + 'No route ' + esc(id.failName) + ': add a via point');
     return '<div class="rm-wxbar">' + (chip ? '<div class="rm-chip">' + chip + '</div>' : '') + (S.rd ? '<div class="rm-chip">' + S.rd + '</div>' : '') +
       (S.wxD ? '<div class="wm-time"><span id="rmWxT">' + (H[i] ? tLab(H[i]) : '') + '</span><input type="range" id="rmWxS" min="0" max="' + Math.max(0, H.length - 1) + '" value="' + i + '"></div>' : S.wxBusy ? '<div class="rm-chip">Loading forecast…</div>' : '') + '</div>';
   }
   function upBar() { var el = document.querySelector('.rm-wxbar'), html = wxBar(); if (el) { if (html) el.outerHTML = html; else el.remove(); } else if (html) { var m = $('rmMap'); if (m) m.insertAdjacentHTML('beforeend', html); } var bI = $('rmIdB'); if (bI) bI.classList.toggle('on', S.idealOn); }
-  function showIdeal() { if (S.map && S.ready && S.map.getSource('ideal')) S.map.getSource('ideal').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: S.idealOn && S.ideal && S.ideal.line.length > 1 ? S.ideal.line : [[0, 0], [0, 0]] } }); upBar(); }
+  function ticks(id) {
+    var f = []; if (!id || !id.line || id.line.length < 2) return f;
+    var L = id.line, T = id.tl, h = Math.ceil(T[0] / 3600000) * 3600000;
+    for (var i = 1; i < L.length && f.length < 80; i++) while (h <= T[i]) { var u = (h - T[i - 1]) / ((T[i] - T[i - 1]) || 1); f.push({ type: 'Feature', properties: { l: hm(h) }, geometry: { type: 'Point', coordinates: [L[i - 1][0] + (L[i][0] - L[i - 1][0]) * u, L[i - 1][1] + (L[i][1] - L[i - 1][1]) * u] } }); h += 3600000; }
+    return f;
+  }
+  function showIdeal() {
+    var on = S.idealOn && S.ideal && S.ideal.line && S.ideal.line.length > 1;
+    if (S.map && S.ready && S.map.getSource('ideal')) { S.map.getSource('ideal').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: on ? S.ideal.line : [[0, 0], [0, 0]] } }); S.map.getSource('idealT').setData({ type: 'FeatureCollection', features: on ? ticks(S.ideal) : [] }); }
+    upBar();
+  }
   function dur(ms) { var m = Math.round(ms / 60000); return Math.floor(m / 60) + 'h' + ('0' + m % 60).slice(-2); }
+  // start: iz SI (prvi signal upozorenja + 5 min) ili ručno u Edit; ev.startAt (ms)
+  function siStart(ev) {
+    var S2 = ev.summary || {}, fw = S2.first_warning || (S2.key && S2.key.first_warning) || '', m = String(fw).match(/(\d{1,2})[:.](\d{2})/);
+    if (!ev.dateFrom) return null; var day = String(fw).match(/day\s*(\d)/i), d0 = Date.parse(ev.dateFrom + 'T' + (m ? ('0' + m[1]).slice(-2) + ':' + m[2] : '10:00') + ':00');
+    return d0 + (day ? (+day[1] - 1) * 864e5 : 0) + (m ? 5 * 60000 : 0);
+  }
+  function startAt(ev) { return ev.startAt || siStart(ev); }
+  function dtLocal(t) { var d = new Date(t); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2) + 'T' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+  function hm(t) { var d = new Date(t); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
   function routePts(ev) { return route(ev).wps.filter(has); }
   function ensureWx(ev) {
     var pts = routePts(ev), model = window.WxRoute ? WxRoute.model() : 'best_match', key = ev.id + '|' + model + '|' + pts.length;
@@ -246,15 +270,17 @@
       .catch(function (e) { S.wxBusy = false; S.keepCam = true; render(); if (window.RA && window.RA.toast) window.RA.toast('No forecast: ' + e.message); });
   }
   function runIdeal(ev) {
-    var c = window.Profile && Profile.current(); if (!c || !c.polar) { S.idealOn = false; S.keepCam = true; render(); if (window.RA && window.RA.toast) window.RA.toast('Choose your boat class (with polar) in Settings → My boat'); return; }
+    var c = window.Profile && Profile.current(); if (!c || !c.polar) { S.idealOn = false; upBar(); if (window.RA && window.RA.toast) window.RA.toast('Choose your boat class (with polar) in Settings → My boat'); return; }
     var R = route(ev), w = R.wps, miss = w.filter(function (p) { return !has(p); }).length;
-    var me = window.RA && window.RA.nav ? window.RA.nav() : null, list = [], k0 = 0;
-    // u trci: od moje pozicije preko preostalih tačaka
-    // u trci (GPS blizu): od mene ka izabranoj tački; inače od izabrane tačke ka sledećoj i dalje do cilja
-    if (me && me.lat && R.k > 0 && has(w[R.k]) && distNm(me, w[R.k]) < 30) { list.push({ lat: me.lat, lon: me.lon, name: 'You' }); k0 = R.k; }
-    else k0 = R.k;
-    w.slice(k0).forEach(function (p, j) { if (has(p)) list.push({ lat: p.lat, lon: p.lon, name: nmOf(w, k0 + j) }); });
-    if (list.length < 2) { S.idealOn = false; upBar(); return; }
+    var me = window.RA && window.RA.nav ? window.RA.nav() : null, list = [], live = false, li = 0;
+    // u trci (GPS na stazi): od mene, sada, kroz preostale tačke
+    if (me && me.lat && R.k > 0 && has(w[R.k]) && distNm(me, w[R.k]) < 30) { live = true; list.push({ lat: me.lat, lon: me.lon, name: 'You' }); w.slice(R.k).forEach(function (p, j) { if (has(p)) list.push({ lat: p.lat, lon: p.lon, name: nmOf(w, R.k + j) }); }); }
+    else {
+      // pre trke / planiranje: cela staza od starta u vreme starta; prikaz od izabrane tačke, u vreme kada ćeš verovatno biti tamo
+      w.forEach(function (p, j) { if (!has(p)) return; if (j <= R.k) li = list.length; list.push({ lat: p.lat, lon: p.lon, name: nmOf(w, j) }); });
+      if (!has(w[R.k])) li = Math.max(0, li);
+    }
+    if (list.length < 2 || li >= list.length - 1) { S.idealOn = false; upBar(); return; }
     S.idealBusy = true; upBar();
     var go = function () {
       var m = S.map; if (!m || !S.ready) { setTimeout(go, 300); return; }
@@ -262,20 +288,36 @@
       m.fitBounds(b, { padding: 30, duration: 0, maxZoom: 12 });
       m.once('idle', function () {
         var mask = window.RaceMap._water ? WxRoute.waterMask(m, list, window.RaceMap._water) : WxRoute.waterMask(m, list);
-        m.fitBounds(b, { padding: 40, duration: 0, maxZoom: 14 });
         setTimeout(function () {
           var spd = function (tws, a) { var G = c.guide && Profile.guideAt(c.guide, tws); if (G && G.up && a < G.up.twa - 1) return 0; return Profile.speed(c.polar, tws, a); };
-          var r = WxRoute.route({ pts: list, t0: S.wxT || defT(ev), wind: S.wxD, speed: spd, upMin: 30, mask: mask, tackS: 12, gybeS: 8 });
-          r.land = !!mask; r.from = list[0].name; r.next = list[1] ? list[1].name : ''; if (!r.ok) r.failName = (list[r.failAt - 1] ? list[r.failAt - 1].name + ' → ' : '') + (list[r.failAt] ? list[r.failAt].name : '');
-          S.ideal = r; S.idealBusy = false; showIdeal();
-          var bb = new maplibregl.LngLatBounds(); r.line.forEach(function (q) { bb.extend(q); }); list.forEach(function (q) { bb.extend([q.lon, q.lat]); });
-          if (S.map) S.map.fitBounds(bb, { padding: { top: 30, left: 30, right: 64, bottom: 110 }, duration: 300, maxZoom: 14 });
+          var O = { wind: S.wxD, speed: spd, upMin: 30, mask: mask, tackS: 12, gybeS: 8 };
+          var t0 = live ? Date.now() : (startAt(ev) || defT(ev)), last = S.wxD.t[S.wxD.t.length - 1], r, est = false;
+          if (t0 > last) { S.ideal = { ok: false, msg: 'Start is after the end of the forecast (72 h)' }; S.idealBusy = false; showIdeal(); return; }
+          r = WxRoute.route(Object.assign({ pts: list, t0: t0 }, O));
+          if (!live && li > 0 && (!r.ok && r.failAt <= li)) {
+            // ruta pre izabrane tačke ne prolazi: računaj od nje, vreme dolaska procenjeno (4 čv)
+            var dd = 0; for (var q = 1; q <= li; q++) dd += distNm(list[q - 1], list[q]);
+            est = true; list = list.slice(li); li = 0; r = WxRoute.route(Object.assign({ pts: list, t0: t0 + dd / 4 * 3600000 }, O));
+          }
+          var off = 0, from = li;
+          if (li > 0 && r.legs[li - 1]) off = r.legs[li - 1].i;
+          var res = { ok: r.ok, land: !!mask, est: est, live: live,
+            line: r.line.slice(off), tl: r.tl.slice(off), from: list[from].name, next: list[from + 1] ? list[from + 1].name : '',
+            tFrom: from > 0 && r.legs[from - 1] ? r.legs[from - 1].t : r.t0, tNext: r.legs[from] ? r.legs[from].t : null, t1: r.t1, t0: r.t0 };
+          if (!r.ok) res.failName = (list[r.failAt - 1] ? list[r.failAt - 1].name + ' → ' : '') + (list[r.failAt] ? list[r.failAt].name : '');
+          S.ideal = res; S.idealBusy = false;
+          // vetar na mapi u trenutku kada si na početnoj tački
+          if (res.tFrom) { var H = hrs(), best = H[0]; H.forEach(function (h) { if (Math.abs(h - res.tFrom) < Math.abs(best - res.tFrom)) best = h; }); if (best) { setWxT(best); var sl = $('rmWxS'); if (sl) sl.value = H.indexOf(best); } }
+          showIdeal();
+          var bb = new maplibregl.LngLatBounds(); res.line.forEach(function (q) { bb.extend(q); });
+          if (S.map && res.line.length > 1) S.map.fitBounds(bb, { padding: { top: 30, left: 30, right: 64, bottom: 110 }, duration: 300, maxZoom: 14 });
           if (miss && window.RA && window.RA.toast) window.RA.toast(miss + ' point' + (miss > 1 ? 's' : '') + ' without coordinates skipped');
         }, 30);
       });
     };
-    if (S.wxD && S.wxT) go(); else ensureWx(ev).then(function () { if (!S.wxT) S.wxT = defT(ev); go(); }).catch(function (e) { S.idealBusy = false; S.idealOn = false; S.keepCam = true; render(); if (window.RA && window.RA.toast) window.RA.toast('No forecast: ' + e.message); });
+    if (S.wxD) go(); else ensureWx(ev).then(function () { if (!S.wxT) S.wxT = defT(ev); go(); }).catch(function (e) { S.idealBusy = false; S.idealOn = false; upBar(); if (window.RA && window.RA.toast) window.RA.toast('No forecast: ' + e.message); });
   }
+
   function drawMap(ev) {
     if (!window.Track || !$('rmMap')) return;
     var cam = S.map ? { c: S.map.getCenter().toArray(), z: S.map.getZoom() } : null;
@@ -291,9 +333,12 @@
         if (m.getSource('rl')) return; var F = fc(ev);
         m.addSource('ideal', { type: 'geojson', data: { type: 'Feature', geometry: { type: 'LineString', coordinates: S.idealOn && S.ideal && S.ideal.line.length > 1 ? S.ideal.line : [[0, 0], [0, 0]] } } });
         m.addLayer({ id: 'idealC', type: 'line', source: 'ideal', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#00e0c6', 'line-width': 9, 'line-opacity': 0.22 } });
+        m.addSource('idealT', { type: 'geojson', data: { type: 'FeatureCollection', features: S.idealOn && S.ideal ? ticks(S.ideal) : [] } });
         m.addLayer({ id: 'ideal', type: 'line', source: 'ideal', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#00e0c6', 'line-width': 2.2, 'line-opacity': 0.95 } });
         if (S.wxOn && S.wxD && window.WxRoute) { S.layer = WxRoute.Layer(m, $('rmMap')); S.layer.set(S.wxD, S.wxT || defT(ev)); }
         m.addSource('rl', { type: 'geojson', data: F.line }); m.addLayer({ id: 'rl', type: 'line', source: 'rl', paint: { 'line-color': '#00e0c6', 'line-width': 2, 'line-dasharray': [2, 1.5], 'line-opacity': 0.8 } });
+        m.addLayer({ id: 'idealT', type: 'circle', source: 'idealT', paint: { 'circle-radius': 3.5, 'circle-color': '#ffffff', 'circle-stroke-width': 1.5, 'circle-stroke-color': '#05070a' } });
+        m.addLayer({ id: 'idealTl', type: 'symbol', source: 'idealT', layout: { 'text-field': ['get', 'l'], 'text-size': 10, 'text-font': ['Noto Sans Bold'], 'text-offset': [0, 1.1], 'text-allow-overlap': false }, paint: { 'text-color': '#ffffff', 'text-halo-color': '#05070a', 'text-halo-width': 1.5 } });
         m.addSource('rp', { type: 'geojson', data: F.pts });
         m.addLayer({ id: 'rp', type: 'circle', source: 'rp', paint: { 'circle-radius': ['case', ['==', ['get', 'v'], 1], ['case', ['==', ['get', 'on'], 1], 8, 6], ['==', ['get', 'on'], 1], 11, 8], 'circle-color': ['case', ['==', ['get', 'v'], 1], '#00e0c6', ['match', ['get', 's'], 'P', '#e8413a', 'S', '#2bbf5a', '#c8c8c8']], 'circle-stroke-width': ['case', ['==', ['get', 'on'], 1], 3, 1.5], 'circle-stroke-color': ['case', ['==', ['get', 'on'], 1], '#ffffff', '#05070a'] } });
         m.addLayer({ id: 'rpv', type: 'symbol', source: 'rp', filter: ['==', ['get', 'v'], 1], layout: { 'text-field': ['get', 'n'], 'text-size': 10, 'text-font': ['Noto Sans Bold'], 'text-offset': [0, -1.3], 'text-allow-overlap': true }, paint: { 'text-color': '#00e0c6', 'text-halo-color': '#05070a', 'text-halo-width': 1.5 } });
@@ -370,7 +415,6 @@
       if (S.map && S.ready) { var bt = S.boat = S.boat || []; bt.push([me.lon, me.lat]); if (bt.length > 600) bt.shift(); S.map.getSource('bt').setData({ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'LineString', coordinates: bt.length > 1 ? bt : [[me.lon, me.lat], [me.lon, me.lat]] } }, { type: 'Feature', geometry: { type: 'Point', coordinates: [me.lon, me.lat] } }] }); }
     } else h += '<p class="small">Waiting for GPS…</p>';
     var fi = w.map(function (p) { return p.type; }).lastIndexOf('finish');
-    h += '<div class="row rm-step">' + (fi > R.k ? '<button class="btn sm" id="rmFlagC" title="Flag C at the mark: after rounding it, sail directly to the finish">Flag C → finish</button>' : '') + '<button class="btn sm" id="rmCopy">Copy position</button></div>';
     if (R.rep) { if (!S.rep) S.rep = Date.now() + (R.repH || 4) * 3600000; if (Date.now() >= S.rep) { S.rep = Date.now() + (R.repH || 4) * 3600000; if (navigator.vibrate) navigator.vibrate([300, 100, 300]); if (window.RA && window.RA.toast) window.RA.toast('Time to report: tap Copy position and send it to the race WhatsApp group.', null, null, 10000); } }
     nav.innerHTML = h;
   }
@@ -387,6 +431,7 @@
   function onClick(e) {
       var t = e.target;
       if (t.id === 'rmFs') { S.fs = !S.fs; S.keepCam = true; render(); return; }
+      if (t.id === 'rmStartX') { var e3 = curEv(); if (e3) { e3.startAt = null; saveEv(e3); S.ideal = null; render(); } return; }
       if (t.id === 'rmWxB') { S.wxOn = !S.wxOn; sset('rmWx', S.wxOn); S.rd = ''; if (S.wxOn && !S.wxD) startWx(curEv()); else { S.keepCam = true; render(); } return; }
       if (t.id === 'rmIdB') { S.idealOn = !S.idealOn; if (S.idealOn) runIdeal(curEv()); else showIdeal(); return; }
       if (t.id === 'rmKp' || t.id === 'rmKn') { var e2 = curEv(); if (e2) setK(route(e2).k + (t.id === 'rmKn' ? 1 : -1)); return; }
@@ -433,12 +478,13 @@
       var g = t.closest('[data-go]'); if (g && !S.edit) setK(+g.getAttribute('data-go'));
   }
   function onInput(e) {
-    if (e.target.id === 'rmWxS') { var H = hrs(), t = H[+e.target.value]; if (t) { setWxT(t); if (S.idealOn && S.ideal) { clearTimeout(S.reT); S.reT = setTimeout(function () { var ev = curEv(); if (ev) runIdeal(ev); }, 700); } } }
+    if (e.target.id === 'rmWxS') { var H = hrs(), t = H[+e.target.value]; if (t) setWxT(t); }
   }
   function onChange(e) {
       var t = e.target, ev = curEv(); if (!ev) return; var R = route(ev);
       if (t.id === 'rmRad') { R.r = Math.max(15, Math.min(2000, +t.value || 50)); saveEv(ev); return; }
       if (t.id === 'rmCourse') { ev.ci = +t.value; S.near = false; S.minD = null; saveEv(ev); render(); return; }
+      if (t.id === 'rmStart') { var v = Date.parse(t.value); ev.startAt = isNaN(v) ? null : v; saveEv(ev); S.ideal = null; render(); return; }
       if (t.id === 'rmRep') { R.rep = t.checked; S.rep = null; saveEv(ev); tick(); return; }
       if (t.id === 'rmTpl' && t.value !== '') { $('rmCName').value = TEMPLATES[+t.value].name; return; }
       var row = t.closest('[data-i]'); if (!row || !t.getAttribute('data-f')) return; var p = R.wps[+row.getAttribute('data-i')], f = t.getAttribute('data-f');

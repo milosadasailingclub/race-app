@@ -116,18 +116,18 @@
   /* ---- idealna ruta: izohrone po etapama ---- */
   function route(opts) {
     // opts: { pts:[{lat,lon,name}], t0 (ms), wind (grid), P (polar), upMin (°), mask, tackS, gybeS }
-    var pts = opts.pts, t = opts.t0, out = [[pts[0].lon, pts[0].lat]], legs = [];
+    var pts = opts.pts, t = opts.t0, out = [[pts[0].lon, pts[0].lat]], tl = [t], legs = [];
     for (var k = 1; k < pts.length; k++) {
       var r = leg(pts[k - 1], pts[k], t, opts);
-      if (!r) return { ok: false, failAt: k, line: out, legs: legs };
-      r.path.slice(1).forEach(function (p) { out.push(p); });
-      legs.push({ to: k, t: r.t, tacks: r.tacks }); t = r.t;
+      if (!r) return { ok: false, failAt: k, line: out, tl: tl, legs: legs };
+      r.path.slice(1).forEach(function (p, i) { out.push(p); tl.push(r.times[i + 1]); });
+      legs.push({ to: k, t: r.t, tacks: r.tacks, i: out.length - 1 }); t = r.t;
     }
-    return { ok: true, line: out, legs: legs, t0: opts.t0, t1: t };
+    return { ok: true, line: out, tl: tl, legs: legs, t0: opts.t0, t1: t };
   }
   function leg(A, B, t0, o) {
     var kx = Math.cos(rad(A.lat)) * 111320, ky = 110540, bx = (B.lon - A.lon) * kx, by = (B.lat - A.lat) * ky, D = Math.hypot(bx, by);
-    if (D < 20) return { t: t0, path: [[A.lon, A.lat], [B.lon, B.lat]], tacks: 0 };
+    if (D < 20) return { t: t0, path: [[A.lon, A.lat], [B.lon, B.lat]], times: [t0, t0], tacks: 0 };
     var dt = D > 30000 ? 600 : 300, SEC = 180, maxSteps = Math.ceil(48 * 3600 / dt);
     var toLL = function (x, y) { return { lat: A.lat + y / ky, lon: A.lon + x / kx }; };
     // oznake su često na stenama / hridima (npr. "isolated danger") ili uz obalu: oko početka i cilja etape (300 m) kopno se ne proverava
@@ -158,8 +158,8 @@
       front = next.filter(Boolean);
     }
     if (!best) return null;
-    var path = [], q = best; while (q) { var L = toLL(q.x, q.y); path.unshift([L.lon, L.lat]); q = q.par; }
-    return { t: best.t, path: path, tacks: best.tk };
+    var path = [], times = [], q = best; while (q) { var L = toLL(q.x, q.y); path.unshift([L.lon, L.lat]); times.unshift(q.t); q = q.par; }
+    return { t: best.t, path: path, times: times, tacks: best.tk };
   }
 
   window.WxRoute = { fetchGrid: fetchGrid, sample: sample, Layer: Layer, waterMask: waterMask, route: route, model: function () { return sget('wxModel', 'best_match'); } };
