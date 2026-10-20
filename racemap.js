@@ -35,7 +35,8 @@
 
   /* ---- event i ruta ---- */
   function events() { return sget('norEvents', []); }
-  function curEv() { var id = sget('norCur', null), e = events(); return e.filter(function (x) { return x.id === id; })[0] || e[0] || null; }
+  // Race Map koristi samo event koji korisnik sam poveže (ne prati automatski izabrani event sa NoR / SI)
+  function curEv() { var id = sget('rmEv', null); return id ? events().filter(function (x) { return x.id === id; })[0] || null : null; }
   function saveEv(ev) { sset('norEvents', events().map(function (x) { return x.id === ev.id ? ev : x; })); }
   // više staza po eventu (po klasama); aktivna staza = ev.courses[ev.ci]
   function route(ev) {
@@ -61,12 +62,27 @@
     return out;
   }
   // staze iz SI-ja koje smo već pročitali (The Challenge 2026, Jezera / Murter); tačke bez koordinata dopunjava korisnik
+  // Attachment A SI-ja (lista dostupnih waypointa sa koordinatama)
+  var LIB_CHALLENGE = 'A Korotan island 43.89193, 15.18491\nB Taljurić island 43.86417, 15.19362\nC Sestrica vela (Tajer lighthouse) 43.85311, 15.20514\nD Lavdara mala island 43.91681, 15.23008\nE Balabra mala island 43.94664, 15.27964\nE1 Hrid Galiolica 43.87713, 15.37027\nE2 Brusnjak island 43.80050, 15.37130\nF Gustac island 43.74699, 15.38266\nG Gangaro island 43.86710, 15.43756\nG1 South point of Opat 43.73378, 15.45922\nH Gira island 43.82736, 15.50128\nI Veli Žavinac island 43.89164, 15.52362\nJ Vela Artica Island 43.86605, 15.52728\nK Mrtovnjak island 43.70696, 15.53498\nL Hrid Čavlin (isolated danger) 43.74080, 15.55772\nM Hrid Mišine 43.81224, 15.56471\nN Blitvenica island (lighthouse) 43.62495, 15.57461\nO Hrid Mala Mare 43.71326, 15.63433\nP Greben Bačvica (isolated danger) 43.74815, 15.70271\nQ Mažirina island 43.62719, 15.74008\nR Ravan island 43.66029, 15.74318\nS Logorun island 43.74230, 15.75052\nS1 Otok Sokol 43.66421, 15.78769\nT Plič Sestre (isolated danger) 43.68443, 15.81104\nU Dugo island 43.64551, 15.81817\nV Komorica island 43.64903, 15.84005\nV1 Zlarin island 43.69735, 15.83768\nW Lukovnjak island 43.57687, 15.87149\nX Tmara island 43.63104, 15.90022\nY Hrid Mulo (lighthouse) 43.51438, 15.91867\nZ Isolated danger NW of Iž 44.08914, 15.04220';
   var TEMPLATES = [
-    { name: 'The Challenge 2026 · First 18 / Seascape 18', cls: ['seascape18'], txt: 'Start\nWP 2 (on the course map, not named in the SI)\nZ isolated danger NW of Iž (STBD)\nOtočič Mrtovnjak (STBD) 44.010643, 15.175301\nOtočič Krknata (PORT) 43.966763, 15.138605\nD Lavdara mala island (PORT)\nE Balabra mala island (STBD)\nFinish' },
-    { name: 'The Challenge 2026 · First 24 / Seascape 24', cls: ['seascape24'], txt: 'Start\nWP 2 (on the course map, not named in the SI)\nZ isolated danger NW of Iž (STBD)\nOtočič Mrtovnjak (STBD) 44.010643, 15.175301\nOtočič Krknata (PORT) 43.966763, 15.138605\nD Lavdara mala island (PORT)\nE Balabra mala island (STBD)\nFinish' },
-    { name: 'The Challenge 2026 · First 27 / Seascape 27', cls: ['seascape27'], txt: 'Start\nWP 2 (on the course map, not named in the SI)\nM Hrid Mišine (PORT)\nE2 Brusnjak island (STBD)\nE1 Hrid Galiolica (PORT)\nZ isolated danger NW of Iž (STBD)\nOtočič Mrtovnjak (STBD) 44.010643, 15.175301\nOtočič Krknata (PORT) 43.966763, 15.138605\nD Lavdara mala island (PORT)\nE Balabra mala island (STBD)\nO Hrid Mala Mare (STBD)\nK Mrtovnjak island (STBD)\nFinish' }
+    { name: 'The Challenge 2026 · First 18 / Seascape 18', cls: ['seascape18'], lib: LIB_CHALLENGE, txt: 'Start\nWP 2 (on the course map, not named in the SI)\nZ isolated danger NW of Iž (STBD)\nOtočič Mrtovnjak (STBD) 44.010643, 15.175301\nOtočič Krknata (PORT) 43.966763, 15.138605\nD Lavdara mala island (PORT)\nE Balabra mala island (STBD)\nFinish' },
+    { name: 'The Challenge 2026 · First 24 / Seascape 24', cls: ['seascape24'], lib: LIB_CHALLENGE, txt: 'Start\nWP 2 (on the course map, not named in the SI)\nZ isolated danger NW of Iž (STBD)\nOtočič Mrtovnjak (STBD) 44.010643, 15.175301\nOtočič Krknata (PORT) 43.966763, 15.138605\nD Lavdara mala island (PORT)\nE Balabra mala island (STBD)\nFinish' },
+    { name: 'The Challenge 2026 · First 27 / Seascape 27', cls: ['seascape27'], lib: LIB_CHALLENGE, txt: 'Start\nWP 2 (on the course map, not named in the SI)\nM Hrid Mišine (PORT)\nE2 Brusnjak island (STBD)\nE1 Hrid Galiolica (PORT)\nZ isolated danger NW of Iž (STBD)\nOtočič Mrtovnjak (STBD) 44.010643, 15.175301\nOtočič Krknata (PORT) 43.966763, 15.138605\nD Lavdara mala island (PORT)\nE Balabra mala island (STBD)\nO Hrid Mala Mare (STBD)\nK Mrtovnjak island (STBD)\nFinish' }
   ];
   function myCls() { return sget('boatClass', ''); }
+  // lista waypointa: "ID Ime lat, lon" (oznaka 1–2 znaka, npr. D, E1, S1)
+  function parseLib(txt) {
+    var L = {};
+    String(txt || '').split(/\r?\n/).forEach(function (l) {
+      var m = l.trim().match(/^([A-Z][0-9]?)\s+(.+?)\s+(-?\d{1,2}\.\d{3,})\s*[,;]?\s+(-?\d{1,3}\.\d{3,})/); if (!m) return;
+      L[m[1]] = { name: m[2].trim(), lat: parseFloat(m[3]), lon: parseFloat(m[4]) };
+    });
+    return L;
+  }
+  // tačke staze bez koordinata dobijaju ih iz liste po oznaci (prva reč imena: "D Lavdara mala island" → D)
+  function fillFromLib(list, L) {
+    var n = 0; list.forEach(function (p) { if (has(p) || p.type !== 'mark') return; var code = (p.name.match(/^([A-Z][0-9]?)\s/) || [])[1]; var q = code && L[code]; if (!q) { var nm = p.name.toLowerCase(); Object.keys(L).forEach(function (k) { if (!q && L[k].name.toLowerCase() === nm) q = L[k]; }); } if (q) { p.lat = q.lat; p.lon = q.lon; n++; } }); return n;
+  }
   // iz SI-ja sa više staza ("Race course First 18 SE / Seascape 18 class ...") uzmi samo stazu moje klase
   var CLS_RE = { seascape18: /\b18\b/, seascape24: /\b24\b/, seascape27: /\b27\b/ };
   function pickSection(txt, cls) {
@@ -88,9 +104,14 @@
   function render() {
     var box = $('rmBody'); if (!box) return;
     var ev = curEv();
-    if (!ev) { box.innerHTML = '<div class="nor-empty"><h2>RACE MAP</h2><p>For distance races with waypoints. Add the event and its SI on the <b>NOR / SI</b> page, then come back here.</p></div>'; return; }
+    if (!ev) {
+      var E = events().slice().sort(function (a, b) { return String(b.dateFrom || '').localeCompare(String(a.dateFrom || '')); });
+      box.innerHTML = '<div class="nor-empty"><h2>RACE MAP</h2><p>For distance races with waypoints. Add the event and its NoR / SI on the <b>NOR / SI</b> page, then link it here.</p>' +
+        (E.length ? '<div class="row rm-link"><select id="rmPick">' + E.map(function (x) { return '<option value="' + esc(x.id) + '">' + esc((x.summary && x.summary.event) || x.name) + (x.dateFrom ? ' · ' + x.dateFrom : '') + '</option>'; }).join('') + '</select><button class="btn primary" id="rmLink">Link event</button></div>' : '') + '</div>';
+      return;
+    }
     var R = route(ev), w = R.wps;
-    var h = '<div class="nor-title"><b>RACE MAP</b><span>' + esc((ev.summary && ev.summary.event) || ev.name) + '</span></div>';
+    var h = '<div class="nor-title"><b>RACE MAP</b><span>' + esc((ev.summary && ev.summary.event) || ev.name) + ' <button class="btn sm" id="rmUnlink">Change</button></span></div>';
     h += '<div class="rm-docs" id="rmDocs"><span class="small">Documents from this event…</span></div>';
     h += '<div class="row rm-cs"><select id="rmCourse">' + ev.courses.map(function (c, i) { return '<option value="' + i + '"' + (i === ev.ci ? ' selected' : '') + '>' + esc(c.name) + ' (' + c.wps.length + ')</option>'; }).join('') + '</select><button class="btn sm" id="rmPasteBtn">+ Course</button></div>';
     if (S.paste) h += '<div class="rm-paste"><input id="rmCName" placeholder="Course name (e.g. First 18 / 24)"><textarea id="rmPasteTxt" rows="7" placeholder="Paste the course list from the SI (only your class is used), one point per line:\nStart\nZ isolated danger NW of Iž (STBD)\nOtočič Mrtovnjak (STBD) 44.010643, 15.175301\n…\nFinish"></textarea>' +
@@ -114,8 +135,8 @@
     docsOf(ev).then(function (d) {
       var el = $('rmDocs'); if (!el) return;
       var si = d.filter(function (x) { return /\bsi\b|sailing.?instr|upute|instruc/i.test(x.name || ''); });
-      el.innerHTML = d.length ? '<span class="small">Documents in this event: ' + d.map(function (x) { return '<b>' + esc(x.name) + '</b>'; }).join(', ') + '.</span> <button class="btn sm" disabled title="Coming with the first SI test">Read waypoints from SI (AI) · soon</button>' :
-        '<span class="small">No documents in this event yet. Add the SI on the <b>NOR / SI</b> page (it is linked here), or enter the waypoints by hand.</span>';
+      el.innerHTML = d.length ? '<span class="small">From the event: ' + d.map(function (x) { return '<b>' + esc(x.name) + '</b>'; }).join(', ') + '</span> <button class="btn sm" disabled title="AI reading of courses is coming">Read course from SI (AI) · soon</button>' :
+        '<span class="small">This event has no NoR / SI yet: add them on the <b>NOR / SI</b> page, or enter the course here.</span>';
       if (si.length) el.querySelector('button').title = 'SI found: ' + si[0].name;
     });
     if (w.some(has)) { drawMap(ev); } tick();
@@ -188,12 +209,19 @@
   function bind() {
     var box = $('rmBody'); if (!box) return;
     box.addEventListener('click', function (e) {
-      var t = e.target, ev = curEv(); if (!ev) return; var R = route(ev);
+      var t = e.target;
+      if (t.id === 'rmLink') { sset('rmEv', $('rmPick').value); render(); return; }
+      var ev = curEv(); if (!ev) return; var R = route(ev);
       if (t.id === 'rmEdit') { S.edit = !S.edit; render(); return; }
+      if (t.id === 'rmUnlink') { sset('rmEv', null); S.paste = false; S.edit = false; render(); return; }
       if (t.id === 'rmPasteBtn') { S.paste = !S.paste; render(); var c = myCls(), ti = TEMPLATES.map(function (x) { return x.cls.indexOf(c) >= 0; }).indexOf(true); if (S.paste && ti >= 0 && $('rmTpl')) { $('rmTpl').value = String(ti); $('rmCName').value = TEMPLATES[ti].name; } return; }
       if (t.id === 'rmPasteX') { S.paste = false; render(); return; }
       if (t.id === 'rmImport') {
-        var tp = $('rmTpl').value, txt = tp !== '' ? TEMPLATES[+tp].txt : pickSection($('rmPasteTxt').value, myCls()), list = parseCourse(txt);
+        var tp = $('rmTpl').value, raw = $('rmPasteTxt').value, txt = tp !== '' ? TEMPLATES[+tp].txt : pickSection(raw, myCls()), list = parseCourse(txt);
+        var LB = Object.assign({}, ev.wpLib || {}, parseLib(tp !== '' ? TEMPLATES[+tp].lib || '' : raw));
+        if (Object.keys(LB).length) { ev.wpLib = LB; fillFromLib(list, LB); }
+        // nalepljena samo lista waypointa (bez staze): dopuni postojeću stazu
+        if (tp === '' && Object.keys(parseLib(raw)).length && list.every(function (p) { return /^[A-Z][0-9]?\s/.test(p.name) && has(p); })) { var nf = fillFromLib(route(ev).wps, LB); S.paste = false; saveEv(ev); render(); if (window.RA && window.RA.toast) window.RA.toast('Waypoint list saved · ' + nf + ' points of the course got coordinates'); return; }
         if (!list.length) { $('rmPMsg').textContent = 'Nothing to import. Paste the list of points (one per line) or pick a course.'; return; }
         var nm = $('rmCName').value.trim() || (tp !== '' ? TEMPLATES[+tp].name : 'Course ' + (ev.courses.length + 1));
         var cur0 = route(ev); if (!cur0.wps.length && ev.courses.length === 1) ev.courses = [];
