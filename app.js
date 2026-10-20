@@ -1,7 +1,7 @@
-/* The Race App — v0.9.69 */
+/* The Race App — v0.9.70 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.69';
+  var APP_VERSION = '0.9.70';
   // skriveni developer mod: 7 tapova na broj verzije (prikazuje trošak AI obrade samo vlasniku)
   (function () {
     var n = 0, t0 = 0, el = document.getElementById('version'); if (!el) return;
@@ -25,7 +25,7 @@
     damp: store.get('damp', 2),
     heelTau: store.get('heelTau', 0.35), // libela ima svoje (brže) prigušenje; histereza sprečava treptanje
     ledMirror: store.get('ledMirror', false),
-    heelStep: store.get('heelStepMig', false) ? store.get('heelStep', 5) : 5,  // v0.9.69: podrazumevano 5° po LED-u (manje osetljivo)
+    heelStep: store.get('heelStepMig', false) ? store.get('heelStep', 5) : 5,  // v0.9.70: podrazumevano 5° po LED-u (manje osetljivo)
     calOffset: store.get('calOffset', null),
     calTime: store.get('calTime', null),
     theme: store.get('theme', 'night'),
@@ -90,6 +90,26 @@
 
   /* ---------- pager ---------- */
   var pager = $('pager'), pageIdx = 0;
+  // ekrani racing moda: korisnik bira koji su uključeni i redosled (Settings → Racing mode screens)
+  var PAGES = [['p-timer', 'Start timer'], ['p-sog', 'SOG · heading · lift / header'], ['p-track', 'Live tracking'], ['p-map', 'Race map (distance races)'], ['p-brief', 'Brief'], ['p-wx', 'Race weather'], ['p-nor', 'NoR / SI']];
+  function pageCfg() {
+    var saved = store.get('pages', null) || [], out = [];
+    saved.forEach(function (x) { if (PAGES.some(function (p) { return p[0] === x.id; }) && !out.some(function (o) { return o.id === x.id; })) out.push({ id: x.id, on: x.on !== false }); });
+    PAGES.forEach(function (p) { if (!out.some(function (o) { return o.id === p[0]; })) out.push({ id: p[0], on: true }); });
+    if (!out.some(function (o) { return o.on; })) out[0].on = true;
+    return out;
+  }
+  function vis() { return Array.prototype.filter.call(pager.children, function (el) { return el.classList.contains('page') && el.style.display !== 'none'; }); }
+  function applyPages() {
+    pageCfg().forEach(function (c) { var el = $(c.id); if (!el) return; pager.appendChild(el); el.style.display = c.on ? '' : 'none'; });
+    var n = vis().length; $('dots').innerHTML = new Array(n + 1).join('<i></i>'); pageIdx = -1; pager.scrollLeft = 0;
+    var d = $('dots').querySelector('i'); if (d) d.classList.add('on'); pageIdx = 0;
+  }
+  function goPageId(id) { var i = vis().map(function (e) { return e.id; }).indexOf(id); if (i >= 0) goPage(i); }
+  function renderPagesSet() {
+    var box = $('pagesSet'); if (!box) return; var C = pageCfg();
+    box.innerHTML = C.map(function (c, i) { var nm = (PAGES.filter(function (p) { return p[0] === c.id; })[0] || [])[1]; return '<div class="pg-row"><label><input type="checkbox" data-pgon="' + c.id + '"' + (c.on ? ' checked' : '') + '> ' + esc(nm) + '</label><span><button class="icon-btn sm" data-pgmv="' + i + ':-1"' + (i ? '' : ' disabled') + '>↑</button><button class="icon-btn sm" data-pgmv="' + i + ':1"' + (i < C.length - 1 ? '' : ' disabled') + '>↓</button></span></div>'; }).join('');
+  }
   function goPage(i, smooth) {
     pager.scrollTo({ left: i * pager.clientWidth, behavior: smooth === false ? 'auto' : 'smooth' });
   }
@@ -97,8 +117,8 @@
     var i = Math.round(pager.scrollLeft / Math.max(1, pager.clientWidth));
     if (i !== pageIdx) {
       pageIdx = i;
-      if (i === 2 && window.Track) window.Track.showLive();
-      var pgE = pager.children[i]; if (pgE && pgE.id === 'p-brief' && window.Brief) window.Brief.render(); if (pgE && pgE.id === 'p-map' && window.RaceMap) window.RaceMap.render();
+      var pgE = vis()[i];
+      if (pgE && pgE.id === 'p-track' && window.Track) window.Track.showLive(); if (pgE && pgE.id === 'p-brief' && window.Brief) window.Brief.render(); if (pgE && pgE.id === 'p-map' && window.RaceMap) window.RaceMap.render();
       document.querySelectorAll('#dots i').forEach(function (d, k) { d.classList.toggle('on', k === i); });
     }
   }, { passive: true });
@@ -171,7 +191,7 @@
         T.state = 'race'; signal('gun'); TAC.marks = { top: null, bottom: null }; TAC.axHist = [];
         (function () { var la = startAxis(); L.axis = la; L.leg = cfg.startLeg || 'up'; if (la !== null && S.hdg !== null) L.side = sideFromAxis(S.hdg); })();
         if (window.Track) window.Track.autoStart();
-        if (!T.autoSwitched) { T.autoSwitched = true; goPage(1); }
+        if (!T.autoSwitched) { T.autoSwitched = true; goPageId('p-sog'); }
       } else if (sec !== T.lastSec) {
         if (T.lastSec !== null) {
           if (sec % 60 === 0) signal('minute');
@@ -833,7 +853,7 @@
   function renderSwipeLock() { document.body.classList.toggle('swipe-lock', swipeLock); $('lockBtn').textContent = swipeLock ? '🔒' : '🔓'; }
   $('lockBtn').addEventListener('click', function () { swipeLock = !swipeLock; store.set('swipeLock', swipeLock); renderSwipeLock(); toast(swipeLock ? 'Screen locked: only buttons work. Use ‹ › to change page.' : 'Screen unlocked: swipe to change page'); });
   $('pgPrev').addEventListener('click', function () { goPage(Math.max(0, pageIdx - 1)); });
-  $('pgNext').addEventListener('click', function () { goPage(Math.min(pager.children.length - 1, pageIdx + 1)); });
+  $('pgNext').addEventListener('click', function () { goPage(Math.min(vis().length - 1, pageIdx + 1)); });
   renderSwipeLock();
 
   $('startLeg').value = cfg.startLeg || 'up';
@@ -852,7 +872,7 @@
     var badge = document.createElement('div'); badge.className = 'sim-badge'; badge.id = 'simBadge'; badge.textContent = 'SIMULATION'; document.body.appendChild(badge);
     var pos = S.lastFix ? { lat: S.lastFix.lat, lon: S.lastFix.lon } : { lat: 44.785, lon: 20.40 };
     var k = 0, h = 45, n = function (a) { return (Math.random() - 0.5) * 2 * a; };
-    show('race'); setTimeout(function () { goPage(1); }, 100);
+    show('race'); setTimeout(function () { goPageId('p-sog'); }, 100);
     toast('Simulation: wind 000°, full course: beat with tacks and a lift, run with gybes, round-up', null, null, 5000);
     // [trajanje s, kurs, brzina kn, nagib]; okreti su linearni prelazi
     var plan = [[30, 45, 5, 12], [7, 315, 3.2, -12], [30, 315, 5, -12], [5, 323, 5, -12], [25, 323, 5, -12], [7, 45, 3.2, 12], [30, 45, 5, 12],
@@ -1306,6 +1326,18 @@
       $('gpsNote').textContent = on && d && d.ok ? 'GPS: RaceBox ' + R.hz + ' Hz · ±' + d.hAcc.toFixed(1) + ' m' : $('gpsNote').textContent;
     });
   })();
+
+  applyPages(); renderPagesSet();
+  $('pagesSet').addEventListener('change', function (e) {
+    var id = e.target.getAttribute('data-pgon'); if (!id) return; var C = pageCfg(); C.forEach(function (c) { if (c.id === id) c.on = e.target.checked; });
+    if (!C.some(function (c) { return c.on; })) { e.target.checked = true; toast('At least one screen must stay on'); return; }
+    store.set('pages', C); applyPages(); renderPagesSet();
+  });
+  $('pagesSet').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-pgmv]'); if (!b) return; var a = b.getAttribute('data-pgmv').split(':'), i = +a[0], j = i + (+a[1]), C = pageCfg(); if (j < 0 || j >= C.length) return;
+    var x = C[i]; C[i] = C[j]; C[j] = x; store.set('pages', C); applyPages(); renderPagesSet();
+  });
+  $('pagesReset').addEventListener('click', function () { store.set('pages', null); applyPages(); renderPagesSet(); });
 
   window.RA = { nav: function () { return S.lastFix ? { lat: S.lastFix.lat, lon: S.lastFix.lon, t: S.lastFix.t, sog: S.sog, hdg: S.hdg } : null; }, extFix: function (p) { p.__ext = true; onFix(p); }, tac: function () { return tacInfo(); }, setMark: function () { setMarkHere(); }, toast: toast, store: store, show: show };
   window.__ra = { S: S, T: T, L: L, FZ: FZ, LW: LW, cfg: cfg, calibrate: calibrate, show: show };
