@@ -47,6 +47,12 @@
     if (!ev.courses.length) ev.courses.push({ name: 'Course', wps: [], k: 0, r: 50 });
     ev.ci = Math.max(0, Math.min(ev.courses.length - 1, ev.ci || 0)); return ev.courses[ev.ci];
   }
+  function isVia(p) { return !!p && p.type === 'via'; }
+  // oznaka: zvanične tačke 1, 2, 3 …; via tačke (naše, za stvarnu putanju) 1.1, 1.2 … posle tačke 1
+  function lab(w, i) { var n = 0, v = 0; for (var j = 0; j <= i && j < w.length; j++) { if (isVia(w[j])) v++; else { n++; v = 0; } } return isVia(w[i]) ? n + '.' + v : String(n); }
+  function nmOf(w, i) { var p = w[i]; return p ? (p.name || (isVia(p) ? 'Via ' + lab(w, i) : 'WP ' + lab(w, i))) : ''; }
+  function viaNext(w, i) { var a = lab(w, i).split('.'); return a[0] + '.' + ((+a[1] || 0) + 1); }
+  function nextMark(w, k) { for (var j = k; j < w.length; j++) if (!isVia(w[j])) return j; return -1; }
   function has(p) { return p && p.lat !== null && p.lat !== undefined && p.lon !== null && p.lon !== undefined; }
   /* ---- uvoz staze iz teksta SI-ja: red po tački, "Ime (STBD) 44.01, 15.17" / "Ime (PORT)" / Start / Finish ---- */
   function parseCourse(txt) {
@@ -96,7 +102,7 @@
     for (var j = hit; j < parts.length; j++) { var body = parts[j].split(/\r?\n/).slice(1).join('\n'); if (/\S/.test(body.replace(/^\s*Race course.*$/gim, ''))) return body; }
     return txt;
   }
-  var S = { map: null, ready: false, edit: false, timer: null, boat: null, near: false, minD: null, close: null, paste: false, rep: null, pick: null, drag: null };
+  var S = { map: null, ready: false, edit: false, timer: null, boat: null, near: false, minD: null, close: null, paste: false, rep: null, pick: null, ins: null, drag: null };
 
   function docsOf(ev) {
     return new Promise(function (res) {
@@ -122,16 +128,18 @@
       '<div class="row"><select id="rmTpl"><option value="">…or a course we already read</option>' + (function () { var c = myCls(), mine = [], oth = []; TEMPLATES.forEach(function (t, i) { (c && t.cls.indexOf(c) >= 0 ? mine : oth).push('<option value="' + i + '">' + esc(t.name) + '</option>'); }); return (mine.length ? '<optgroup label="Your class">' + mine.join('') + '</optgroup>' : '') + (oth.length ? '<optgroup label="Other classes">' + oth.join('') + '</optgroup>' : ''); })() + '</select></div><div class="row"><button class="btn primary" id="rmImport">Create course</button><button class="btn" id="rmPasteX">Cancel</button>' + (ev.courses.length > 1 || w.length ? '<button class="btn danger" id="rmCDel">Delete this course</button>' : '') + '</div><p class="small" id="rmPMsg">Points without coordinates (natural marks named in the SI) are marked orange: add their coordinates from the NoR list of waypoints or by tapping the map.</p></div>';
     if (w.length) {
       h += '<div class="rm-nav" id="rmNav"></div>';
-      h += '<div class="rm-map' + (S.pick !== null ? ' pick' : '') + '" id="rmMap">' + (S.pick !== null && w[S.pick] ? '<div class="rm-pickbar"><span>Tap the map where <b>' + (S.pick + 1) + ' · ' + esc(w[S.pick].name || 'WP') + '</b> is' + (pickHint(R, w[S.pick]) ? '<small>' + esc(pickHint(R, w[S.pick])) + '</small>' : '') + '</span><button class="btn sm" id="rmPickX">Cancel</button></div>' : '') + '</div>';
-      if (S.edit && S.pick === null && w.some(has)) h += '<p class="small">Edit mode: drag a point on the map to move it.</p>';
+      h += '<div class="rm-map' + (S.pick !== null || S.ins !== null ? ' pick' : '') + '" id="rmMap">' + (S.pick !== null && w[S.pick] ? '<div class="rm-pickbar"><span>Tap the map where <b>' + lab(w, S.pick) + ' · ' + esc(nmOf(w, S.pick)) + '</b> is' + (pickHint(R, w[S.pick]) ? '<small>' + esc(pickHint(R, w[S.pick])) + '</small>' : '') + '</span><button class="btn sm" id="rmPickX">Cancel</button></div>' :
+        S.ins !== null && w[S.ins] ? '<div class="rm-pickbar via"><span>Tap the map to add via point <b>' + viaNext(w, S.ins) + '</b><small>between ' + esc(nmOf(w, S.ins)) + ' and ' + esc(nextMark(w, S.ins + 1) >= 0 ? nmOf(w, nextMark(w, S.ins + 1)) : 'the end') + '. Keep tapping to add more, in sailing order.</small></span><button class="btn sm primary" id="rmPickX">Done</button></div>' : '') + '</div>';
+      if (S.edit && S.pick === null && S.ins === null && w.some(has)) h += '<p class="small">Edit mode: drag a point on the map to move it. Use <b>+ via</b> between points to route around land, shallows or wind shadows.</p>';
     } else h += '<p class="small">No waypoints yet. Add them below (from the SI), or read them from the SI when AI reading is ready.</p>';
-    h += '<div class="rm-sec"><div class="rm-head"><h3>ROUTE · ' + w.length + ' point' + (w.length === 1 ? '' : 's') + '</h3><button class="btn sm" id="rmEdit">' + (S.edit ? 'Done' : 'Edit') + '</button></div>';
+    h += '<div class="rm-sec"><div class="rm-head"><h3>ROUTE · ' + (function () { var nv = w.filter(isVia).length, nm = w.length - nv; return nm + ' mark' + (nm === 1 ? '' : 's') + (nv ? ' · ' + nv + ' via' : ''); })() + '</h3><button class="btn sm" id="rmEdit">' + (S.edit ? 'Done' : 'Edit') + '</button></div>';
     h += w.map(function (p, i) {
-      var side = p.side === 'P' ? '<b class="rm-side p">PORT</b>' : p.side === 'S' ? '<b class="rm-side s">STBD</b>' : '<b class="rm-side">PASS</b>';
-      if (!S.edit) return '<div class="rm-wp' + (i === R.k ? ' on' : '') + '" data-go="' + i + '"><span class="rm-n">' + (i + 1) + '</span><span class="rm-nm">' + esc(p.name || 'WP ' + (i + 1)) + (has(p) ? '<small>' + fmtLL(p.lat, 'N', 'S') + ' ' + fmtLL(p.lon, 'E', 'W') + '</small>' : '<small class="rm-miss">no coordinates yet</small>') + '</span>' + (has(p) ? '' : '<button class="btn sm rm-pin" data-pick="' + i + '">📍 Set on map</button>') + (p.type === 'start' ? '<b class="rm-side">START</b>' : p.type === 'finish' ? '<b class="rm-side">FINISH</b>' : side) + '</div>';
-      return '<div class="rm-wp ed" data-i="' + i + '"><span class="rm-n">' + (i + 1) + '</span><div class="rm-edf"><input class="rm-in" data-f="name" value="' + esc(p.name || '') + '" placeholder="Name"><input class="rm-in" data-f="ll" value="' + (has(p) ? esc(fmtLL(p.lat, 'N', 'S') + ' ' + fmtLL(p.lon, 'E', 'W')) : '') + '" placeholder="45°07.407′N 13°36.200′E">' +
-        '<div class="row"><select class="rm-in" data-f="side"><option value="P"' + (p.side === 'P' ? ' selected' : '') + '>Leave to PORT</option><option value="S"' + (p.side === 'S' ? ' selected' : '') + '>Leave to STARBOARD</option><option value=""' + (!p.side ? ' selected' : '') + '>Pass (no rounding)</option></select>' +
-        '<button class="icon-btn" data-pick="' + i + '" title="Place on the map">📍</button><button class="icon-btn" data-mv="-1">↑</button><button class="icon-btn" data-mv="1">↓</button><button class="cl-del" data-del="' + i + '">✕</button></div></div></div>';
+      var side = isVia(p) ? '<b class="rm-side via">VIA</b>' : p.side === 'P' ? '<b class="rm-side p">PORT</b>' : p.side === 'S' ? '<b class="rm-side s">STBD</b>' : '<b class="rm-side">PASS</b>', L = lab(w, i), vc = isVia(p) ? ' via' : '';
+      var insB = S.edit && i < w.length - 1 ? '<button class="rm-insv" data-ins="' + i + '">+ via ' + viaNext(w, i) + '</button>' : '';
+      if (!S.edit) return '<div class="rm-wp' + vc + (i === R.k ? ' on' : '') + '" data-go="' + i + '"><span class="rm-n">' + L + '</span><span class="rm-nm">' + esc(nmOf(w, i)) + (has(p) ? '<small>' + fmtLL(p.lat, 'N', 'S') + ' ' + fmtLL(p.lon, 'E', 'W') + '</small>' : '<small class="rm-miss">no coordinates yet</small>') + '</span>' + (has(p) ? '' : '<button class="btn sm rm-pin" data-pick="' + i + '">📍 Set on map</button>') + (p.type === 'start' ? '<b class="rm-side">START</b>' : p.type === 'finish' ? '<b class="rm-side">FINISH</b>' : side) + '</div>';
+      return '<div class="rm-wp ed' + vc + '" data-i="' + i + '"><span class="rm-n">' + L + '</span><div class="rm-edf"><input class="rm-in" data-f="name" value="' + esc(p.name || '') + '" placeholder="' + (isVia(p) ? 'Via ' + L + ' (name optional)' : 'Name') + '"><input class="rm-in" data-f="ll" value="' + (has(p) ? esc(fmtLL(p.lat, 'N', 'S') + ' ' + fmtLL(p.lon, 'E', 'W')) : '') + '" placeholder="45°07.407′N 13°36.200′E">' +
+        '<div class="row">' + (isVia(p) ? '<span class="small rm-vt">Via point · pass, no rounding</span>' : '<select class="rm-in" data-f="side"><option value="P"' + (p.side === 'P' ? ' selected' : '') + '>Leave to PORT</option><option value="S"' + (p.side === 'S' ? ' selected' : '') + '>Leave to STARBOARD</option><option value=""' + (!p.side ? ' selected' : '') + '>Pass (no rounding)</option></select>') +
+        '<button class="icon-btn" data-pick="' + i + '" title="Place on the map">📍</button><button class="icon-btn" data-mv="-1">↑</button><button class="icon-btn" data-mv="1">↓</button><button class="cl-del" data-del="' + i + '">✕</button></div></div></div>' + insB;
     }).join('');
     if (S.edit) h += '<div class="rm-add"><input id="rmNewName" placeholder="Name (e.g. Mark 3)"><input id="rmNewLL" placeholder="Coordinates, e.g. 45 07.407 N 13 36.200 E"><div class="row"><select id="rmNewSide"><option value="P">Leave to PORT</option><option value="S">Leave to STARBOARD</option><option value="">Pass</option></select><button class="btn" id="rmHere">📍 Here</button><button class="btn primary" id="rmAdd">+ Add</button></div><p class="small" id="rmMsg">Tip: you can also tap the map to place a point while editing.</p>' +
       '<label class="small">Rounding radius <input id="rmRad" type="number" min="15" max="2000" step="5" value="' + R.r + '" style="width:70px"> m (when you are this close the next point is selected; for islands use 300–1000 m)</label></div>';
@@ -181,7 +189,7 @@
     var w = route(ev).wps, k = route(ev).k;
     var wc = w.filter(has), lc = wc.map(function (p) { return [p.lon, p.lat]; });
     return { line: { type: 'Feature', geometry: { type: 'LineString', coordinates: lc.length > 1 ? lc : [[0, 0], [0, 0]] } },
-      pts: { type: 'FeatureCollection', features: w.map(function (p, i) { return has(p) ? { type: 'Feature', properties: { i: i, n: String(i + 1), s: p.side || '', on: i === k ? 1 : 0 }, geometry: { type: 'Point', coordinates: [p.lon, p.lat] } } : null; }).filter(Boolean) } };
+      pts: { type: 'FeatureCollection', features: w.map(function (p, i) { return has(p) ? { type: 'Feature', properties: { i: i, n: lab(w, i), v: isVia(p) ? 1 : 0, s: p.side || '', on: i === k ? 1 : 0 }, geometry: { type: 'Point', coordinates: [p.lon, p.lat] } } : null; }).filter(Boolean) } };
   }
   function pickHint(R, p) {
     if (p.type === 'start' && R.start && R.start.desc) return 'SI: ' + R.start.desc;
@@ -207,8 +215,9 @@
         if (m.getSource('rl')) return; var F = fc(ev);
         m.addSource('rl', { type: 'geojson', data: F.line }); m.addLayer({ id: 'rl', type: 'line', source: 'rl', paint: { 'line-color': '#00e0c6', 'line-width': 2, 'line-dasharray': [2, 1.5], 'line-opacity': 0.8 } });
         m.addSource('rp', { type: 'geojson', data: F.pts });
-        m.addLayer({ id: 'rp', type: 'circle', source: 'rp', paint: { 'circle-radius': ['case', ['==', ['get', 'on'], 1], 11, 8], 'circle-color': ['match', ['get', 's'], 'P', '#e8413a', 'S', '#2bbf5a', '#c8c8c8'], 'circle-stroke-width': ['case', ['==', ['get', 'on'], 1], 3, 1.5], 'circle-stroke-color': ['case', ['==', ['get', 'on'], 1], '#ffffff', '#05070a'] } });
-        m.addLayer({ id: 'rpn', type: 'symbol', source: 'rp', layout: { 'text-field': ['get', 'n'], 'text-size': 11, 'text-font': ['Noto Sans Bold'], 'text-allow-overlap': true }, paint: { 'text-color': '#05070a' } });
+        m.addLayer({ id: 'rp', type: 'circle', source: 'rp', paint: { 'circle-radius': ['case', ['==', ['get', 'v'], 1], ['case', ['==', ['get', 'on'], 1], 8, 6], ['==', ['get', 'on'], 1], 11, 8], 'circle-color': ['case', ['==', ['get', 'v'], 1], '#00e0c6', ['match', ['get', 's'], 'P', '#e8413a', 'S', '#2bbf5a', '#c8c8c8']], 'circle-stroke-width': ['case', ['==', ['get', 'on'], 1], 3, 1.5], 'circle-stroke-color': ['case', ['==', ['get', 'on'], 1], '#ffffff', '#05070a'] } });
+        m.addLayer({ id: 'rpv', type: 'symbol', source: 'rp', filter: ['==', ['get', 'v'], 1], layout: { 'text-field': ['get', 'n'], 'text-size': 10, 'text-font': ['Noto Sans Bold'], 'text-offset': [0, -1.3], 'text-allow-overlap': true }, paint: { 'text-color': '#00e0c6', 'text-halo-color': '#05070a', 'text-halo-width': 1.5 } });
+        m.addLayer({ id: 'rpn', type: 'symbol', source: 'rp', filter: ['!=', ['get', 'v'], 1], layout: { 'text-field': ['get', 'n'], 'text-size': 11, 'text-font': ['Noto Sans Bold'], 'text-allow-overlap': true }, paint: { 'text-color': '#05070a' } });
         m.addSource('bt', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
         m.addLayer({ id: 'btl', type: 'line', source: 'bt', filter: ['==', ['geometry-type'], 'LineString'], paint: { 'line-color': '#ffffff', 'line-width': 1.5, 'line-opacity': 0.7 } });
         m.addLayer({ id: 'bt', type: 'circle', source: 'bt', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 6, 'circle-color': '#ffffff', 'circle-stroke-width': 2, 'circle-stroke-color': '#05070a' } });
@@ -227,10 +236,15 @@
       m.on('mouseleave', 'rp', function () { m.getCanvas().style.cursor = ''; });
       m.on('click', function (e) {
         if (S.dragEnd && Date.now() - S.dragEnd < 400) return;
+        if (S.ins !== null) {
+          var cv = curEv(); if (!cv) return; var Rv = route(cv), at = S.ins + 1;
+          Rv.wps.splice(at, 0, { name: '', type: 'via', side: '', lat: Math.round(e.lngLat.lat * 1e6) / 1e6, lon: Math.round(e.lngLat.lng * 1e6) / 1e6, src: 'map' });
+          if (Rv.k >= at) Rv.k++; S.ins = at; saveEv(cv); S.keepCam = true; render(); return;
+        }
         if (S.pick !== null) {
           var cur = curEv(); if (!cur) return; var i = S.pick, nm = route(cur).wps[i] && route(cur).wps[i].name; S.pick = null;
           setPt(cur, i, e.lngLat.lat, e.lngLat.lng); S.keepCam = true; render();
-          if (window.RA && window.RA.toast) window.RA.toast((i + 1) + ' · ' + (nm || 'WP') + ' placed at ' + fmtLL(e.lngLat.lat, 'N', 'S') + ' ' + fmtLL(e.lngLat.lng, 'E', 'W') + '. Drag it in Edit to fine-tune.', null, null, 5000);
+          if (window.RA && window.RA.toast) window.RA.toast(lab(route(cur).wps, i) + ' · ' + (nm || 'WP') + ' placed at ' + fmtLL(e.lngLat.lat, 'N', 'S') + ' ' + fmtLL(e.lngLat.lng, 'E', 'W') + '. Drag it in Edit to fine-tune.', null, null, 5000);
           return;
         }
         if (!S.edit) return; var ll = $('rmNewLL'); if (!ll) return;
@@ -243,21 +257,29 @@
   function tick() {
     var ev = curEv(); if (!ev) return; var R = route(ev), w = R.wps, nav = $('rmNav'); if (!nav || !w.length) return;
     var me = window.RA && window.RA.nav ? window.RA.nav() : null, T = w[Math.min(R.k, w.length - 1)];
-    var side = T.side === 'P' ? '<b class="rm-side p big">LEAVE TO PORT</b>' : T.side === 'S' ? '<b class="rm-side s big">LEAVE TO STARBOARD</b>' : '<b class="rm-side big">PASS</b>';
-    var h = '<div class="rm-next"><span class="rm-k">' + (R.k + 1) + '/' + w.length + '</span><b class="rm-tn">' + esc(T.name || 'WP ' + (R.k + 1)) + '</b>' + side + '</div>';
+    var side = isVia(T) ? '<b class="rm-side via big">VIA · PASS</b>' : T.side === 'P' ? '<b class="rm-side p big">LEAVE TO PORT</b>' : T.side === 'S' ? '<b class="rm-side s big">LEAVE TO STARBOARD</b>' : '<b class="rm-side big">PASS</b>';
+    var h = '<div class="rm-next"><span class="rm-k">' + lab(w, R.k) + '/' + w.filter(function (p) { return !isVia(p); }).length + '</span><b class="rm-tn">' + esc(nmOf(w, R.k)) + '</b>' + side + '</div>';
     if (!has(T)) h += '<p class="small rm-miss">No coordinates for this point. Tap Edit and add them (NoR list of waypoints, or tap the map).</p>';
     else if (me && me.lat) {
       var d = distNm(me, T), b = brg(me, T), vmc = me.sog !== null && me.hdg !== null ? me.sog * Math.cos(rad(nrm(me.hdg - b))) : null, eta = vmc && vmc > 0.3 ? d / vmc * 3600 : null;
       h += '<div class="rm-nums"><div><span>BRG</span><b>' + d3(b) + '°</b></div><div><span>DST nm</span><b>' + (d < 10 ? d.toFixed(2) : d.toFixed(1)) + '</b></div><div><span>VMC kn</span><b>' + (vmc === null ? '–' : vmc.toFixed(1)) + '</b></div><div><span>ETA</span><b>' + (eta === null ? '–' : (eta >= 3600 ? Math.floor(eta / 3600) + 'h' + ('0' + Math.floor(eta % 3600 / 60)).slice(-2) : Math.floor(eta / 60) + ':' + ('0' + Math.round(eta % 60)).slice(-2))) + '</b></div></div>';
       // auto-prelazak: ušao u krug obilaska, pa počeo da se udaljava
       var dm = d * 1852;
+      if (isVia(T)) {
+        // via tačka: samo prolaz. Gotovo kad smo blizu, ili kad smo je već prošli prema sledećoj tački.
+        var rv = Math.max(40, Math.min(R.r, 150)), Pn = null; for (var q = R.k + 1; q < w.length; q++) if (has(w[q])) { Pn = w[q]; break; }
+        var passed = dm <= rv || (Pn && dm < 926 && Math.abs(nrm(brg(T, me) - brg(T, Pn))) < 60);
+        var mi = nextMark(w, R.k);
+        if (mi >= 0 && has(w[mi])) { var along = d, prev = T; for (var z = R.k + 1; z <= mi; z++) if (has(w[z])) { along += distNm(prev, w[z]); prev = w[z]; } h += '<p class="small rm-tomark">Next mark: <b>' + esc(lab(w, mi) + ' · ' + nmOf(w, mi)) + '</b>' + (w[mi].side === 'P' ? ' (PORT)' : w[mi].side === 'S' ? ' (STBD)' : '') + ' · ' + along.toFixed(1) + ' nm along your route</p>'; }
+        if (passed && R.k < w.length - 1) { S.near = false; S.minD = null; S.close = null; R.k++; saveEv(ev); if (window.RA && window.RA.toast) window.RA.toast('Next: ' + lab(w, R.k) + ' · ' + nmOf(w, R.k)); return render(); }
+      } else
       // strana obilaska: na najbližem prolasku, da li je tačka levo ili desno od kursa
       if (dm <= R.r) { S.near = true; if (S.minD === null || dm < S.minD) { S.minD = dm; S.close = me.hdg !== null ? nrm(brg(me, T) - me.hdg) : null; } }
       else if (S.near && dm > R.r * 1.3 && R.k < w.length - 1) {
         var was = S.close, ok = !T.side || was === null ? null : (T.side === 'P' ? was < 0 : was > 0);
         S.near = false; S.minD = null; S.close = null; R.k++; saveEv(ev);
         if (ok === false) { if (navigator.vibrate) navigator.vibrate([400, 150, 400, 150, 400]); if (window.RA && window.RA.toast) window.RA.toast('⚠ ' + (T.name || 'Mark') + ' looks passed on the WRONG side (should be ' + (T.side === 'P' ? 'PORT' : 'STARBOARD') + '). Check and go back if needed.', null, null, 8000); }
-        else if (window.RA && window.RA.toast) window.RA.toast('Next: ' + (w[R.k].name || 'WP ' + (R.k + 1)));
+        else if (window.RA && window.RA.toast) window.RA.toast('Next: ' + lab(w, R.k) + ' · ' + nmOf(w, R.k));
         return render();
       }
       if (S.map && S.ready) { var bt = S.boat = S.boat || []; bt.push([me.lon, me.lat]); if (bt.length > 600) bt.shift(); S.map.getSource('bt').setData({ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'LineString', coordinates: bt.length > 1 ? bt : [[me.lon, me.lat], [me.lon, me.lat]] } }, { type: 'Feature', geometry: { type: 'Point', coordinates: [me.lon, me.lat] } }] }); }
@@ -278,9 +300,10 @@
       if (t.id === 'rmGoNor') { if (window.RA && RA.goPageId) RA.goPageId('p-nor'); return; }
       if (t.id === 'rmLink') { sset('rmEv', $('rmPick').value); render(); return; }
       var ev = curEv(); if (!ev) return; var R = route(ev);
-      if (t.id === 'rmPickX') { S.pick = null; S.keepCam = true; render(); return; }
-      if (t.hasAttribute('data-pick')) { S.pick = +t.getAttribute('data-pick'); S.keepCam = true; render(); var mp = $('rmMap'); if (mp) mp.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
-      if (t.id === 'rmEdit') { S.edit = !S.edit; render(); return; }
+      if (t.id === 'rmPickX') { S.pick = null; S.ins = null; S.keepCam = true; render(); return; }
+      if (t.hasAttribute('data-ins')) { S.ins = +t.getAttribute('data-ins'); S.pick = null; S.keepCam = true; render(); var mq = $('rmMap'); if (mq) mq.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+      if (t.hasAttribute('data-pick')) { S.ins = null; S.pick = +t.getAttribute('data-pick'); S.keepCam = true; render(); var mp = $('rmMap'); if (mp) mp.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+      if (t.id === 'rmEdit') { S.edit = !S.edit; if (!S.edit) S.ins = null; render(); return; }
       if (t.id === 'rmAI') { readAI(ev); return; }
       if (t.id === 'rmUnlink') { sset('rmEv', null); S.paste = false; S.edit = false; render(); return; }
       if (t.id === 'rmPasteBtn') { S.paste = !S.paste; render(); var c = myCls(), ti = TEMPLATES.map(function (x) { return x.cls.indexOf(c) >= 0; }).indexOf(true); if (S.paste && ti >= 0 && $('rmTpl')) { $('rmTpl').value = String(ti); $('rmCName').value = TEMPLATES[ti].name; } return; }
@@ -300,7 +323,7 @@
       if (t.id === 'rmCDel') { ev.courses.splice(ev.ci, 1); ev.ci = 0; S.paste = false; saveEv(ev); render(); return; }
       if (t.id === 'rmFlagC') { var fi2 = R.wps.map(function (p) { return p.type; }).lastIndexOf('finish'); if (fi2 >= 0) setK(fi2); return; }
       if (t.id === 'rmCopy') {
-        var me2 = window.RA && window.RA.nav ? window.RA.nav() : null, T2 = R.wps[R.k];
+        var me2 = window.RA && window.RA.nav ? window.RA.nav() : null, T2 = R.wps[nextMark(R.wps, R.k)] || R.wps[R.k];
         var msg = (ev.name || 'Race') + ' · ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + (me2 && me2.lat ? ' · position ' + fmtLL(me2.lat, 'N', 'S') + ' ' + fmtLL(me2.lon, 'E', 'W') + (me2.sog !== null ? ' · SOG ' + me2.sog.toFixed(1) + ' kn' : '') : '') + (T2 ? ' · next: ' + T2.name + (has(T2) && me2 && me2.lat ? ' (' + distNm(me2, T2).toFixed(1) + ' nm)' : '') : '');
         (navigator.clipboard ? navigator.clipboard.writeText(msg) : Promise.reject()).then(function () { if (window.RA && window.RA.toast) window.RA.toast('Copied: ' + msg); }).catch(function () { prompt('Copy:', msg); }); return;
       }
