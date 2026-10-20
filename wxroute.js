@@ -15,10 +15,11 @@
   }
 
   /* ---- prognoza po mreži ---- */
-  function bbox(pts) {
+  function bbox(pts, big) {
     var la0 = 90, la1 = -90, lo0 = 180, lo1 = -180;
     pts.forEach(function (p) { la0 = Math.min(la0, p.lat); la1 = Math.max(la1, p.lat); lo0 = Math.min(lo0, p.lon); lo1 = Math.max(lo1, p.lon); });
-    var pl = Math.max(0.06, (la1 - la0) * 0.2), po = Math.max(0.08, (lo1 - lo0) * 0.2);
+    // big: šire područje (maska kopna i obilazak ostrva)
+    var f = big ? 0.45 : 0.2, pl = Math.max(big ? 0.1 : 0.06, (la1 - la0) * f, big ? (lo1 - lo0) * 0.3 : 0), po = Math.max(big ? 0.13 : 0.08, (lo1 - lo0) * f, big ? (la1 - la0) * 0.4 : 0);
     return { lat0: la0 - pl, lat1: la1 + pl, lon0: lo0 - po, lon1: lo1 + po };
   }
   function fetchGrid(pts, model) {
@@ -96,7 +97,7 @@
 
   /* ---- kopno: vodeni poligoni iz vektorskih pločica mape → raster maska ---- */
   function waterMask(map, pts, feats) {
-    var g = bbox(pts), W = 1400, kx = Math.cos(rad((g.lat0 + g.lat1) / 2)), H = Math.max(200, Math.round(W * (g.lat1 - g.lat0) / ((g.lon1 - g.lon0) * kx)));
+    var g = bbox(pts, true), W = 1400, kx = Math.cos(rad((g.lat0 + g.lat1) / 2)), H = Math.max(200, Math.round(W * (g.lat1 - g.lat0) / ((g.lon1 - g.lon0) * kx)));
     if (H > 2000) { W = Math.round(W * 2000 / H); H = 2000; }
     if (!feats) { feats = []; try { var src = Object.keys(map.getStyle().sources).filter(function (k) { return map.getStyle().sources[k].type === 'vector'; })[0]; if (src) feats = map.querySourceFeatures(src, { sourceLayer: 'water' }); } catch (e) { feats = []; } }
     feats = feats.filter(function (f) { return f.geometry && /Polygon/.test(f.geometry.type); });
@@ -126,7 +127,7 @@
   // i vidljiva mapa se ne pomera. src = definicija vektorskog izvora iz stila vidljive mape.
   function maskFor(pts, src) {
     return new Promise(function (res) {
-      var g = bbox(pts), el = document.createElement('div');
+      var g = bbox(pts, true), el = document.createElement('div');
       el.style.cssText = 'position:fixed;left:-20000px;top:0;width:1600px;height:1600px;visibility:hidden;pointer-events:none';
       document.body.appendChild(el);
       var done = false, m;
@@ -153,11 +154,51 @@
     var pts = opts.pts, t = opts.t0, out = [[pts[0].lon, pts[0].lat]], tl = [t], legs = [];
     for (var k = 1; k < pts.length; k++) {
       var r = leg(pts[k - 1], pts[k], t, opts);
+      // izohrone nisu našle prolaz (uski kanali, zalivi): najkraći put kroz more (A*) daje uglove, pa izohrone od ugla do ugla
+      if (!r && opts.mask) { var cs = corridor(pts[k - 1], pts[k], opts.mask); if (cs) { r = chain([pts[k - 1]].concat(cs.c, [pts[k]]), t, opts); if (!r) r = chain([pts[k - 1]].concat(cs.d, [pts[k]]), t, opts); } }
       if (!r) return { ok: false, failAt: k, line: out, tl: tl, legs: legs };
       r.path.slice(1).forEach(function (p, i) { out.push(p); tl.push(r.times[i + 1]); });
       legs.push({ to: k, t: r.t, tacks: r.tacks, i: out.length - 1 }); t = r.t;
     }
     return { ok: true, line: out, tl: tl, legs: legs, t0: opts.t0, t1: t };
+  }
+  function chain(P, t0, o) {
+    var path = [[P[0].lon, P[0].lat]], times = [t0], t = t0, tk = 0;
+    for (var i = 1; i < P.length; i++) { var r = leg(P[i - 1], P[i], t, o); if (!r) return null; r.path.slice(1).forEach(function (q, j) { path.push(q); times.push(r.times[j + 1]); }); t = r.t; tk += r.tacks; }
+    return { t: t, path: path, times: times, tacks: tk };
+  }
+  // A* po mreži ~120 m kroz more (sa odstojanjem od obale 1 ćelija), pa "zatezanje" puta na uglove koji se vide jedan iz drugog
+  function corridor(A, B, mask) {
+    var g = bbox([A, B], true), kx = Math.cos(rad((g.lat0 + g.lat1) / 2)) * 111320, ky = 110540, C = 120;
+    var nx = Math.ceil((g.lon1 - g.lon0) * kx / C), ny = Math.ceil((g.lat1 - g.lat0) * ky / C); if (nx * ny > 600000) { C = Math.sqrt((g.lon1 - g.lon0) * kx * (g.lat1 - g.lat0) * ky / 600000); nx = Math.ceil((g.lon1 - g.lon0) * kx / C); ny = Math.ceil((g.lat1 - g.lat0) * ky / C); }
+    var LL = function (i, j) { return { lat: g.lat0 + (j + 0.5) * C / ky, lon: g.lon0 + (i + 0.5) * C / kx }; };
+    var cell = function (p) { return [Math.max(0, Math.min(nx - 1, Math.floor((p.lon - g.lon0) * kx / C))), Math.max(0, Math.min(ny - 1, Math.floor((p.lat - g.lat0) * ky / C)))]; };
+    var wet = new Uint8Array(nx * ny), ok = new Uint8Array(nx * ny);
+    for (var j = 0; j < ny; j++) for (var i = 0; i < nx; i++) { var q = LL(i, j); wet[j * nx + i] = mask.wet(q.lat, q.lon) ? 1 : 0; }
+    for (j = 0; j < ny; j++) for (i = 0; i < nx; i++) { var o = 1; for (var dj = -1; dj <= 1 && o; dj++) for (var di = -1; di <= 1; di++) { var a = i + di, b = j + dj; if (a >= 0 && b >= 0 && a < nx && b < ny && !wet[b * nx + a]) { o = 0; break; } } ok[j * nx + i] = o; }
+    var sA = cell(A), sB = cell(B), RA = Math.ceil((dryR(mask, A) + 250) / C), RB = Math.ceil((dryR(mask, B) + 250) / C);
+    var near = function (i, j, s, R) { return Math.abs(i - s[0]) <= R && Math.abs(j - s[1]) <= R; };
+    var pass = function (i, j) { return ok[j * nx + i] || (wet[j * nx + i] && (near(i, j, sA, RA) || near(i, j, sB, RB))) || near(i, j, sA, Math.max(1, RA - 2)) || near(i, j, sB, Math.max(1, RB - 2)); };
+    var N = nx * ny, gS = new Float32Array(N).fill(Infinity), par = new Int32Array(N).fill(-1), done = new Uint8Array(N), heap = [];
+    var h = function (i, j) { return Math.hypot(i - sB[0], j - sB[1]); };
+    var push = function (k, f) { heap.push([f, k]); var x = heap.length - 1; while (x) { var y = (x - 1) >> 1; if (heap[y][0] <= heap[x][0]) break; var t = heap[x]; heap[x] = heap[y]; heap[y] = t; x = y; } };
+    var pop = function () { var top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; var x = 0; for (;;) { var l = 2 * x + 1, r = l + 1, m = x; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === x) break; var t = heap[x]; heap[x] = heap[m]; heap[m] = t; x = m; } } return top; };
+    var s0 = sA[1] * nx + sA[0], goal = sB[1] * nx + sB[0]; gS[s0] = 0; push(s0, h(sA[0], sA[1]));
+    var D8 = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.414], [1, -1, 1.414], [-1, 1, 1.414], [-1, -1, 1.414]], it = 0;
+    while (heap.length && it++ < 2000000) {
+      var cur = pop()[1]; if (done[cur]) continue; done[cur] = 1; if (cur === goal) break;
+      var ci = cur % nx, cj = (cur - ci) / nx;
+      for (var d = 0; d < 8; d++) { var ni = ci + D8[d][0], nj = cj + D8[d][1]; if (ni < 0 || nj < 0 || ni >= nx || nj >= ny || !pass(ni, nj)) continue; var nk = nj * nx + ni, ng = gS[cur] + D8[d][2]; if (ng < gS[nk]) { gS[nk] = ng; par[nk] = cur; push(nk, ng + h(ni, nj)); } }
+    }
+    if (!done[goal]) return null;
+    var cells = []; for (var k = goal; k >= 0; k = par[k]) cells.unshift(k);
+    var pts = cells.map(function (k) { var i2 = k % nx; return LL(i2, (k - i2) / nx); }); pts[0] = A; pts[pts.length - 1] = B;
+    // zatezanje: sa svake tačke najdalja koja se vidi preko mora (na 30 m)
+    var see = function (p, q) { var dx = (q.lon - p.lon) * kx, dy = (q.lat - p.lat) * ky, n = Math.max(2, Math.ceil(Math.hypot(dx, dy) / 30)), eA = (dryR(mask, A) + 60), eB = (dryR(mask, B) + 60); for (var z = 1; z < n; z++) { var la = p.lat + (q.lat - p.lat) * z / n, lo = p.lon + (q.lon - p.lon) * z / n; if (Math.hypot((lo - A.lon) * kx, (la - A.lat) * ky) < eA || Math.hypot((lo - B.lon) * kx, (la - B.lat) * ky) < eB) continue; if (!mask.wet(la, lo)) return false; } return true; };
+    var out = [], c = 0;
+    while (c < pts.length - 1) { var f = c + 1; for (var t = pts.length - 1; t > c + 1; t--) if (see(pts[c], pts[t])) { f = t; break; } if (f !== pts.length - 1) out.push(pts[f]); c = f; }
+    var dense = pts.filter(function (q, i) { return i > 0 && i < pts.length - 1 && i % 8 === 0; });
+    return { c: out, d: dense };
   }
   function leg(A, B, t0, o) {
     var kx = Math.cos(rad(A.lat)) * 111320, ky = 110540, bx = (B.lon - A.lon) * kx, by = (B.lat - A.lat) * ky, D = Math.hypot(bx, by);
@@ -167,6 +208,7 @@
     // oznake su često na stenama / hridima (npr. "isolated danger") ili uz obalu: oko početka i cilja etape (300 m) kopno se ne proverava
     var EA = dryR(o.mask, A) + 40, EB = dryR(o.mask, B) + 40, clear = function (x1, y1, x2, y2) { if (!o.mask) return true; var n = Math.max(2, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / 30)); for (var i = 1; i <= n; i++) { var x = x1 + (x2 - x1) * i / n, y = y1 + (y2 - y1) * i / n; if (Math.hypot(x, y) < EA || Math.hypot(bx - x, by - y) < EB) continue; var ll = toLL(x, y); if (!o.mask.wet(ll.lat, ll.lon)) return false; } return true; };
     var front = [{ x: 0, y: 0, t: t0, side: 0, tk: 0, par: null }], best = null;
+    var bestDn = D, stale = 0, staleMax = Math.ceil(3 * 3600 / dt);
     for (var step = 0; step < maxSteps && front.length; step++) {
       var next = new Array(SEC), arrivals = [];
       front.forEach(function (n) {
@@ -190,6 +232,9 @@
       });
       if (arrivals.length) { arrivals.forEach(function (a) { if (!best || a.t < best.t) best = a; }); break; }
       front = next.filter(Boolean);
+      // bez napretka ka tački 3 h: izohrone su zaglavljene (kopno), prepuštamo obilazak A*-u
+      var md = Infinity; front.forEach(function (q) { var dq = Math.hypot(bx - q.x, by - q.y); if (dq < md) md = dq; });
+      if (md < bestDn - 50) { bestDn = md; stale = 0; } else if (++stale > staleMax) break;
     }
     if (!best) return null;
     var path = [], times = [], q = best; while (q) { var L = toLL(q.x, q.y); path.unshift([L.lon, L.lat]); times.unshift(q.t); q = q.par; }
