@@ -103,7 +103,7 @@
     for (var j = hit; j < parts.length; j++) { var body = parts[j].split(/\r?\n/).slice(1).join('\n'); if (/\S/.test(body.replace(/^\s*Race course.*$/gim, ''))) return body; }
     return txt;
   }
-  var S = { map: null, ready: false, edit: false, timer: null, boat: null, near: false, minD: null, close: null, paste: false, rep: null, pick: null, ins: null, drag: null };
+  var S = { map: null, ready: false, edit: false, timer: null, boat: null, near: false, minD: null, close: null, paste: false, rep: null, pick: null, ins: null, drag: null, wxOn: sget('rmWx', false), wxD: null, wxT: null, wxBusy: false, layer: null, ideal: null, idealOn: false, idealBusy: false, rd: '' };
 
   function docsOf(ev) {
     return new Promise(function (res) {
@@ -135,7 +135,7 @@
     if (w.length) {
       h += '<div class="rm-stage" id="rmStage"><div class="rm-map' + (S.pick !== null || S.ins !== null ? ' pick' : '') + '" id="rmMap">' + (S.pick !== null && w[S.pick] ? '<div class="rm-pickbar"><span>Tap map: <b>' + lab(w, S.pick) + ' · ' + esc(nmOf(w, S.pick)) + '</b></span><button class="btn sm" id="rmPickX">Cancel</button></div>' :
         S.ins !== null && w[S.ins] ? '<div class="rm-pickbar via"><span>Tap map: via <b>' + viaNext(w, S.ins) + '</b></span><button class="btn sm primary" id="rmPickX">Done</button></div>' : '') +
-        '<div class="trk-fsbtns"><button class="icon-btn" id="rmFs" title="Full screen">' + (S.fs ? '✕' : '⛶') + '</button><button class="icon-btn" id="rmZin">+</button><button class="icon-btn" id="rmZout">−</button></div></div>';
+        '<div class="trk-fsbtns"><button class="icon-btn" id="rmFs" title="Full screen">' + (S.fs ? '✕' : '⛶') + '</button><button class="icon-btn" id="rmZin">+</button><button class="icon-btn" id="rmZout">−</button><button class="icon-btn' + (S.wxOn ? ' on' : '') + '" id="rmWxB" title="Wind forecast">≋</button><button class="icon-btn' + (S.idealOn ? ' on' : '') + '" id="rmIdB" title="Ideal route">⤳</button></div>' + wxBar() + '</div>';
       h += '<div class="rm-nav" id="rmNav"></div></div>';
     } else h += '<p class="small">No waypoints yet: read them from the SI (AI) above, or add them below.</p>';
     h += '<div class="rm-sec"><div class="rm-head"><h3>ROUTE · ' + (function () { var nv = w.filter(isVia).length, nm = w.length - nv; return nm + ' mark' + (nm === 1 ? '' : 's') + (nv ? ' · ' + nv + ' via' : ''); })() + '</h3></div><div class="' + (S.edit ? '' : 'rm-list') + '">';
@@ -151,7 +151,7 @@
       '<label class="small">Rounding radius <input id="rmRad" type="number" min="15" max="2000" step="5" value="' + R.r + '" style="width:70px"> m</label></div>';
     h += '</div></div>';
     box.innerHTML = h;
-    if (S.fs && $('rmStage')) { var st = $('rmStage'); document.body.appendChild(st); st.classList.add('fs'); document.body.classList.add('trk-fs-on'); st.addEventListener('click', onClick); }
+    if (S.fs && $('rmStage')) { var st = $('rmStage'); document.body.appendChild(st); st.classList.add('fs'); document.body.classList.add('trk-fs-on'); st.addEventListener('click', onClick); st.addEventListener('input', onInput); }
     if (setup) docsOf(ev).then(function (d) {
       var el = $('rmDocs'); if (!el) return;
       var si = d.filter(function (x) { return /\bsi\b|sailing.?instr|upute|instruc/i.test(x.name || ''); });
@@ -211,9 +211,73 @@
     p.lat = Math.round(lat * 1e6) / 1e6; p.lon = Math.round(lon * 1e6) / 1e6; p.src = 'map'; saveEv(ev);
   }
   function refresh(ev) { var c = fc(ev); if (S.map && S.ready) { S.map.getSource('rl').setData(c.line); S.map.getSource('rp').setData(c.pts); } }
+  /* ---- vetar i idealna ruta ---- */
+  function hrs() { var d = S.wxD; if (!d) return []; var now = Date.now() - 3600000; return d.t.filter(function (t) { return t >= now; }); }
+  function tLab(t) { var d = new Date(t); return d.toLocaleDateString('en-GB', { weekday: 'short' }) + ' ' + ('0' + d.getHours()).slice(-2) + ':00'; }
+  function wxBar() {
+    if (!S.wxOn && !S.idealOn) return '';
+    var H = hrs(), i = Math.max(0, H.indexOf(S.wxT)), id = S.ideal;
+    var chip = S.idealBusy ? 'Ideal route… ' : id ? (id.ok ? 'Ideal <b>' + dur(id.t1 - id.t0) + '</b> · finish ' + ('0' + new Date(id.t1).getHours()).slice(-2) + ':' + ('0' + new Date(id.t1).getMinutes()).slice(-2) + (id.land ? '' : ' · no land check') : 'No route to ' + esc(id.failName) + ': add a via point') : '';
+    return '<div class="rm-wxbar">' + (chip ? '<div class="rm-chip">' + chip + '</div>' : '') + (S.rd ? '<div class="rm-chip">' + S.rd + '</div>' : '') +
+      (S.wxD ? '<div class="wm-time"><span id="rmWxT">' + (H[i] ? tLab(H[i]) : '') + '</span><input type="range" id="rmWxS" min="0" max="' + Math.max(0, H.length - 1) + '" value="' + i + '"></div>' : S.wxBusy ? '<div class="rm-chip">Loading forecast…</div>' : '') + '</div>';
+  }
+  function upBar() { var el = document.querySelector('.rm-wxbar'), html = wxBar(); if (el) { if (html) el.outerHTML = html; else el.remove(); } else if (html) { var m = $('rmMap'); if (m) m.insertAdjacentHTML('beforeend', html); } var bI = $('rmIdB'); if (bI) bI.classList.toggle('on', S.idealOn); }
+  function showIdeal() { if (S.map && S.ready && S.map.getSource('ideal')) S.map.getSource('ideal').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: S.idealOn && S.ideal && S.ideal.line.length > 1 ? S.ideal.line : [[0, 0], [0, 0]] } }); upBar(); }
+  function dur(ms) { var m = Math.round(ms / 60000); return Math.floor(m / 60) + 'h' + ('0' + m % 60).slice(-2); }
+  function routePts(ev) { return route(ev).wps.filter(has); }
+  function ensureWx(ev) {
+    var pts = routePts(ev), model = window.WxRoute ? WxRoute.model() : 'best_match', key = ev.id + '|' + model + '|' + pts.length;
+    if (S.wxD && S.wxD.key === key && Date.now() - S.wxD.at < 3600000) return Promise.resolve(S.wxD);
+    var c = sget('rmWxGrid', null); if (c && c.key === key && Date.now() - c.at < 3600000) { S.wxD = c; return Promise.resolve(c); }
+    if (!pts.length) return Promise.reject(new Error('Route has no points with coordinates'));
+    S.wxBusy = true;
+    return WxRoute.fetchGrid(pts, model).then(function (d) { d.key = key; S.wxD = d; S.wxBusy = false; sset('rmWxGrid', d); return d; }, function (e) { S.wxBusy = false; if (c && c.key === key) { S.wxD = c; return c; } throw e; });
+  }
+  function defT(ev) {
+    var H = hrs(); if (!H.length) return null; var t0 = Date.now();
+    if (ev.dateFrom) { var st = Date.parse(ev.dateFrom + 'T10:00:00'); if (st > t0) t0 = st; }
+    for (var i = 0; i < H.length; i++) if (H[i] >= t0 - 1800000) return H[i];
+    return H[H.length - 1];
+  }
+  function setWxT(t) { S.wxT = t; if (S.layer && S.wxD) S.layer.set(S.wxD, t); var el = $('rmWxT'); if (el) el.textContent = tLab(t); }
+  function startWx(ev, then) {
+    S.wxBusy = true; S.keepCam = true; render();
+    ensureWx(ev).then(function () { if (!S.wxT || hrs().indexOf(S.wxT) < 0) S.wxT = defT(ev); S.keepCam = true; render(); if (then) then(); })
+      .catch(function (e) { S.wxBusy = false; S.keepCam = true; render(); if (window.RA && window.RA.toast) window.RA.toast('No forecast: ' + e.message); });
+  }
+  function runIdeal(ev) {
+    var c = window.Profile && Profile.current(); if (!c || !c.polar) { S.idealOn = false; S.keepCam = true; render(); if (window.RA && window.RA.toast) window.RA.toast('Choose your boat class (with polar) in Settings → My boat'); return; }
+    var R = route(ev), w = R.wps, miss = w.filter(function (p) { return !has(p); }).length;
+    var me = window.RA && window.RA.nav ? window.RA.nav() : null, list = [], k0 = 0;
+    // u trci: od moje pozicije preko preostalih tačaka
+    if (me && me.lat && R.k > 0 && has(w[R.k]) && distNm(me, w[R.k]) < 30) { list.push({ lat: me.lat, lon: me.lon, name: 'You' }); k0 = R.k; }
+    w.slice(k0).forEach(function (p, j) { if (has(p)) list.push({ lat: p.lat, lon: p.lon, name: nmOf(w, k0 + j) }); });
+    if (list.length < 2) { S.idealOn = false; upBar(); return; }
+    S.idealBusy = true; upBar();
+    var go = function () {
+      var m = S.map; if (!m || !S.ready) { setTimeout(go, 300); return; }
+      var b = new maplibregl.LngLatBounds(); list.forEach(function (p) { b.extend([p.lon, p.lat]); });
+      m.fitBounds(b, { padding: 30, duration: 0, maxZoom: 12 });
+      m.once('idle', function () {
+        var mask = window.RaceMap._water ? WxRoute.waterMask(m, list, window.RaceMap._water) : WxRoute.waterMask(m, list);
+        m.fitBounds(b, { padding: 40, duration: 0, maxZoom: 14 });
+        setTimeout(function () {
+          var spd = function (tws, a) { var G = c.guide && Profile.guideAt(c.guide, tws); if (G && G.up && a < G.up.twa - 1) return 0; return Profile.speed(c.polar, tws, a); };
+          var r = WxRoute.route({ pts: list, t0: S.wxT || defT(ev), wind: S.wxD, speed: spd, upMin: 30, mask: mask, tackS: 12, gybeS: 8 });
+          r.land = !!mask; if (!r.ok) r.failName = list[r.failAt] ? list[r.failAt].name : '';
+          S.ideal = r; S.idealBusy = false; showIdeal();
+          var bb = new maplibregl.LngLatBounds(); r.line.forEach(function (q) { bb.extend(q); }); list.forEach(function (q) { bb.extend([q.lon, q.lat]); });
+          if (S.map) S.map.fitBounds(bb, { padding: { top: 30, left: 30, right: 64, bottom: 110 }, duration: 300, maxZoom: 14 });
+          if (miss && window.RA && window.RA.toast) window.RA.toast(miss + ' point' + (miss > 1 ? 's' : '') + ' without coordinates skipped');
+        }, 30);
+      });
+    };
+    if (S.wxD && S.wxT) go(); else ensureWx(ev).then(function () { if (!S.wxT) S.wxT = defT(ev); go(); }).catch(function (e) { S.idealBusy = false; S.idealOn = false; S.keepCam = true; render(); if (window.RA && window.RA.toast) window.RA.toast('No forecast: ' + e.message); });
+  }
   function drawMap(ev) {
     if (!window.Track || !$('rmMap')) return;
     var cam = S.map ? { c: S.map.getCenter().toArray(), z: S.map.getZoom() } : null;
+    if (S.layer) { try { S.layer.destroy(); } catch (e) {} S.layer = null; }
     if (S.map) { try { S.map.remove(); } catch (e) {} S.map = null; S.ready = false; }
     window.Track.lib().then(function () {
       var w = route(ev).wps, b = new maplibregl.LngLatBounds(); w.forEach(function (p) { if (has(p)) b.extend([p.lon, p.lat]); });
@@ -223,6 +287,10 @@
       m.on('load', function () { if (cam && S.keepCam) { S.keepCam = false; m.jumpTo({ center: cam.c, zoom: cam.z }); return; } if (any && !(b.getNorthEast().lat === b.getSouthWest().lat && b.getNorthEast().lng === b.getSouthWest().lng)) m.fitBounds(b, { padding: 40, duration: 0, maxZoom: 15 }); else m.jumpTo({ center: c0, zoom: any ? 13 : 10 }); });
       m.on('style.load', function () {
         if (m.getSource('rl')) return; var F = fc(ev);
+        m.addSource('ideal', { type: 'geojson', data: { type: 'Feature', geometry: { type: 'LineString', coordinates: S.idealOn && S.ideal && S.ideal.line.length > 1 ? S.ideal.line : [[0, 0], [0, 0]] } } });
+        m.addLayer({ id: 'idealC', type: 'line', source: 'ideal', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#00e0c6', 'line-width': 9, 'line-opacity': 0.22 } });
+        m.addLayer({ id: 'ideal', type: 'line', source: 'ideal', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#00e0c6', 'line-width': 2.2, 'line-opacity': 0.95 } });
+        if (S.wxOn && S.wxD && window.WxRoute) { S.layer = WxRoute.Layer(m, $('rmMap')); S.layer.set(S.wxD, S.wxT || defT(ev)); }
         m.addSource('rl', { type: 'geojson', data: F.line }); m.addLayer({ id: 'rl', type: 'line', source: 'rl', paint: { 'line-color': '#00e0c6', 'line-width': 2, 'line-dasharray': [2, 1.5], 'line-opacity': 0.8 } });
         m.addSource('rp', { type: 'geojson', data: F.pts });
         m.addLayer({ id: 'rp', type: 'circle', source: 'rp', paint: { 'circle-radius': ['case', ['==', ['get', 'v'], 1], ['case', ['==', ['get', 'on'], 1], 8, 6], ['==', ['get', 'on'], 1], 11, 8], 'circle-color': ['case', ['==', ['get', 'v'], 1], '#00e0c6', ['match', ['get', 's'], 'P', '#e8413a', 'S', '#2bbf5a', '#c8c8c8']], 'circle-stroke-width': ['case', ['==', ['get', 'on'], 1], 3, 1.5], 'circle-stroke-color': ['case', ['==', ['get', 'on'], 1], '#ffffff', '#05070a'] } });
@@ -257,7 +325,11 @@
           if (window.RA && window.RA.toast) window.RA.toast(lab(route(cur).wps, i) + ' · ' + (nm || 'WP') + ' placed at ' + fmtLL(e.lngLat.lat, 'N', 'S') + ' ' + fmtLL(e.lngLat.lng, 'E', 'W') + '. Drag it in Edit to fine-tune.', null, null, 5000);
           return;
         }
-        if (!S.edit) return; var ll = $('rmNewLL'); if (!ll) return;
+        if (!S.edit) {
+          if (S.wxOn && S.wxD) { var sw = WxRoute.sample(S.wxD, e.lngLat.lat, e.lngLat.lng, S.wxT || Date.now()); S.rd = sw ? '<b>' + Math.round(sw.s) + '</b> kn · G' + Math.round(sw.g) + ' · <b>' + d3(sw.dir) + '°</b>' : 'Outside forecast'; upBar(); }
+          return;
+        }
+        var ll = $('rmNewLL'); if (!ll) return;
         ll.value = fmtLL(e.lngLat.lat, 'N', 'S') + ' ' + fmtLL(e.lngLat.lng, 'E', 'W'); $('rmMsg').textContent = '';
       });
     }).catch(function () { var el = $('rmMap'); if (el) el.innerHTML = '<p class="small" style="padding:12px">Map needs internet.</p>'; });
@@ -269,11 +341,11 @@
     var me = window.RA && window.RA.nav ? window.RA.nav() : null, T = w[Math.min(R.k, w.length - 1)];
     var side = isVia(T) ? '<b class="rm-side via big">VIA · PASS</b>' : T.side === 'P' ? '<b class="rm-side p big">LEAVE TO PORT</b>' : T.side === 'S' ? '<b class="rm-side s big">LEAVE TO STARBOARD</b>' : '<b class="rm-side big">PASS</b>';
     var h = '<div class="rm-me"><div><span>SOG</span><b>' + (me && me.sog !== null && me.sog !== undefined ? me.sog.toFixed(1) : '–') + '</b><i>kn</i></div><div><span>COG</span><b>' + (me && me.hdg !== null && me.hdg !== undefined && me.sog > 0.5 ? d3(me.hdg) + '°' : '–') + '</b></div></div>';
-    h += '<div class="rm-next"><span class="rm-k">' + lab(w, R.k) + '/' + w.filter(function (p) { return !isVia(p); }).length + '</span><b class="rm-tn">' + esc(nmOf(w, R.k)) + '</b>' + side + '</div>';
+    h += '<div class="rm-next"><button class="rm-ar" id="rmKp">‹</button><span class="rm-k">' + lab(w, R.k) + '/' + w.filter(function (p) { return !isVia(p); }).length + '</span><b class="rm-tn">' + esc(nmOf(w, R.k)) + '</b>' + side + '<button class="rm-ar" id="rmKn">›</button></div>';
     if (!has(T)) h += '<p class="small rm-miss">No coordinates for this point. Tap Edit and add them (NoR list of waypoints, or tap the map).</p>';
     else if (me && me.lat) {
       var d = distNm(me, T), b = brg(me, T), vmc = me.sog !== null && me.hdg !== null ? me.sog * Math.cos(rad(nrm(me.hdg - b))) : null, eta = vmc && vmc > 0.3 ? d / vmc * 3600 : null;
-      h += '<div class="rm-nums"><div><span>BRG</span><b>' + d3(b) + '°</b></div><div><span>DST nm</span><b>' + (d < 10 ? d.toFixed(2) : d.toFixed(1)) + '</b></div><div><span>VMC kn</span><b>' + (vmc === null ? '–' : vmc.toFixed(1)) + '</b></div><div><span>ETA</span><b>' + (eta === null ? '–' : (eta >= 3600 ? Math.floor(eta / 3600) + 'h' + ('0' + Math.floor(eta % 3600 / 60)).slice(-2) : Math.floor(eta / 60) + ':' + ('0' + Math.round(eta % 60)).slice(-2))) + '</b></div></div>';
+      h += '<div class="rm-nums"><div><span>BRG</span><b>' + d3(b) + '°</b></div><div><span>DST nm</span><b>' + (d < 10 ? d.toFixed(2) : d.toFixed(1)) + '</b></div><div><span>VMG kn</span><b>' + (vmc === null ? '–' : vmc.toFixed(1)) + '</b></div><div><span>ETA</span><b>' + (eta === null ? '–' : (eta >= 3600 ? Math.floor(eta / 3600) + 'h' + ('0' + Math.floor(eta % 3600 / 60)).slice(-2) : Math.floor(eta / 60) + ':' + ('0' + Math.round(eta % 60)).slice(-2))) + '</b></div></div>';
       // auto-prelazak: ušao u krug obilaska, pa počeo da se udaljava
       var dm = d * 1852;
       if (isVia(T)) {
@@ -296,7 +368,7 @@
       if (S.map && S.ready) { var bt = S.boat = S.boat || []; bt.push([me.lon, me.lat]); if (bt.length > 600) bt.shift(); S.map.getSource('bt').setData({ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'LineString', coordinates: bt.length > 1 ? bt : [[me.lon, me.lat], [me.lon, me.lat]] } }, { type: 'Feature', geometry: { type: 'Point', coordinates: [me.lon, me.lat] } }] }); }
     } else h += '<p class="small">Waiting for GPS…</p>';
     var fi = w.map(function (p) { return p.type; }).lastIndexOf('finish');
-    h += '<div class="row rm-step"><button class="btn sm" id="rmPrev">◀ Prev</button>' + (fi > R.k ? '<button class="btn sm" id="rmFlagC" title="Flag C at the mark: after rounding it, sail directly to the finish">Flag C → finish</button>' : '') + '<button class="btn sm" id="rmCopy">Copy position</button><button class="btn sm" id="rmNext">Next ▶</button></div>';
+    h += '<div class="row rm-step">' + (fi > R.k ? '<button class="btn sm" id="rmFlagC" title="Flag C at the mark: after rounding it, sail directly to the finish">Flag C → finish</button>' : '') + '<button class="btn sm" id="rmCopy">Copy position</button></div>';
     if (R.rep) { if (!S.rep) S.rep = Date.now() + (R.repH || 4) * 3600000; if (Date.now() >= S.rep) { S.rep = Date.now() + (R.repH || 4) * 3600000; if (navigator.vibrate) navigator.vibrate([300, 100, 300]); if (window.RA && window.RA.toast) window.RA.toast('Time to report: tap Copy position and send it to the race WhatsApp group.', null, null, 10000); } }
     nav.innerHTML = h;
   }
@@ -307,11 +379,15 @@
     var box = $('rmBody'); if (!box) return;
     box.addEventListener('click', onClick);
     box.addEventListener('change', onChange);
+    box.addEventListener('input', onInput);
     S.timer = setInterval(function () { var pg = $('p-map'); if (S.fs || (pg && pg.getBoundingClientRect().left > -10 && pg.getBoundingClientRect().left < 10)) tick(); }, 1000);
   }
   function onClick(e) {
       var t = e.target;
       if (t.id === 'rmFs') { S.fs = !S.fs; S.keepCam = true; render(); return; }
+      if (t.id === 'rmWxB') { S.wxOn = !S.wxOn; sset('rmWx', S.wxOn); S.rd = ''; if (S.wxOn && !S.wxD) startWx(curEv()); else { S.keepCam = true; render(); } return; }
+      if (t.id === 'rmIdB') { S.idealOn = !S.idealOn; if (S.idealOn) runIdeal(curEv()); else showIdeal(); return; }
+      if (t.id === 'rmKp' || t.id === 'rmKn') { var e2 = curEv(); if (e2) setK(route(e2).k + (t.id === 'rmKn' ? 1 : -1)); return; }
       if (t.id === 'rmZin' || t.id === 'rmZout') { if (S.map) S.map.zoomTo(S.map.getZoom() + (t.id === 'rmZin' ? 1 : -1), { duration: 200 }); return; }
       if (t.id === 'rmGoNor') { if (window.RA && RA.goPageId) RA.goPageId('p-nor'); return; }
       if (t.id === 'rmLink') { sset('rmEv', $('rmPick').value); render(); return; }
@@ -353,6 +429,9 @@
       if (t.hasAttribute('data-del')) { R.wps.splice(+t.getAttribute('data-del'), 1); if (R.k >= R.wps.length) R.k = Math.max(0, R.wps.length - 1); saveEv(ev); render(); return; }
       if (t.hasAttribute('data-mv')) { var i = +t.closest('[data-i]').getAttribute('data-i'), j = i + (+t.getAttribute('data-mv')); if (j < 0 || j >= R.wps.length) return; var x = R.wps[i]; R.wps[i] = R.wps[j]; R.wps[j] = x; saveEv(ev); render(); return; }
       var g = t.closest('[data-go]'); if (g && !S.edit) setK(+g.getAttribute('data-go'));
+  }
+  function onInput(e) {
+    if (e.target.id === 'rmWxS') { var H = hrs(), t = H[+e.target.value]; if (t) { setWxT(t); if (S.idealOn && S.ideal) { clearTimeout(S.reT); S.reT = setTimeout(function () { var ev = curEv(); if (ev) runIdeal(ev); }, 700); } } }
   }
   function onChange(e) {
       var t = e.target, ev = curEv(); if (!ev) return; var R = route(ev);
