@@ -653,3 +653,4 @@ body.trk-fs-on{overflow:hidden}
 .rm-more>summary{cursor:pointer;color:var(--muted);font-size:13px;padding:8px 2px;list-style:none}
 .rm-more>summary::before{content:'▸ ';color:#00e0c6}
 .rm-more[open]>summary::before{content:'▾ '}
+.trk-fsbtns .icon-btn svg{pointer-events:none;display:block;margin:auto}

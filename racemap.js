@@ -138,7 +138,7 @@
     if (w.length) {
       h += '<div class="rm-stage" id="rmStage"><div class="rm-map' + (S.pick !== null || S.ins !== null ? ' pick' : '') + '" id="rmMap">' + (S.pick !== null && w[S.pick] ? '<div class="rm-pickbar"><span>Tap map: <b>' + lab(w, S.pick) + ' · ' + esc(nmOf(w, S.pick)) + '</b></span><button class="btn sm" id="rmPickX">Cancel</button></div>' :
         S.ins !== null && w[S.ins] ? '<div class="rm-pickbar via"><span>Tap map: via <b>' + viaNext(w, S.ins) + '</b></span><button class="btn sm primary" id="rmPickX">Done</button></div>' : '') +
-        '<div class="trk-fsbtns"><button class="icon-btn" id="rmFs" title="Full screen">' + (S.fs ? '✕' : '⛶') + '</button><button class="icon-btn" id="rmZin">+</button><button class="icon-btn" id="rmZout">−</button><button class="icon-btn' + (S.wxOn ? ' on' : '') + '" id="rmWxB" title="Wind forecast">≋</button><button class="icon-btn' + (S.idealOn ? ' on' : '') + '" id="rmIdB" title="Ideal route">⤳</button></div>' + wxBar() + '</div>';
+        '<div class="trk-fsbtns"><button class="icon-btn" id="rmFs" title="Full screen">' + (S.fs ? '✕' : '⛶') + '</button><button class="icon-btn" id="rmZin">+</button><button class="icon-btn" id="rmZout">−</button><button class="icon-btn' + (S.wxOn ? ' on' : '') + '" id="rmWxB" title="Wind forecast" aria-label="Wind forecast"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 8h11a3 3 0 1 0-3-3"/><path d="M3 12h16a3 3 0 1 1-3 3"/><path d="M3 16h7"/></svg></button><button class="icon-btn' + (S.idealOn ? ' on' : '') + '" id="rmIdB" title="Ideal route" aria-label="Ideal route"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="19" r="2"/><path d="M7 18c4-1 2-6 6-7s3-5 5-6"/><path d="M18 2v6"/><path d="M18 2l4 1.5-4 1.5"/></svg></button></div>' + wxBar() + '</div>';
       h += '<div class="rm-nav" id="rmNav"></div></div>';
     } else h += '<p class="small">No waypoints yet: read them from the SI (AI) above, or add them below.</p>';
     h += '<div class="rm-sec"><div class="rm-head"><h3>ROUTE · ' + (function () { var nv = w.filter(isVia).length, nm = w.length - nv; return nm + ' mark' + (nm === 1 ? '' : 's') + (nv ? ' · ' + nv + ' via' : ''); })() + '</h3></div><div class="' + (S.edit ? '' : 'rm-list') + '">';
@@ -292,11 +292,9 @@
     S.idealBusy = true; upBar();
     var go = function () {
       var m = S.map; if (!m || !S.ready) { setTimeout(go, 300); return; }
-      // maska kopna: pločice za ceo potreban prostor (etapa + rezerva), na što većem zumu
-      var mb = new maplibregl.LngLatBounds(), lb = list.slice(Math.max(0, li - 0)), gb = WxRoute.bbox(lb); mb.extend([gb.lon0, gb.lat0]); mb.extend([gb.lon1, gb.lat1]);
-      m.fitBounds(mb, { padding: 0, duration: 0, maxZoom: 13 });
-      m.once('idle', function () {
-        var mask = window.RaceMap._water ? WxRoute.waterMask(m, lb, window.RaceMap._water) : WxRoute.waterMask(m, lb);
+      var lb = list.slice(Math.max(0, li)), st = m.getStyle(), sk = Object.keys(st.sources).filter(function (k) { return st.sources[k].type === 'vector'; })[0];
+      var mp = window.RaceMap._water ? Promise.resolve(WxRoute.waterMask(m, lb, window.RaceMap._water)) : sk ? WxRoute.maskFor(lb, st.sources[sk]) : Promise.resolve(null);
+      mp.then(function (mask) {
         setTimeout(function () {
           var spd = function (tws, a) { var G = c.guide && Profile.guideAt(c.guide, tws); if (G && G.up && a < G.up.twa - 1) return 0; return Profile.speed(c.polar, tws, a); };
           var O = { wind: S.wxD, speed: spd, upMin: 30, mask: mask, tackS: 12, gybeS: 8 };
@@ -411,13 +409,13 @@
         var passed = dm <= rv || (Pn && dm < 926 && Math.abs(nrm(brg(T, me) - brg(T, Pn))) < 60);
         var mi = nextMark(w, R.k);
         if (mi >= 0 && has(w[mi])) { var along = d, prev = T; for (var z = R.k + 1; z <= mi; z++) if (has(w[z])) { along += distNm(prev, w[z]); prev = w[z]; } h += '<p class="small rm-tomark">Next mark: <b>' + esc(lab(w, mi) + ' · ' + nmOf(w, mi)) + '</b>' + (w[mi].side === 'P' ? ' (PORT)' : w[mi].side === 'S' ? ' (STBD)' : '') + ' · ' + along.toFixed(1) + ' nm along your route</p>'; }
-        if (passed && R.k < w.length - 1) { S.near = false; S.minD = null; S.close = null; R.k++; saveEv(ev); if (window.RA && window.RA.toast) window.RA.toast('Next: ' + lab(w, R.k) + ' · ' + nmOf(w, R.k)); return render(); }
+        if (passed && R.k < w.length - 1) { S.near = false; S.minD = null; S.close = null; R.k++; saveEv(ev); newLeg(); if (window.RA && window.RA.toast) window.RA.toast('Next: ' + lab(w, R.k) + ' · ' + nmOf(w, R.k)); return render(); }
       } else
       // strana obilaska: na najbližem prolasku, da li je tačka levo ili desno od kursa
       if (dm <= R.r) { S.near = true; if (S.minD === null || dm < S.minD) { S.minD = dm; S.close = me.hdg !== null ? nrm(brg(me, T) - me.hdg) : null; } }
       else if (S.near && dm > R.r * 1.3 && R.k < w.length - 1) {
         var was = S.close, ok = !T.side || was === null ? null : (T.side === 'P' ? was < 0 : was > 0);
-        S.near = false; S.minD = null; S.close = null; R.k++; saveEv(ev);
+        S.near = false; S.minD = null; S.close = null; R.k++; saveEv(ev); newLeg();
         if (ok === false) { if (navigator.vibrate) navigator.vibrate([400, 150, 400, 150, 400]); if (window.RA && window.RA.toast) window.RA.toast('⚠ ' + (T.name || 'Mark') + ' looks passed on the WRONG side (should be ' + (T.side === 'P' ? 'PORT' : 'STARBOARD') + '). Check and go back if needed.', null, null, 8000); }
         else if (window.RA && window.RA.toast) window.RA.toast('Next: ' + lab(w, R.k) + ' · ' + nmOf(w, R.k));
         return render();
@@ -428,7 +426,8 @@
     if (R.rep) { if (!S.rep) S.rep = Date.now() + (R.repH || 4) * 3600000; if (Date.now() >= S.rep) { S.rep = Date.now() + (R.repH || 4) * 3600000; if (navigator.vibrate) navigator.vibrate([300, 100, 300]); if (window.RA && window.RA.toast) window.RA.toast('Time to report: tap Copy position and send it to the race WhatsApp group.', null, null, 10000); } }
     nav.innerHTML = h;
   }
-  function setK(k) { var ev = curEv(); if (!ev) return; var R = route(ev); R.k = Math.max(0, Math.min(R.wps.length - 1, k)); S.near = false; S.minD = null; saveEv(ev); render(); }
+  function newLeg() { if (S.idealOn) { S.ideal = null; setTimeout(function () { var e = curEv(); if (e && S.idealOn) runIdeal(e); }, 50); } }
+  function setK(k) { var ev = curEv(); if (!ev) return; var R = route(ev); R.k = Math.max(0, Math.min(R.wps.length - 1, k)); S.near = false; S.minD = null; newLeg(); saveEv(ev); render(); }
 
   /* ---- događaji ---- */
   function bind() {

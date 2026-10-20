@@ -96,8 +96,8 @@
 
   /* ---- kopno: vodeni poligoni iz vektorskih pločica mape → raster maska ---- */
   function waterMask(map, pts, feats) {
-    var g = bbox(pts), W = 900, kx = Math.cos(rad((g.lat0 + g.lat1) / 2)), H = Math.max(200, Math.round(W * (g.lat1 - g.lat0) / ((g.lon1 - g.lon0) * kx)));
-    if (H > 1400) { W = Math.round(W * 1400 / H); H = 1400; }
+    var g = bbox(pts), W = 1400, kx = Math.cos(rad((g.lat0 + g.lat1) / 2)), H = Math.max(200, Math.round(W * (g.lat1 - g.lat0) / ((g.lon1 - g.lon0) * kx)));
+    if (H > 2000) { W = Math.round(W * 2000 / H); H = 2000; }
     if (!feats) { feats = []; try { var src = Object.keys(map.getStyle().sources).filter(function (k) { return map.getStyle().sources[k].type === 'vector'; })[0]; if (src) feats = map.querySourceFeatures(src, { sourceLayer: 'water' }); } catch (e) { feats = []; } }
     feats = feats.filter(function (f) { return f.geometry && /Polygon/.test(f.geometry.type); });
     if (!feats.length) return null;
@@ -122,6 +122,31 @@
     return { wet: function (lat, lon) { var x = Math.floor(X(lon)), y = Math.floor(Y(lat)); if (x < 0 || y < 0 || x >= W || y >= H) return true; return m[y * W + x] === 1; }, n: feats.length };
   }
 
+  // maska iz posebne, nevidljive mape velikog formata (1600 px, pixelRatio 1): pločice na većem zumu nego na ekranu telefona,
+  // i vidljiva mapa se ne pomera. src = definicija vektorskog izvora iz stila vidljive mape.
+  function maskFor(pts, src) {
+    return new Promise(function (res) {
+      var g = bbox(pts), el = document.createElement('div');
+      el.style.cssText = 'position:fixed;left:-20000px;top:0;width:1600px;height:1600px;visibility:hidden;pointer-events:none';
+      document.body.appendChild(el);
+      var done = false, m;
+      var fin = function () { if (done) return; done = true; var mk = null; try { mk = waterMask(m, pts); } catch (e) {} try { m.remove(); } catch (e) {} el.remove(); res(mk); };
+      try {
+        m = new maplibregl.Map({ container: el, pixelRatio: 1, interactive: false, attributionControl: false, fadeDuration: 0,
+          style: { version: 8, sources: { openmaptiles: src }, layers: [{ id: 'w', type: 'fill', source: 'openmaptiles', 'source-layer': 'water', paint: { 'fill-color': '#fff' } }] },
+          bounds: [[g.lon0, g.lat0], [g.lon1, g.lat1]], maxZoom: 13 });
+        m.once('idle', fin); setTimeout(fin, 15000);
+      } catch (e) { el.remove(); res(null); }
+    });
+  }
+  // koliko je tačka (oznaka na steni / ostrvcu) udaljena od mora, u metrima (0 = u moru)
+  function dryR(mask, p) {
+    if (!mask || mask.wet(p.lat, p.lon)) return 0;
+    var kx = Math.cos(rad(p.lat)) * 111320, ky = 110540;
+    for (var r = 25; r <= 1500; r += 25) for (var a = 0; a < 360; a += 10) if (mask.wet(p.lat + Math.cos(rad(a)) * r / ky, p.lon + Math.sin(rad(a)) * r / kx)) return r;
+    return 1500;
+  }
+
   /* ---- idealna ruta: izohrone po etapama ---- */
   function route(opts) {
     // opts: { pts:[{lat,lon,name}], t0 (ms), wind (grid), P (polar), upMin (°), mask, tackS, gybeS }
@@ -140,7 +165,7 @@
     var dt = D > 30000 ? 600 : 300, SEC = 180, maxSteps = Math.ceil(48 * 3600 / dt);
     var toLL = function (x, y) { return { lat: A.lat + y / ky, lon: A.lon + x / kx }; };
     // oznake su često na stenama / hridima (npr. "isolated danger") ili uz obalu: oko početka i cilja etape (300 m) kopno se ne proverava
-    var END = 300, clear = function (x1, y1, x2, y2) { if (!o.mask) return true; var n = Math.max(2, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / 60)); for (var i = 1; i <= n; i++) { var x = x1 + (x2 - x1) * i / n, y = y1 + (y2 - y1) * i / n; if (Math.hypot(x, y) < END || Math.hypot(bx - x, by - y) < END) continue; var ll = toLL(x, y); if (!o.mask.wet(ll.lat, ll.lon)) return false; } return true; };
+    var EA = dryR(o.mask, A) + 40, EB = dryR(o.mask, B) + 40, clear = function (x1, y1, x2, y2) { if (!o.mask) return true; var n = Math.max(2, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / 30)); for (var i = 1; i <= n; i++) { var x = x1 + (x2 - x1) * i / n, y = y1 + (y2 - y1) * i / n; if (Math.hypot(x, y) < EA || Math.hypot(bx - x, by - y) < EB) continue; var ll = toLL(x, y); if (!o.mask.wet(ll.lat, ll.lon)) return false; } return true; };
     var front = [{ x: 0, y: 0, t: t0, side: 0, tk: 0, par: null }], best = null;
     for (var step = 0; step < maxSteps && front.length; step++) {
       var next = new Array(SEC), arrivals = [];
@@ -171,5 +196,5 @@
     return { t: best.t, path: path, times: times, tacks: best.tk };
   }
 
-  window.WxRoute = { bbox: bbox, fetchGrid: fetchGrid, sample: sample, Layer: Layer, waterMask: waterMask, route: route, model: function () { return sget('wxModel', 'best_match'); } };
+  window.WxRoute = { maskFor: maskFor, bbox: bbox, fetchGrid: fetchGrid, sample: sample, Layer: Layer, waterMask: waterMask, route: route, model: function () { return sget('wxModel', 'best_match'); } };
 })();
