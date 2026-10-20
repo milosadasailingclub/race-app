@@ -96,7 +96,7 @@
     for (var j = hit; j < parts.length; j++) { var body = parts[j].split(/\r?\n/).slice(1).join('\n'); if (/\S/.test(body.replace(/^\s*Race course.*$/gim, ''))) return body; }
     return txt;
   }
-  var S = { map: null, ready: false, edit: false, timer: null, boat: null, near: false, minD: null, close: null, paste: false, rep: null };
+  var S = { map: null, ready: false, edit: false, timer: null, boat: null, near: false, minD: null, close: null, paste: false, rep: null, pick: null, drag: null };
 
   function docsOf(ev) {
     return new Promise(function (res) {
@@ -122,15 +122,16 @@
       '<div class="row"><select id="rmTpl"><option value="">…or a course we already read</option>' + (function () { var c = myCls(), mine = [], oth = []; TEMPLATES.forEach(function (t, i) { (c && t.cls.indexOf(c) >= 0 ? mine : oth).push('<option value="' + i + '">' + esc(t.name) + '</option>'); }); return (mine.length ? '<optgroup label="Your class">' + mine.join('') + '</optgroup>' : '') + (oth.length ? '<optgroup label="Other classes">' + oth.join('') + '</optgroup>' : ''); })() + '</select></div><div class="row"><button class="btn primary" id="rmImport">Create course</button><button class="btn" id="rmPasteX">Cancel</button>' + (ev.courses.length > 1 || w.length ? '<button class="btn danger" id="rmCDel">Delete this course</button>' : '') + '</div><p class="small" id="rmPMsg">Points without coordinates (natural marks named in the SI) are marked orange: add their coordinates from the NoR list of waypoints or by tapping the map.</p></div>';
     if (w.length) {
       h += '<div class="rm-nav" id="rmNav"></div>';
-      if (w.some(has)) h += '<div class="rm-map" id="rmMap"></div>';
+      h += '<div class="rm-map' + (S.pick !== null ? ' pick' : '') + '" id="rmMap">' + (S.pick !== null && w[S.pick] ? '<div class="rm-pickbar"><span>Tap the map where <b>' + (S.pick + 1) + ' · ' + esc(w[S.pick].name || 'WP') + '</b> is' + (pickHint(R, w[S.pick]) ? '<small>' + esc(pickHint(R, w[S.pick])) + '</small>' : '') + '</span><button class="btn sm" id="rmPickX">Cancel</button></div>' : '') + '</div>';
+      if (S.edit && S.pick === null && w.some(has)) h += '<p class="small">Edit mode: drag a point on the map to move it.</p>';
     } else h += '<p class="small">No waypoints yet. Add them below (from the SI), or read them from the SI when AI reading is ready.</p>';
     h += '<div class="rm-sec"><div class="rm-head"><h3>ROUTE · ' + w.length + ' point' + (w.length === 1 ? '' : 's') + '</h3><button class="btn sm" id="rmEdit">' + (S.edit ? 'Done' : 'Edit') + '</button></div>';
     h += w.map(function (p, i) {
       var side = p.side === 'P' ? '<b class="rm-side p">PORT</b>' : p.side === 'S' ? '<b class="rm-side s">STBD</b>' : '<b class="rm-side">PASS</b>';
-      if (!S.edit) return '<div class="rm-wp' + (i === R.k ? ' on' : '') + '" data-go="' + i + '"><span class="rm-n">' + (i + 1) + '</span><span class="rm-nm">' + esc(p.name || 'WP ' + (i + 1)) + (has(p) ? '<small>' + fmtLL(p.lat, 'N', 'S') + ' ' + fmtLL(p.lon, 'E', 'W') + '</small>' : '<small class="rm-miss">no coordinates yet · tap Edit</small>') + '</span>' + (p.type === 'start' ? '<b class="rm-side">START</b>' : p.type === 'finish' ? '<b class="rm-side">FINISH</b>' : side) + '</div>';
+      if (!S.edit) return '<div class="rm-wp' + (i === R.k ? ' on' : '') + '" data-go="' + i + '"><span class="rm-n">' + (i + 1) + '</span><span class="rm-nm">' + esc(p.name || 'WP ' + (i + 1)) + (has(p) ? '<small>' + fmtLL(p.lat, 'N', 'S') + ' ' + fmtLL(p.lon, 'E', 'W') + '</small>' : '<small class="rm-miss">no coordinates yet</small>') + '</span>' + (has(p) ? '' : '<button class="btn sm rm-pin" data-pick="' + i + '">📍 Set on map</button>') + (p.type === 'start' ? '<b class="rm-side">START</b>' : p.type === 'finish' ? '<b class="rm-side">FINISH</b>' : side) + '</div>';
       return '<div class="rm-wp ed" data-i="' + i + '"><span class="rm-n">' + (i + 1) + '</span><div class="rm-edf"><input class="rm-in" data-f="name" value="' + esc(p.name || '') + '" placeholder="Name"><input class="rm-in" data-f="ll" value="' + (has(p) ? esc(fmtLL(p.lat, 'N', 'S') + ' ' + fmtLL(p.lon, 'E', 'W')) : '') + '" placeholder="45°07.407′N 13°36.200′E">' +
         '<div class="row"><select class="rm-in" data-f="side"><option value="P"' + (p.side === 'P' ? ' selected' : '') + '>Leave to PORT</option><option value="S"' + (p.side === 'S' ? ' selected' : '') + '>Leave to STARBOARD</option><option value=""' + (!p.side ? ' selected' : '') + '>Pass (no rounding)</option></select>' +
-        '<button class="icon-btn" data-mv="-1">↑</button><button class="icon-btn" data-mv="1">↓</button><button class="cl-del" data-del="' + i + '">✕</button></div></div></div>';
+        '<button class="icon-btn" data-pick="' + i + '" title="Place on the map">📍</button><button class="icon-btn" data-mv="-1">↑</button><button class="icon-btn" data-mv="1">↓</button><button class="cl-del" data-del="' + i + '">✕</button></div></div></div>';
     }).join('');
     if (S.edit) h += '<div class="rm-add"><input id="rmNewName" placeholder="Name (e.g. Mark 3)"><input id="rmNewLL" placeholder="Coordinates, e.g. 45 07.407 N 13 36.200 E"><div class="row"><select id="rmNewSide"><option value="P">Leave to PORT</option><option value="S">Leave to STARBOARD</option><option value="">Pass</option></select><button class="btn" id="rmHere">📍 Here</button><button class="btn primary" id="rmAdd">+ Add</button></div><p class="small" id="rmMsg">Tip: you can also tap the map to place a point while editing.</p>' +
       '<label class="small">Rounding radius <input id="rmRad" type="number" min="15" max="2000" step="5" value="' + R.r + '" style="width:70px"> m (when you are this close the next point is selected; for islands use 300–1000 m)</label></div>';
@@ -146,7 +147,7 @@
         '<span class="small">This event has no NoR / SI yet: add them on the <b>NOR / SI</b> page, or enter the course here.</span>';
       if (si.length) el.querySelector('button').title = 'SI found: ' + si[0].name;
     });
-    if (w.some(has)) { drawMap(ev); } tick();
+    if (w.length) { drawMap(ev); } tick();
   }
 
   /* ---- AI: staza moje klase iz NoR / SI dokumenata eventa ---- */
@@ -180,15 +181,28 @@
     var w = route(ev).wps, k = route(ev).k;
     var wc = w.filter(has), lc = wc.map(function (p) { return [p.lon, p.lat]; });
     return { line: { type: 'Feature', geometry: { type: 'LineString', coordinates: lc.length > 1 ? lc : [[0, 0], [0, 0]] } },
-      pts: { type: 'FeatureCollection', features: w.map(function (p, i) { return has(p) ? { type: 'Feature', properties: { n: String(i + 1), s: p.side || '', on: i === k ? 1 : 0 }, geometry: { type: 'Point', coordinates: [p.lon, p.lat] } } : null; }).filter(Boolean) } };
+      pts: { type: 'FeatureCollection', features: w.map(function (p, i) { return has(p) ? { type: 'Feature', properties: { i: i, n: String(i + 1), s: p.side || '', on: i === k ? 1 : 0 }, geometry: { type: 'Point', coordinates: [p.lon, p.lat] } } : null; }).filter(Boolean) } };
   }
+  function pickHint(R, p) {
+    if (p.type === 'start' && R.start && R.start.desc) return 'SI: ' + R.start.desc;
+    if (p.type === 'finish' && R.finish && R.finish.desc) return 'SI: ' + R.finish.desc;
+    return p.note || '';
+  }
+  function setPt(ev, i, lat, lon) {
+    var R = route(ev), p = R.wps[i]; if (!p) return;
+    p.lat = Math.round(lat * 1e6) / 1e6; p.lon = Math.round(lon * 1e6) / 1e6; p.src = 'map'; saveEv(ev);
+  }
+  function refresh(ev) { var c = fc(ev); if (S.map && S.ready) { S.map.getSource('rl').setData(c.line); S.map.getSource('rp').setData(c.pts); } }
   function drawMap(ev) {
     if (!window.Track || !$('rmMap')) return;
+    var cam = S.map ? { c: S.map.getCenter().toArray(), z: S.map.getZoom() } : null;
     if (S.map) { try { S.map.remove(); } catch (e) {} S.map = null; S.ready = false; }
     window.Track.lib().then(function () {
       var w = route(ev).wps, b = new maplibregl.LngLatBounds(); w.forEach(function (p) { if (has(p)) b.extend([p.lon, p.lat]); });
-      var m = window.Track.makeMap($('rmMap'), b.getCenter().toArray()); S.map = m;
-      m.on('load', function () { m.fitBounds(b, { padding: 40, duration: 0, maxZoom: 15 }); });
+      var me = window.RA && window.RA.nav ? window.RA.nav() : null, any = !b.isEmpty();
+      var c0 = any ? b.getCenter().toArray() : ev.loc && ev.loc.lon !== undefined ? [ev.loc.lon, ev.loc.lat] : me && me.lat ? [me.lon, me.lat] : [15.2, 44.0];
+      var m = window.Track.makeMap($('rmMap'), c0); S.map = m;
+      m.on('load', function () { if (cam && S.keepCam) { S.keepCam = false; m.jumpTo({ center: cam.c, zoom: cam.z }); return; } if (any && !(b.getNorthEast().lat === b.getSouthWest().lat && b.getNorthEast().lng === b.getSouthWest().lng)) m.fitBounds(b, { padding: 40, duration: 0, maxZoom: 15 }); else m.jumpTo({ center: c0, zoom: any ? 13 : 10 }); });
       m.on('style.load', function () {
         if (m.getSource('rl')) return; var F = fc(ev);
         m.addSource('rl', { type: 'geojson', data: F.line }); m.addLayer({ id: 'rl', type: 'line', source: 'rl', paint: { 'line-color': '#00e0c6', 'line-width': 2, 'line-dasharray': [2, 1.5], 'line-opacity': 0.8 } });
@@ -200,7 +214,25 @@
         m.addLayer({ id: 'bt', type: 'circle', source: 'bt', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 6, 'circle-color': '#ffffff', 'circle-stroke-width': 2, 'circle-stroke-color': '#05070a' } });
         S.ready = true; tick();
       });
+      // povlačenje tačke u Edit režimu
+      function dragStart(e) {
+        if (!S.edit || S.pick !== null || !e.features || !e.features.length) return;
+        e.preventDefault(); S.drag = +e.features[0].properties.i; m.getCanvas().style.cursor = 'grabbing';
+        var mv = function (ev2) { var cur = curEv(); if (!cur || S.drag === null) return; setPt(cur, S.drag, ev2.lngLat.lat, ev2.lngLat.lng); refresh(cur); };
+        var up = function () { m.off('mousemove', mv); m.off('touchmove', mv); m.getCanvas().style.cursor = ''; var cur = curEv(), was = S.drag; S.drag = null; S.dragEnd = Date.now(); if (cur && was !== null) { saveEv(cur); S.keepCam = true; render(); } };
+        m.on('mousemove', mv); m.on('touchmove', mv); m.once('mouseup', up); m.once('touchend', up);
+      }
+      m.on('mousedown', 'rp', dragStart); m.on('touchstart', 'rp', function (e) { if (e.points && e.points.length !== 1) return; dragStart(e); });
+      m.on('mouseenter', 'rp', function () { if (S.edit) m.getCanvas().style.cursor = 'grab'; });
+      m.on('mouseleave', 'rp', function () { m.getCanvas().style.cursor = ''; });
       m.on('click', function (e) {
+        if (S.dragEnd && Date.now() - S.dragEnd < 400) return;
+        if (S.pick !== null) {
+          var cur = curEv(); if (!cur) return; var i = S.pick, nm = route(cur).wps[i] && route(cur).wps[i].name; S.pick = null;
+          setPt(cur, i, e.lngLat.lat, e.lngLat.lng); S.keepCam = true; render();
+          if (window.RA && window.RA.toast) window.RA.toast((i + 1) + ' · ' + (nm || 'WP') + ' placed at ' + fmtLL(e.lngLat.lat, 'N', 'S') + ' ' + fmtLL(e.lngLat.lng, 'E', 'W') + '. Drag it in Edit to fine-tune.', null, null, 5000);
+          return;
+        }
         if (!S.edit) return; var ll = $('rmNewLL'); if (!ll) return;
         ll.value = fmtLL(e.lngLat.lat, 'N', 'S') + ' ' + fmtLL(e.lngLat.lng, 'E', 'W'); $('rmMsg').textContent = 'Point placed from the map. Name it and tap + Add.';
       });
@@ -246,6 +278,8 @@
       if (t.id === 'rmGoNor') { if (window.RA && RA.goPageId) RA.goPageId('p-nor'); return; }
       if (t.id === 'rmLink') { sset('rmEv', $('rmPick').value); render(); return; }
       var ev = curEv(); if (!ev) return; var R = route(ev);
+      if (t.id === 'rmPickX') { S.pick = null; S.keepCam = true; render(); return; }
+      if (t.hasAttribute('data-pick')) { S.pick = +t.getAttribute('data-pick'); S.keepCam = true; render(); var mp = $('rmMap'); if (mp) mp.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
       if (t.id === 'rmEdit') { S.edit = !S.edit; render(); return; }
       if (t.id === 'rmAI') { readAI(ev); return; }
       if (t.id === 'rmUnlink') { sset('rmEv', null); S.paste = false; S.edit = false; render(); return; }
@@ -295,6 +329,6 @@
     });
     S.timer = setInterval(function () { var pg = $('p-map'); if (pg && pg.getBoundingClientRect().left > -10 && pg.getBoundingClientRect().left < 10) tick(); }, 1000);
   }
-  window.RaceMap = { render: render, parsePair: parsePair, parseOne: parseOne, parseCourse: parseCourse, pickSection: pickSection };
+  window.RaceMap = { _s: function () { return S; }, render: render, parsePair: parsePair, parseOne: parseOne, parseCourse: parseCourse, pickSection: pickSection };
   if (document.readyState !== 'loading') { bind(); render(); } else document.addEventListener('DOMContentLoaded', function () { bind(); render(); });
 })();

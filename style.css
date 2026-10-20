@@ -605,3 +605,9 @@ body.trk-fs-on{overflow:hidden}
 .rm-note{display:flex;flex-direction:column;gap:3px;border-left:3px solid #2fa3d6;background:var(--surface);border-radius:6px;padding:8px 10px;margin:8px 0;font-size:13px}
 .rm-note.warn{border-left-color:#ffb020}
 .rm-note span{color:var(--muted)}
+
+.rm-map.pick{outline:2px solid #ffb020;outline-offset:-2px}
+.rm-map.pick .maplibregl-canvas{cursor:crosshair}
+.rm-pickbar{position:absolute;z-index:5;left:8px;right:8px;top:8px;display:flex;gap:8px;align-items:center;justify-content:space-between;background:rgba(5,7,10,.88);border:1px solid #ffb020;border-radius:8px;padding:8px 10px;font-size:13px}
+.rm-pickbar small{display:block;color:var(--mut,#8a969d);font-size:11px;margin-top:2px}
+.rm-pin{margin-left:auto;white-space:nowrap;border-color:#ffb020!important;color:#ffb020!important}
