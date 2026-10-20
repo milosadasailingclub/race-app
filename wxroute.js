@@ -106,7 +106,8 @@
     c.fillStyle = '#fff';
     feats.forEach(function (f) {
       var polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
-      polys.forEach(function (rings) { c.beginPath(); rings.forEach(function (r) { r.forEach(function (p, i) { if (i) c.lineTo(X(p[0]), Y(p[1])); else c.moveTo(X(p[0]), Y(p[1])); }); c.closePath(); }); c.fill('evenodd'); });
+      // svi prstenovi jednog objekta u jednu putanju (evenodd): ostrva su rupe čak i kad ih biblioteka vrati kao zasebne poligone
+      c.beginPath(); polys.forEach(function (rings) { rings.forEach(function (r) { r.forEach(function (p, i) { if (i) c.lineTo(X(p[0]), Y(p[1])); else c.moveTo(X(p[0]), Y(p[1])); }); c.closePath(); }); }); c.fill('evenodd');
     });
     var px = c.getImageData(0, 0, W, H).data, m = new Uint8Array(W * H);
     for (var i = 0; i < W * H; i++) m[i] = px[i * 4 + 3] > 100 ? 1 : 0;
