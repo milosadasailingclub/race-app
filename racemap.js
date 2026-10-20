@@ -50,7 +50,8 @@
   function isVia(p) { return !!p && p.type === 'via'; }
   // oznaka: zvanične tačke 1, 2, 3 …; via tačke (naše, za stvarnu putanju) 1.1, 1.2 … posle tačke 1
   function lab(w, i) { var n = 0, v = 0; for (var j = 0; j <= i && j < w.length; j++) { if (isVia(w[j])) v++; else { n++; v = 0; } } return isVia(w[i]) ? n + '.' + v : String(n); }
-  function nmOf(w, i) { var p = w[i]; return p ? (p.name || (isVia(p) ? 'Via ' + lab(w, i) : 'WP ' + lab(w, i))) : ''; }
+  function clean(n) { return String(n || '').replace(/\s*\([^)]*(not named|diagram|course map)[^)]*\)/ig, '').trim(); }
+  function nmOf(w, i) { var p = w[i]; return p ? (clean(p.name) || (isVia(p) ? 'Via ' + lab(w, i) : 'WP ' + lab(w, i))) : ''; }
   function viaNext(w, i) { var a = lab(w, i).split('.'); return a[0] + '.' + ((+a[1] || 0) + 1); }
   function nextMark(w, k) { for (var j = k; j < w.length; j++) if (!isVia(w[j])) return j; return -1; }
   function has(p) { return p && p.lat !== null && p.lat !== undefined && p.lon !== null && p.lon !== undefined; }
@@ -128,36 +129,34 @@
     h += '<div class="rm-docs" id="rmDocs"><span class="small">Documents from this event…</span></div>';
     h += '<div class="row rm-cs"><select id="rmCourse">' + ev.courses.map(function (c, i) { return '<option value="' + i + '"' + (i === ev.ci ? ' selected' : '') + '>' + esc(c.name) + ' (' + c.wps.length + ')</option>'; }).join('') + '</select><button class="btn sm" id="rmPasteBtn">+ Course</button></div>';
     if (S.paste) h += '<div class="rm-paste"><input id="rmCName" placeholder="Course name (e.g. First 18 / 24)"><textarea id="rmPasteTxt" rows="7" placeholder="Paste the course list from the SI (only your class is used), one point per line:\nStart\nZ isolated danger NW of Iž (STBD)\nOtočič Mrtovnjak (STBD) 44.010643, 15.175301\n…\nFinish"></textarea>' +
-      '<div class="row"><select id="rmTpl"><option value="">…or a course we already read</option>' + (function () { var c = myCls(), mine = [], oth = []; TEMPLATES.forEach(function (t, i) { (c && t.cls.indexOf(c) >= 0 ? mine : oth).push('<option value="' + i + '">' + esc(t.name) + '</option>'); }); return (mine.length ? '<optgroup label="Your class">' + mine.join('') + '</optgroup>' : '') + (oth.length ? '<optgroup label="Other classes">' + oth.join('') + '</optgroup>' : ''); })() + '</select></div><div class="row"><button class="btn primary" id="rmImport">Create course</button><button class="btn" id="rmPasteX">Cancel</button>' + (ev.courses.length > 1 || w.length ? '<button class="btn danger" id="rmCDel">Delete this course</button>' : '') + '</div><p class="small" id="rmPMsg">Points without coordinates (natural marks named in the SI) are marked orange: add their coordinates from the NoR list of waypoints or by tapping the map.</p></div>';
-    if (R.warnings && R.warnings.length) h += '<div class="rm-note warn"><b>Check</b>' + R.warnings.map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('') + '</div>';
-    h += '<label class="small rm-rep"><input type="checkbox" id="rmRep"' + (R.rep ? ' checked' : '') + '> Remind me to report position every ' + (R.repH || 4) + ' h (SI: progress update)</label></div>';
+      '<div class="row"><select id="rmTpl"><option value="">…or a course we already read</option>' + (function () { var c = myCls(), mine = [], oth = []; TEMPLATES.forEach(function (t, i) { (c && t.cls.indexOf(c) >= 0 ? mine : oth).push('<option value="' + i + '">' + esc(t.name) + '</option>'); }); return (mine.length ? '<optgroup label="Your class">' + mine.join('') + '</optgroup>' : '') + (oth.length ? '<optgroup label="Other classes">' + oth.join('') + '</optgroup>' : ''); })() + '</select></div><div class="row"><button class="btn primary" id="rmImport">Create course</button><button class="btn" id="rmPasteX">Cancel</button>' + (ev.courses.length > 1 || w.length ? '<button class="btn danger" id="rmCDel">Delete this course</button>' : '') + '</div><p class="small" id="rmPMsg"></p></div>';
+    h += '<label class="small rm-rep"><input type="checkbox" id="rmRep"' + (R.rep ? ' checked' : '') + '> Position report reminder · ' + (R.repH || 4) + ' h</label></div>';
     }
     if (w.length) {
-      h += '<div class="rm-stage" id="rmStage"><div class="rm-map' + (S.pick !== null || S.ins !== null ? ' pick' : '') + '" id="rmMap">' + (S.pick !== null && w[S.pick] ? '<div class="rm-pickbar"><span>Tap the map where <b>' + lab(w, S.pick) + ' · ' + esc(nmOf(w, S.pick)) + '</b> is' + (pickHint(R, w[S.pick]) ? '<small>' + esc(pickHint(R, w[S.pick])) + '</small>' : '') + '</span><button class="btn sm" id="rmPickX">Cancel</button></div>' :
-        S.ins !== null && w[S.ins] ? '<div class="rm-pickbar via"><span>Tap the map to add via point <b>' + viaNext(w, S.ins) + '</b><small>between ' + esc(nmOf(w, S.ins)) + ' and ' + esc(nextMark(w, S.ins + 1) >= 0 ? nmOf(w, nextMark(w, S.ins + 1)) : 'the end') + '. Keep tapping to add more, in sailing order.</small></span><button class="btn sm primary" id="rmPickX">Done</button></div>' : '') +
+      h += '<div class="rm-stage" id="rmStage"><div class="rm-map' + (S.pick !== null || S.ins !== null ? ' pick' : '') + '" id="rmMap">' + (S.pick !== null && w[S.pick] ? '<div class="rm-pickbar"><span>Tap map: <b>' + lab(w, S.pick) + ' · ' + esc(nmOf(w, S.pick)) + '</b></span><button class="btn sm" id="rmPickX">Cancel</button></div>' :
+        S.ins !== null && w[S.ins] ? '<div class="rm-pickbar via"><span>Tap map: via <b>' + viaNext(w, S.ins) + '</b></span><button class="btn sm primary" id="rmPickX">Done</button></div>' : '') +
         '<div class="trk-fsbtns"><button class="icon-btn" id="rmFs" title="Full screen">' + (S.fs ? '✕' : '⛶') + '</button><button class="icon-btn" id="rmZin">+</button><button class="icon-btn" id="rmZout">−</button></div></div>';
       h += '<div class="rm-nav" id="rmNav"></div></div>';
-      if (S.edit && S.pick === null && S.ins === null && w.some(has)) h += '<p class="small">Edit mode: drag a point on the map to move it. Use <b>+ via</b> between points to route around land, shallows or wind shadows.</p>';
     } else h += '<p class="small">No waypoints yet: read them from the SI (AI) above, or add them below.</p>';
     h += '<div class="rm-sec"><div class="rm-head"><h3>ROUTE · ' + (function () { var nv = w.filter(isVia).length, nm = w.length - nv; return nm + ' mark' + (nm === 1 ? '' : 's') + (nv ? ' · ' + nv + ' via' : ''); })() + '</h3></div><div class="' + (S.edit ? '' : 'rm-list') + '">';
     h += w.map(function (p, i) {
       var side = isVia(p) ? '<b class="rm-side via">VIA</b>' : p.side === 'P' ? '<b class="rm-side p">PORT</b>' : p.side === 'S' ? '<b class="rm-side s">STBD</b>' : '<b class="rm-side">PASS</b>', L = lab(w, i), vc = isVia(p) ? ' via' : '';
       var insB = S.edit && i < w.length - 1 ? '<button class="rm-insv" data-ins="' + i + '">+ via ' + viaNext(w, i) + '</button>' : '';
       if (!S.edit) return '<div class="rm-wp' + vc + (i === R.k ? ' on' : '') + '" data-go="' + i + '"><span class="rm-n">' + L + '</span><span class="rm-nm">' + esc(nmOf(w, i)) + (has(p) ? legTxt(w, i) : '<small class="rm-miss">no coordinates yet</small>') + '</span>' + (has(p) ? '' : '<button class="btn sm rm-pin" data-pick="' + i + '">📍 Set on map</button>') + (p.type === 'start' ? '<b class="rm-side">START</b>' : p.type === 'finish' ? '<b class="rm-side">FINISH</b>' : side) + '</div>';
-      return '<div class="rm-wp ed' + vc + '" data-i="' + i + '"><span class="rm-n">' + L + '</span><div class="rm-edf"><input class="rm-in" data-f="name" value="' + esc(p.name || '') + '" placeholder="' + (isVia(p) ? 'Via ' + L + ' (name optional)' : 'Name') + '"><input class="rm-in" data-f="ll" value="' + (has(p) ? esc(fmtLL(p.lat, 'N', 'S') + ' ' + fmtLL(p.lon, 'E', 'W')) : '') + '" placeholder="45°07.407′N 13°36.200′E">' +
+      return '<div class="rm-wp ed' + vc + '" data-i="' + i + '"><span class="rm-n">' + L + '</span><div class="rm-edf"><input class="rm-in" data-f="name" value="' + esc(clean(p.name)) + '" placeholder="' + (isVia(p) ? 'Via ' + L + ' (name optional)' : 'Name') + '"><input class="rm-in" data-f="ll" value="' + (has(p) ? esc(fmtLL(p.lat, 'N', 'S') + ' ' + fmtLL(p.lon, 'E', 'W')) : '') + '" placeholder="45°07.407′N 13°36.200′E">' +
         '<div class="row">' + (isVia(p) ? '<span class="small rm-vt">Via point · pass, no rounding</span>' : '<select class="rm-in" data-f="side"><option value="P"' + (p.side === 'P' ? ' selected' : '') + '>Leave to PORT</option><option value="S"' + (p.side === 'S' ? ' selected' : '') + '>Leave to STARBOARD</option><option value=""' + (!p.side ? ' selected' : '') + '>Pass (no rounding)</option></select>') +
         '<button class="icon-btn" data-pick="' + i + '" title="Place on the map">📍</button><button class="icon-btn" data-mv="-1">↑</button><button class="icon-btn" data-mv="1">↓</button><button class="cl-del" data-del="' + i + '">✕</button></div></div></div>' + insB;
     }).join('');
-    if (S.edit) h += '<div class="rm-add"><input id="rmNewName" placeholder="Name (e.g. Mark 3)"><input id="rmNewLL" placeholder="Coordinates, e.g. 45 07.407 N 13 36.200 E"><div class="row"><select id="rmNewSide"><option value="P">Leave to PORT</option><option value="S">Leave to STARBOARD</option><option value="">Pass</option></select><button class="btn" id="rmHere">📍 Here</button><button class="btn primary" id="rmAdd">+ Add</button></div><p class="small" id="rmMsg">Tip: you can also tap the map to place a point while editing.</p>' +
-      '<label class="small">Rounding radius <input id="rmRad" type="number" min="15" max="2000" step="5" value="' + R.r + '" style="width:70px"> m (when you are this close the next point is selected; for islands use 300–1000 m)</label></div>';
+    if (S.edit) h += '<div class="rm-add"><input id="rmNewName" placeholder="Name (e.g. Mark 3)"><input id="rmNewLL" placeholder="Coordinates, e.g. 45 07.407 N 13 36.200 E"><div class="row"><select id="rmNewSide"><option value="P">Leave to PORT</option><option value="S">Leave to STARBOARD</option><option value="">Pass</option></select><button class="btn" id="rmHere">📍 Here</button><button class="btn primary" id="rmAdd">+ Add</button></div><p class="small" id="rmMsg"></p>' +
+      '<label class="small">Rounding radius <input id="rmRad" type="number" min="15" max="2000" step="5" value="' + R.r + '" style="width:70px"> m</label></div>';
     h += '</div></div>';
     box.innerHTML = h;
     if (S.fs && $('rmStage')) { var st = $('rmStage'); document.body.appendChild(st); st.classList.add('fs'); document.body.classList.add('trk-fs-on'); st.addEventListener('click', onClick); }
     if (setup) docsOf(ev).then(function (d) {
       var el = $('rmDocs'); if (!el) return;
       var si = d.filter(function (x) { return /\bsi\b|sailing.?instr|upute|instruc/i.test(x.name || ''); });
-      el.innerHTML = d.length ? '<span class="small">From the event: ' + d.map(function (x) { return '<b>' + esc(x.name) + '</b>'; }).join(', ') + '</span> <button class="btn sm primary" id="rmAI">' + (S.aiBusy ? 'Reading the SI… 20–60 s' : 'Read course from SI (AI)') + '</button>' :
-        '<span class="small">This event has no NoR / SI yet: add them on the <b>NOR / SI</b> page, or enter the course here.</span>';
+      el.innerHTML = d.length ? '<button class="btn sm primary" id="rmAI">' + (S.aiBusy ? 'Reading the SI… 20–60 s' : 'Read course from SI (AI)') + '</button>' :
+        '<span class="small">No SI yet: upload it on the NOR / SI page.</span>';
       if (si.length) el.querySelector('button').title = 'SI found: ' + si[0].name;
     });
     if (w.length) { drawMap(ev); } tick();
@@ -178,7 +177,7 @@
       .then(function (j) {
         var A = j.summary, side = { port: 'P', starboard: 'S' }, list = (A.waypoints || []).slice().sort(function (a, b) { return (a.seq || 0) - (b.seq || 0); }).map(function (w) {
           var ty = /start/i.test(w.type) ? 'start' : /finish/i.test(w.type) ? 'finish' : 'mark', ok = typeof w.lat === 'number' && typeof w.lon === 'number' && Math.abs(w.lat) <= 90 && Math.abs(w.lon) <= 180;
-          return { name: ((w.id ? w.id + ' ' : '') + (w.name || '')).trim() || 'Point ' + w.seq, lat: ok ? w.lat : null, lon: ok ? w.lon : null, side: ty === 'mark' ? side[String(w.side || '').toLowerCase()] || '' : '', type: ty, note: w.note || '' };
+          return { name: clean((w.id ? w.id + ' ' : '') + (w.name || '')) || 'Point ' + w.seq, lat: ok ? w.lat : null, lon: ok ? w.lon : null, side: ty === 'mark' ? side[String(w.side || '').toLowerCase()] || '' : '', type: ty, note: w.note || '' };
         });
         if (!list.length) throw new Error('No course found in the documents');
         var cur0 = route(ev); if (!cur0.wps.length && ev.courses.length === 1) ev.courses = [];
@@ -259,7 +258,7 @@
           return;
         }
         if (!S.edit) return; var ll = $('rmNewLL'); if (!ll) return;
-        ll.value = fmtLL(e.lngLat.lat, 'N', 'S') + ' ' + fmtLL(e.lngLat.lng, 'E', 'W'); $('rmMsg').textContent = 'Point placed from the map. Name it and tap + Add.';
+        ll.value = fmtLL(e.lngLat.lat, 'N', 'S') + ' ' + fmtLL(e.lngLat.lng, 'E', 'W'); $('rmMsg').textContent = '';
       });
     }).catch(function () { var el = $('rmMap'); if (el) el.innerHTML = '<p class="small" style="padding:12px">Map needs internet.</p>'; });
   }

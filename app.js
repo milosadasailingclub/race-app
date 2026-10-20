@@ -1,7 +1,7 @@
-/* The Race App — v0.9.76 */
+/* The Race App — v0.9.77 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.76';
+  var APP_VERSION = '0.9.77';
   // skriveni developer mod: 7 tapova na broj verzije (prikazuje trošak AI obrade samo vlasniku)
   (function () {
     var n = 0, t0 = 0, el = document.getElementById('version'); if (!el) return;
