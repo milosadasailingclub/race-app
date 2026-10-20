@@ -102,15 +102,23 @@
     feats = feats.filter(function (f) { return f.geometry && /Polygon/.test(f.geometry.type); });
     if (!feats.length) return null;
     var cv = document.createElement('canvas'); cv.width = W; cv.height = H; var c = cv.getContext('2d');
+    var cv2 = document.createElement('canvas'); cv2.width = W; cv2.height = H; var c2 = cv2.getContext('2d');
     var X = function (lon) { return (lon - g.lon0) / (g.lon1 - g.lon0) * W; }, Y = function (lat) { return (g.lat1 - lat) / (g.lat1 - g.lat0) * H; };
-    c.fillStyle = '#fff';
+    var tLon = function (x, z) { return x / Math.pow(2, z) * 360 - 180; }, tLat = function (y, z) { var n = Math.PI * (1 - 2 * y / Math.pow(2, z)); return Math.atan(Math.sinh(n)) * 180 / Math.PI; };
+    c.fillStyle = '#fff'; c2.fillStyle = '#fff';
     feats.forEach(function (f) {
       var polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
+      c.save();
+      // pločice imaju preklop (buffer) na ivicama: svaku crtamo samo unutar njenih granica, inače preko ostrva ostane pruga "vode"
+      if (f._z !== undefined) { var x0 = X(tLon(f._x, f._z)), x1 = X(tLon(f._x + 1, f._z)), y0 = Y(tLat(f._y, f._z)), y1 = Y(tLat(f._y + 1, f._z)); c.beginPath(); c.rect(x0, y0, x1 - x0, y1 - y0); c.clip(); c2.fillRect(x0, y0, x1 - x0, y1 - y0); }
       // svi prstenovi jednog objekta u jednu putanju (evenodd): ostrva su rupe čak i kad ih biblioteka vrati kao zasebne poligone
       c.beginPath(); polys.forEach(function (rings) { rings.forEach(function (r) { r.forEach(function (p, i) { if (i) c.lineTo(X(p[0]), Y(p[1])); else c.moveTo(X(p[0]), Y(p[1])); }); c.closePath(); }); }); c.fill('evenodd');
+      c.restore();
     });
-    var px = c.getImageData(0, 0, W, H).data, m = new Uint8Array(W * H);
-    for (var i = 0; i < W * H; i++) m[i] = px[i * 4 + 3] > 100 ? 1 : 0;
+    var hasT = feats.some(function (f) { return f._z !== undefined; });
+    var px = c.getImageData(0, 0, W, H).data, pc = c2.getImageData(0, 0, W, H).data, m = new Uint8Array(W * H);
+    // 1 = voda, 0 = kopno; deo bez učitanih pločica računamo kao vodu (bolje nego lažno kopno)
+    for (var i = 0; i < W * H; i++) m[i] = px[i * 4 + 3] > 100 || (hasT && pc[i * 4 + 3] < 100) ? 1 : 0;
     return { wet: function (lat, lon) { var x = Math.floor(X(lon)), y = Math.floor(Y(lat)); if (x < 0 || y < 0 || x >= W || y >= H) return true; return m[y * W + x] === 1; }, n: feats.length };
   }
 
@@ -163,5 +171,5 @@
     return { t: best.t, path: path, times: times, tacks: best.tk };
   }
 
-  window.WxRoute = { fetchGrid: fetchGrid, sample: sample, Layer: Layer, waterMask: waterMask, route: route, model: function () { return sget('wxModel', 'best_match'); } };
+  window.WxRoute = { bbox: bbox, fetchGrid: fetchGrid, sample: sample, Layer: Layer, waterMask: waterMask, route: route, model: function () { return sget('wxModel', 'best_match'); } };
 })();

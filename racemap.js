@@ -286,20 +286,22 @@
       if (!has(w[R.k])) li = Math.max(0, li);
     }
     if (list.length < 2 || li >= list.length - 1) { S.idealOn = false; upBar(); return; }
+    // računamo samo do sledeće zvanične tačke posle izabrane (kroz via tačke)
+    var to0 = li + 1; while (to0 < list.length - 1 && list[to0].via) to0++;
+    list = list.slice(0, to0 + 1);
     S.idealBusy = true; upBar();
     var go = function () {
       var m = S.map; if (!m || !S.ready) { setTimeout(go, 300); return; }
-      var b = new maplibregl.LngLatBounds(); list.forEach(function (p) { b.extend([p.lon, p.lat]); });
-      m.fitBounds(b, { padding: 30, duration: 0, maxZoom: 12 });
+      // maska kopna: pločice za ceo potreban prostor (etapa + rezerva), na što većem zumu
+      var mb = new maplibregl.LngLatBounds(), lb = list.slice(Math.max(0, li - 0)), gb = WxRoute.bbox(lb); mb.extend([gb.lon0, gb.lat0]); mb.extend([gb.lon1, gb.lat1]);
+      m.fitBounds(mb, { padding: 0, duration: 0, maxZoom: 13 });
       m.once('idle', function () {
-        var mask = window.RaceMap._water ? WxRoute.waterMask(m, list, window.RaceMap._water) : WxRoute.waterMask(m, list);
+        var mask = window.RaceMap._water ? WxRoute.waterMask(m, lb, window.RaceMap._water) : WxRoute.waterMask(m, lb);
         setTimeout(function () {
           var spd = function (tws, a) { var G = c.guide && Profile.guideAt(c.guide, tws); if (G && G.up && a < G.up.twa - 1) return 0; return Profile.speed(c.polar, tws, a); };
           var O = { wind: S.wxD, speed: spd, upMin: 30, mask: mask, tackS: 12, gybeS: 8 };
           var t0 = live ? Date.now() : (startAt(ev) || defT(ev)), last = S.wxD.t[S.wxD.t.length - 1], r, est = false;
           if (t0 > last) { S.ideal = { ok: false, msg: 'Start is after the end of the forecast (72 h)' }; S.idealBusy = false; showIdeal(); return; }
-          var to0 = li + 1; while (to0 < list.length - 1 && list[to0].via) to0++;
-          list = list.slice(0, to0 + 1);
           r = WxRoute.route(Object.assign({ pts: list, t0: t0 }, O));
           if (!live && li > 0 && (!r.ok && r.failAt <= li)) {
             // ruta pre izabrane tačke ne prolazi: računaj od nje, vreme dolaska procenjeno (4 čv)
