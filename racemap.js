@@ -124,6 +124,7 @@
     var R = route(ev), w = R.wps, setup = S.edit || !w.length;
     var old = document.querySelector('body > #rmStage'); if (old) old.remove(); document.body.classList.remove('trk-fs-on');
     var h = '<div class="rm-top"><b>' + esc((ev.summary && ev.summary.event) || ev.name) + '</b><span class="small">' + esc(ev.courses.length > 1 || setup ? R.name || '' : '') + '</span><button class="btn sm" id="rmEdit">' + (S.edit ? 'Done' : 'Edit') + '</button></div>';
+    var h0 = h, sh = ''; h = '';
     if (setup) {
     h += '<div class="rm-setup"><div class="row"><span class="small">Event: <b>' + esc((ev.summary && ev.summary.event) || ev.name) + '</b></span><button class="btn sm" id="rmUnlink">Change event</button></div>';
     h += '<div class="rm-docs" id="rmDocs"><span class="small">Documents from this event…</span></div>';
@@ -135,6 +136,7 @@
     h += '<div class="row"><button class="btn sm" id="rmFlagC">Flag C → go to finish</button><button class="btn sm" id="rmCopy">Copy position</button></div>';
     h += '<label class="small rm-rep"><input type="checkbox" id="rmRep"' + (R.rep ? ' checked' : '') + '> Position report reminder · ' + (R.repH || 4) + ' h</label></div>';
     }
+    sh = h; h = h0; if (!w.length) h += sh;
     if (w.length) {
       h += '<div class="rm-stage" id="rmStage"><div class="rm-map' + (S.pick !== null || S.ins !== null ? ' pick' : '') + '" id="rmMap">' + (S.pick !== null && w[S.pick] ? '<div class="rm-pickbar"><span>Tap map: <b>' + lab(w, S.pick) + ' · ' + esc(nmOf(w, S.pick)) + '</b></span><button class="btn sm" id="rmPickX">Cancel</button></div>' :
         S.ins !== null && w[S.ins] ? '<div class="rm-pickbar via"><span>Tap map: via <b>' + viaNext(w, S.ins) + '</b></span><button class="btn sm primary" id="rmPickX">Done</button></div>' : '') +
@@ -153,6 +155,7 @@
     if (S.edit) h += '<div class="rm-add"><input id="rmNewName" placeholder="Name (e.g. Mark 3)"><input id="rmNewLL" placeholder="Coordinates, e.g. 45 07.407 N 13 36.200 E"><div class="row"><select id="rmNewSide"><option value="P">Leave to PORT</option><option value="S">Leave to STARBOARD</option><option value="">Pass</option></select><button class="btn" id="rmHere">📍 Here</button><button class="btn primary" id="rmAdd">+ Add</button></div><p class="small" id="rmMsg"></p>' +
       '<label class="small">Rounding radius <input id="rmRad" type="number" min="15" max="2000" step="5" value="' + R.r + '" style="width:70px"> m</label></div>';
     h += '</div></div>';
+    if (S.edit && w.length) h += '<details class="rm-more"><summary>Event, SI, start time</summary>' + sh + '</details>';
     box.innerHTML = h;
     if (S.fs && $('rmStage')) { var st = $('rmStage'); document.body.appendChild(st); st.classList.add('fs'); document.body.classList.add('trk-fs-on'); st.addEventListener('click', onClick); st.addEventListener('input', onInput); }
     if (setup) docsOf(ev).then(function (d) {
