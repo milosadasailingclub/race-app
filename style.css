@@ -601,3 +601,7 @@ body.trk-fs-on{overflow:hidden}
 .pg-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}
 .pg-row label{display:flex;gap:8px;align-items:center}
 .pg-row .icon-btn.sm{width:34px;height:34px;font-size:16px;margin-left:4px}
+
+.rm-note{display:flex;flex-direction:column;gap:3px;border-left:3px solid #2fa3d6;background:var(--surface);border-radius:6px;padding:8px 10px;margin:8px 0;font-size:13px}
+.rm-note.warn{border-left-color:#ffb020}
+.rm-note span{color:var(--muted)}

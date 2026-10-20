@@ -130,18 +130,47 @@
     }).join('');
     if (S.edit) h += '<div class="rm-add"><input id="rmNewName" placeholder="Name (e.g. Mark 3)"><input id="rmNewLL" placeholder="Coordinates, e.g. 45 07.407 N 13 36.200 E"><div class="row"><select id="rmNewSide"><option value="P">Leave to PORT</option><option value="S">Leave to STARBOARD</option><option value="">Pass</option></select><button class="btn" id="rmHere">📍 Here</button><button class="btn primary" id="rmAdd">+ Add</button></div><p class="small" id="rmMsg">Tip: you can also tap the map to place a point while editing.</p>' +
       '<label class="small">Rounding radius <input id="rmRad" type="number" min="15" max="2000" step="5" value="' + R.r + '" style="width:70px"> m (when you are this close the next point is selected; for islands use 300–1000 m)</label></div>';
+    if (R.warnings && R.warnings.length) h += '<div class="rm-note warn"><b>Check</b>' + R.warnings.map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('') + '</div>';
+    if (R.rules && R.rules.length) h += '<div class="rm-note"><b>From the SI</b>' + R.rules.map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('') + '</div>';
+    if (R.start && R.start.desc) h += '<p class="small">Start: ' + esc(R.start.desc) + (R.finish && R.finish.desc ? '<br>Finish: ' + esc(R.finish.desc) : '') + '</p>';
     h += '</div>';
     box.innerHTML = h;
     docsOf(ev).then(function (d) {
       var el = $('rmDocs'); if (!el) return;
       var si = d.filter(function (x) { return /\bsi\b|sailing.?instr|upute|instruc/i.test(x.name || ''); });
-      el.innerHTML = d.length ? '<span class="small">From the event: ' + d.map(function (x) { return '<b>' + esc(x.name) + '</b>'; }).join(', ') + '</span> <button class="btn sm" disabled title="AI reading of courses is coming">Read course from SI (AI) · soon</button>' :
+      el.innerHTML = d.length ? '<span class="small">From the event: ' + d.map(function (x) { return '<b>' + esc(x.name) + '</b>'; }).join(', ') + '</span> <button class="btn sm primary" id="rmAI">' + (S.aiBusy ? 'Reading the SI… 20–60 s' : 'Read course from SI (AI)') + '</button>' :
         '<span class="small">This event has no NoR / SI yet: add them on the <b>NOR / SI</b> page, or enter the course here.</span>';
       if (si.length) el.querySelector('button').title = 'SI found: ' + si[0].name;
     });
     if (w.some(has)) { drawMap(ev); } tick();
   }
 
+  /* ---- AI: staza moje klase iz NoR / SI dokumenata eventa ---- */
+  function toB64(blob) { return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(String(r.result).split(',')[1]); }; r.onerror = function () { rej(r.error); }; r.readAsDataURL(blob); }); }
+  function aiUrl() { return (sget('aiUrl', '') || 'https://race-app-ai.milos-0e2.workers.dev').replace(/\/+$/, ''); }
+  function readAI(ev) {
+    var PR = window.Profile, c = PR && PR.current(), cls = c ? c.name : '';
+    if (!cls && !confirm('No boat class in Settings → My boat. Read the first course in the SI?')) return;
+    S.aiBusy = true; render();
+    docsOf(ev).then(function (d) {
+      if (!d.length) throw new Error('Add the NoR / SI on the NOR / SI page first');
+      return Promise.all(d.slice(0, 6).map(function (x) { var t = (x.blob && x.blob.type) || (/\.pdf$/i.test(x.name) ? 'application/pdf' : 'image/jpeg'); return toB64(x.blob).then(function (b) { return { name: x.name, type: t, data: b }; }); }));
+    }).then(function (docs) { return fetch(aiUrl() + '/course', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: ev.name, cls: cls, docs: docs }) }); })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.summary) throw new Error(j.error || ('Server error ' + r.status)); return j; }); })
+      .then(function (j) {
+        var A = j.summary, side = { port: 'P', starboard: 'S' }, list = (A.waypoints || []).slice().sort(function (a, b) { return (a.seq || 0) - (b.seq || 0); }).map(function (w) {
+          var ty = /start/i.test(w.type) ? 'start' : /finish/i.test(w.type) ? 'finish' : 'mark', ok = typeof w.lat === 'number' && typeof w.lon === 'number' && Math.abs(w.lat) <= 90 && Math.abs(w.lon) <= 180;
+          return { name: ((w.id ? w.id + ' ' : '') + (w.name || '')).trim() || 'Point ' + w.seq, lat: ok ? w.lat : null, lon: ok ? w.lon : null, side: ty === 'mark' ? side[String(w.side || '').toLowerCase()] || '' : '', type: ty, note: w.note || '' };
+        });
+        if (!list.length) throw new Error('No course found in the documents');
+        var cur0 = route(ev); if (!cur0.wps.length && ev.courses.length === 1) ev.courses = [];
+        ev.courses.push({ name: (A.class_used || cls || 'Course') + ' (AI)', wps: list, k: 0, r: 50, rules: A.rules || [], warnings: A.warnings || [], start: A.start || null, finish: A.finish || null, ai: { at: Date.now(), usage: j.usage || null } });
+        ev.ci = ev.courses.length - 1; S.aiBusy = false; saveEv(ev); render();
+        var miss = list.filter(function (p) { return !has(p); }).length;
+        if (window.RA && window.RA.toast) window.RA.toast('Course read: ' + list.length + ' points' + (miss ? ' · ' + miss + ' without coordinates' : '') + '. Check it before the race.', null, null, 6000);
+      })
+      .catch(function (e) { S.aiBusy = false; render(); if (window.RA && window.RA.toast) window.RA.toast('Could not read the course: ' + e.message, null, null, 6000); });
+  }
   /* ---- mapa ---- */
   function fc(ev) {
     var w = route(ev).wps, k = route(ev).k;
@@ -213,6 +242,7 @@
       if (t.id === 'rmLink') { sset('rmEv', $('rmPick').value); render(); return; }
       var ev = curEv(); if (!ev) return; var R = route(ev);
       if (t.id === 'rmEdit') { S.edit = !S.edit; render(); return; }
+      if (t.id === 'rmAI') { readAI(ev); return; }
       if (t.id === 'rmUnlink') { sset('rmEv', null); S.paste = false; S.edit = false; render(); return; }
       if (t.id === 'rmPasteBtn') { S.paste = !S.paste; render(); var c = myCls(), ti = TEMPLATES.map(function (x) { return x.cls.indexOf(c) >= 0; }).indexOf(true); if (S.paste && ti >= 0 && $('rmTpl')) { $('rmTpl').value = String(ti); $('rmCName').value = TEMPLATES[ti].name; } return; }
       if (t.id === 'rmPasteX') { S.paste = false; render(); return; }
