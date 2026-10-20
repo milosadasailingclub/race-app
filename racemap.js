@@ -37,8 +37,35 @@
   function events() { return sget('norEvents', []); }
   function curEv() { var id = sget('norCur', null), e = events(); return e.filter(function (x) { return x.id === id; })[0] || e[0] || null; }
   function saveEv(ev) { sset('norEvents', events().map(function (x) { return x.id === ev.id ? ev : x; })); }
-  function route(ev) { ev.route = ev.route || { wps: [], k: 0, r: 50 }; return ev.route; }
-  var S = { map: null, ready: false, edit: false, timer: null, boat: null, near: false, minD: null };
+  // više staza po eventu (po klasama); aktivna staza = ev.courses[ev.ci]
+  function route(ev) {
+    if (!ev.courses) { ev.courses = [Object.assign({ name: 'Course', wps: [], k: 0, r: 50 }, ev.route || {})]; delete ev.route; ev.ci = 0; }
+    if (!ev.courses.length) ev.courses.push({ name: 'Course', wps: [], k: 0, r: 50 });
+    ev.ci = Math.max(0, Math.min(ev.courses.length - 1, ev.ci || 0)); return ev.courses[ev.ci];
+  }
+  function has(p) { return p && p.lat !== null && p.lat !== undefined && p.lon !== null && p.lon !== undefined; }
+  /* ---- uvoz staze iz teksta SI-ja: red po tački, "Ime (STBD) 44.01, 15.17" / "Ime (PORT)" / Start / Finish ---- */
+  function parseCourse(txt) {
+    var out = [];
+    String(txt || '').split(/\r?\n/).forEach(function (l) {
+      l = l.replace(/\s+/g, ' ').trim(); if (!l) return;
+      var side = /\((?:STBD|STARBOARD|S|DESNO)\)|\bSTBD\b|\bSTARBOARD\b/i.test(l) ? 'S' : /\((?:PORT|P|LIJEVO|LEVO)\)|\bPORT\b/i.test(l) ? 'P' : '';
+      var rest = l.replace(/\((?:STBD|STARBOARD|PORT|S|P|DESNO|LIJEVO|LEVO)\)/ig, ' ').replace(/\b(?:STBD|STARBOARD|PORT)\b/ig, ' ').trim();
+      var ll = null, m = rest.match(/(-?\d{1,2}[.,]\d+)\s*[,;]?\s+(-?\d{1,3}[.,]\d+)\s*$/);
+      if (m) { ll = { lat: parseFloat(m[1].replace(',', '.')), lon: parseFloat(m[2].replace(',', '.')) }; rest = rest.slice(0, m.index).trim(); }
+      else { var m2 = rest.match(/([NS]?\s*\d{1,2}[°\s]+\d{1,2}[.,]\d+.*)$/i); if (m2) { var q = parsePair(m2[1]); if (q) { ll = q; rest = rest.slice(0, m2.index).trim(); } } }
+      var name = rest.replace(/^\(NEW\)\s*/i, '').replace(/[,;:]+$/, '').trim(); if (!name || /^(race course|list of|start\s*&)/i.test(name)) return;
+      var type = /^start\b/i.test(name) ? 'start' : /^finish\b|^cilj\b/i.test(name) ? 'finish' : 'mark';
+      out.push({ name: name, lat: ll ? ll.lat : null, lon: ll ? ll.lon : null, side: type === 'mark' ? side : '', type: type });
+    });
+    return out;
+  }
+  // staze iz SI-ja koje smo već pročitali (The Challenge 2026, Jezera / Murter); tačke bez koordinata dopunjava korisnik
+  var TEMPLATES = [
+    { name: 'The Challenge 2026 · First 18 / 24', txt: 'Start\nZ isolated danger NW of Iž (STBD)\nOtočič Mrtovnjak (STBD) 44.010643, 15.175301\nOtočič Krknata (PORT) 43.966763, 15.138605\nD Lavdara mala island (PORT)\nE Balabra mala island (STBD)\nFinish' },
+    { name: 'The Challenge 2026 · First 27', txt: 'Start\nM Hrid Mišine (PORT)\nE2 Brusnjak island (STBD)\nE1 Hrid Galiolica (PORT)\nZ isolated danger NW of Iž (STBD)\nOtočič Mrtovnjak (STBD) 44.010643, 15.175301\nOtočič Krknata (PORT) 43.966763, 15.138605\nD Lavdara mala island (PORT)\nE Balabra mala island (STBD)\nO Hrid Mala Mare (STBD)\nK Mrtovnjak island (STBD)\nFinish' }
+  ];
+  var S = { map: null, ready: false, edit: false, timer: null, boat: null, near: false, minD: null, close: null, paste: false, rep: null };
 
   function docsOf(ev) {
     return new Promise(function (res) {
@@ -53,20 +80,23 @@
     var R = route(ev), w = R.wps;
     var h = '<div class="nor-title"><b>RACE MAP</b><span>' + esc((ev.summary && ev.summary.event) || ev.name) + '</span></div>';
     h += '<div class="rm-docs" id="rmDocs"><span class="small">Documents from this event…</span></div>';
+    h += '<div class="row rm-cs"><select id="rmCourse">' + ev.courses.map(function (c, i) { return '<option value="' + i + '"' + (i === ev.ci ? ' selected' : '') + '>' + esc(c.name) + ' (' + c.wps.length + ')</option>'; }).join('') + '</select><button class="btn sm" id="rmPasteBtn">+ Course</button></div>';
+    if (S.paste) h += '<div class="rm-paste"><input id="rmCName" placeholder="Course name (e.g. First 18 / 24)"><textarea id="rmPasteTxt" rows="7" placeholder="Paste the course list from the SI, one point per line:\nStart\nZ isolated danger NW of Iž (STBD)\nOtočič Mrtovnjak (STBD) 44.010643, 15.175301\n…\nFinish"></textarea>' +
+      '<div class="row"><select id="rmTpl"><option value="">…or a course we already read</option>' + TEMPLATES.map(function (t, i) { return '<option value="' + i + '">' + esc(t.name) + '</option>'; }).join('') + '</select></div><div class="row"><button class="btn primary" id="rmImport">Create course</button><button class="btn" id="rmPasteX">Cancel</button>' + (ev.courses.length > 1 || w.length ? '<button class="btn danger" id="rmCDel">Delete this course</button>' : '') + '</div><p class="small" id="rmPMsg">Points without coordinates (natural marks named in the SI) are marked orange: add their coordinates from the NoR list of waypoints or by tapping the map.</p></div>';
     if (w.length) {
       h += '<div class="rm-nav" id="rmNav"></div>';
-      h += '<div class="rm-map" id="rmMap"></div>';
+      if (w.some(has)) h += '<div class="rm-map" id="rmMap"></div>';
     } else h += '<p class="small">No waypoints yet. Add them below (from the SI), or read them from the SI when AI reading is ready.</p>';
     h += '<div class="rm-sec"><div class="rm-head"><h3>ROUTE · ' + w.length + ' point' + (w.length === 1 ? '' : 's') + '</h3><button class="btn sm" id="rmEdit">' + (S.edit ? 'Done' : 'Edit') + '</button></div>';
     h += w.map(function (p, i) {
       var side = p.side === 'P' ? '<b class="rm-side p">PORT</b>' : p.side === 'S' ? '<b class="rm-side s">STBD</b>' : '<b class="rm-side">PASS</b>';
-      if (!S.edit) return '<div class="rm-wp' + (i === R.k ? ' on' : '') + '" data-go="' + i + '"><span class="rm-n">' + (i + 1) + '</span><span class="rm-nm">' + esc(p.name || 'WP ' + (i + 1)) + '<small>' + fmtLL(p.lat, 'N', 'S') + ' ' + fmtLL(p.lon, 'E', 'W') + '</small></span>' + side + '</div>';
-      return '<div class="rm-wp ed" data-i="' + i + '"><span class="rm-n">' + (i + 1) + '</span><div class="rm-edf"><input class="rm-in" data-f="name" value="' + esc(p.name || '') + '" placeholder="Name"><input class="rm-in" data-f="ll" value="' + esc(fmtLL(p.lat, 'N', 'S') + ' ' + fmtLL(p.lon, 'E', 'W')) + '" placeholder="45°07.407′N 13°36.200′E">' +
+      if (!S.edit) return '<div class="rm-wp' + (i === R.k ? ' on' : '') + '" data-go="' + i + '"><span class="rm-n">' + (i + 1) + '</span><span class="rm-nm">' + esc(p.name || 'WP ' + (i + 1)) + (has(p) ? '<small>' + fmtLL(p.lat, 'N', 'S') + ' ' + fmtLL(p.lon, 'E', 'W') + '</small>' : '<small class="rm-miss">no coordinates yet · tap Edit</small>') + '</span>' + (p.type === 'start' ? '<b class="rm-side">START</b>' : p.type === 'finish' ? '<b class="rm-side">FINISH</b>' : side) + '</div>';
+      return '<div class="rm-wp ed" data-i="' + i + '"><span class="rm-n">' + (i + 1) + '</span><div class="rm-edf"><input class="rm-in" data-f="name" value="' + esc(p.name || '') + '" placeholder="Name"><input class="rm-in" data-f="ll" value="' + (has(p) ? esc(fmtLL(p.lat, 'N', 'S') + ' ' + fmtLL(p.lon, 'E', 'W')) : '') + '" placeholder="45°07.407′N 13°36.200′E">' +
         '<div class="row"><select class="rm-in" data-f="side"><option value="P"' + (p.side === 'P' ? ' selected' : '') + '>Leave to PORT</option><option value="S"' + (p.side === 'S' ? ' selected' : '') + '>Leave to STARBOARD</option><option value=""' + (!p.side ? ' selected' : '') + '>Pass (no rounding)</option></select>' +
         '<button class="icon-btn" data-mv="-1">↑</button><button class="icon-btn" data-mv="1">↓</button><button class="cl-del" data-del="' + i + '">✕</button></div></div></div>';
     }).join('');
     if (S.edit) h += '<div class="rm-add"><input id="rmNewName" placeholder="Name (e.g. Mark 3)"><input id="rmNewLL" placeholder="Coordinates, e.g. 45 07.407 N 13 36.200 E"><div class="row"><select id="rmNewSide"><option value="P">Leave to PORT</option><option value="S">Leave to STARBOARD</option><option value="">Pass</option></select><button class="btn" id="rmHere">📍 Here</button><button class="btn primary" id="rmAdd">+ Add</button></div><p class="small" id="rmMsg">Tip: you can also tap the map to place a point while editing.</p>' +
-      '<label class="small">Rounding radius <input id="rmRad" type="number" min="15" max="300" step="5" value="' + R.r + '" style="width:70px"> m (when you are this close the next point is selected)</label></div>';
+      '<label class="small">Rounding radius <input id="rmRad" type="number" min="15" max="2000" step="5" value="' + R.r + '" style="width:70px"> m (when you are this close the next point is selected; for islands use 300–1000 m)</label></div>';
     h += '</div>';
     box.innerHTML = h;
     docsOf(ev).then(function (d) {
@@ -76,20 +106,21 @@
         '<span class="small">No documents in this event yet. Add the SI on the <b>NOR / SI</b> page (it is linked here), or enter the waypoints by hand.</span>';
       if (si.length) el.querySelector('button').title = 'SI found: ' + si[0].name;
     });
-    if (w.length) { drawMap(ev); tick(); }
+    if (w.some(has)) { drawMap(ev); } tick();
   }
 
   /* ---- mapa ---- */
   function fc(ev) {
     var w = route(ev).wps, k = route(ev).k;
-    return { line: { type: 'Feature', geometry: { type: 'LineString', coordinates: w.map(function (p) { return [p.lon, p.lat]; }) } },
-      pts: { type: 'FeatureCollection', features: w.map(function (p, i) { return { type: 'Feature', properties: { n: String(i + 1), s: p.side || '', on: i === k ? 1 : 0 }, geometry: { type: 'Point', coordinates: [p.lon, p.lat] } }; }) } };
+    var wc = w.filter(has), lc = wc.map(function (p) { return [p.lon, p.lat]; });
+    return { line: { type: 'Feature', geometry: { type: 'LineString', coordinates: lc.length > 1 ? lc : [[0, 0], [0, 0]] } },
+      pts: { type: 'FeatureCollection', features: w.map(function (p, i) { return has(p) ? { type: 'Feature', properties: { n: String(i + 1), s: p.side || '', on: i === k ? 1 : 0 }, geometry: { type: 'Point', coordinates: [p.lon, p.lat] } } : null; }).filter(Boolean) } };
   }
   function drawMap(ev) {
     if (!window.Track || !$('rmMap')) return;
     if (S.map) { try { S.map.remove(); } catch (e) {} S.map = null; S.ready = false; }
     window.Track.lib().then(function () {
-      var w = route(ev).wps, b = new maplibregl.LngLatBounds(); w.forEach(function (p) { b.extend([p.lon, p.lat]); });
+      var w = route(ev).wps, b = new maplibregl.LngLatBounds(); w.forEach(function (p) { if (has(p)) b.extend([p.lon, p.lat]); });
       var m = window.Track.makeMap($('rmMap'), b.getCenter().toArray()); S.map = m;
       m.on('load', function () { m.fitBounds(b, { padding: 40, duration: 0, maxZoom: 15 }); });
       m.on('style.load', function () {
@@ -116,16 +147,27 @@
     var me = window.RA && window.RA.nav ? window.RA.nav() : null, T = w[Math.min(R.k, w.length - 1)];
     var side = T.side === 'P' ? '<b class="rm-side p big">LEAVE TO PORT</b>' : T.side === 'S' ? '<b class="rm-side s big">LEAVE TO STARBOARD</b>' : '<b class="rm-side big">PASS</b>';
     var h = '<div class="rm-next"><span class="rm-k">' + (R.k + 1) + '/' + w.length + '</span><b class="rm-tn">' + esc(T.name || 'WP ' + (R.k + 1)) + '</b>' + side + '</div>';
-    if (me && me.lat) {
+    if (!has(T)) h += '<p class="small rm-miss">No coordinates for this point. Tap Edit and add them (NoR list of waypoints, or tap the map).</p>';
+    else if (me && me.lat) {
       var d = distNm(me, T), b = brg(me, T), vmc = me.sog !== null && me.hdg !== null ? me.sog * Math.cos(rad(nrm(me.hdg - b))) : null, eta = vmc && vmc > 0.3 ? d / vmc * 3600 : null;
       h += '<div class="rm-nums"><div><span>BRG</span><b>' + d3(b) + '°</b></div><div><span>DST nm</span><b>' + (d < 10 ? d.toFixed(2) : d.toFixed(1)) + '</b></div><div><span>VMC kn</span><b>' + (vmc === null ? '–' : vmc.toFixed(1)) + '</b></div><div><span>ETA</span><b>' + (eta === null ? '–' : (eta >= 3600 ? Math.floor(eta / 3600) + 'h' + ('0' + Math.floor(eta % 3600 / 60)).slice(-2) : Math.floor(eta / 60) + ':' + ('0' + Math.round(eta % 60)).slice(-2))) + '</b></div></div>';
       // auto-prelazak: ušao u krug obilaska, pa počeo da se udaljava
       var dm = d * 1852;
-      if (dm <= R.r) { S.near = true; S.minD = S.minD === null ? dm : Math.min(S.minD, dm); }
-      else if (S.near && dm > R.r * 1.3 && R.k < w.length - 1) { S.near = false; S.minD = null; R.k++; saveEv(ev); if (window.RA && window.RA.toast) window.RA.toast('Next: ' + (w[R.k].name || 'WP ' + (R.k + 1))); return render(); }
+      // strana obilaska: na najbližem prolasku, da li je tačka levo ili desno od kursa
+      if (dm <= R.r) { S.near = true; if (S.minD === null || dm < S.minD) { S.minD = dm; S.close = me.hdg !== null ? nrm(brg(me, T) - me.hdg) : null; } }
+      else if (S.near && dm > R.r * 1.3 && R.k < w.length - 1) {
+        var was = S.close, ok = !T.side || was === null ? null : (T.side === 'P' ? was < 0 : was > 0);
+        S.near = false; S.minD = null; S.close = null; R.k++; saveEv(ev);
+        if (ok === false) { if (navigator.vibrate) navigator.vibrate([400, 150, 400, 150, 400]); if (window.RA && window.RA.toast) window.RA.toast('⚠ ' + (T.name || 'Mark') + ' looks passed on the WRONG side (should be ' + (T.side === 'P' ? 'PORT' : 'STARBOARD') + '). Check and go back if needed.', null, null, 8000); }
+        else if (window.RA && window.RA.toast) window.RA.toast('Next: ' + (w[R.k].name || 'WP ' + (R.k + 1)));
+        return render();
+      }
       if (S.map && S.ready) { var bt = S.boat = S.boat || []; bt.push([me.lon, me.lat]); if (bt.length > 600) bt.shift(); S.map.getSource('bt').setData({ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'LineString', coordinates: bt.length > 1 ? bt : [[me.lon, me.lat], [me.lon, me.lat]] } }, { type: 'Feature', geometry: { type: 'Point', coordinates: [me.lon, me.lat] } }] }); }
     } else h += '<p class="small">Waiting for GPS…</p>';
-    h += '<div class="row rm-step"><button class="btn sm" id="rmPrev">◀ Prev</button><button class="btn sm" id="rmNext">Next ▶</button></div>';
+    var fi = w.map(function (p) { return p.type; }).lastIndexOf('finish');
+    h += '<div class="row rm-step"><button class="btn sm" id="rmPrev">◀ Prev</button>' + (fi > R.k ? '<button class="btn sm" id="rmFlagC" title="Flag C at the mark: after rounding it, sail directly to the finish">Flag C → finish</button>' : '') + '<button class="btn sm" id="rmCopy">Copy position</button><button class="btn sm" id="rmNext">Next ▶</button></div>';
+    h += '<label class="small rm-rep"><input type="checkbox" id="rmRep"' + (R.rep ? ' checked' : '') + '> Remind me to report position every ' + (R.repH || 4) + ' h (SI: progress update)' + (R.rep && S.rep ? ' · next ' + new Date(S.rep).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '') + '</label>';
+    if (R.rep) { if (!S.rep) S.rep = Date.now() + (R.repH || 4) * 3600000; if (Date.now() >= S.rep) { S.rep = Date.now() + (R.repH || 4) * 3600000; if (navigator.vibrate) navigator.vibrate([300, 100, 300]); if (window.RA && window.RA.toast) window.RA.toast('Time to report: tap Copy position and send it to the race WhatsApp group.', null, null, 10000); } }
     nav.innerHTML = h;
   }
   function setK(k) { var ev = curEv(); if (!ev) return; var R = route(ev); R.k = Math.max(0, Math.min(R.wps.length - 1, k)); S.near = false; S.minD = null; saveEv(ev); render(); }
@@ -136,6 +178,23 @@
     box.addEventListener('click', function (e) {
       var t = e.target, ev = curEv(); if (!ev) return; var R = route(ev);
       if (t.id === 'rmEdit') { S.edit = !S.edit; render(); return; }
+      if (t.id === 'rmPasteBtn') { S.paste = !S.paste; render(); return; }
+      if (t.id === 'rmPasteX') { S.paste = false; render(); return; }
+      if (t.id === 'rmImport') {
+        var tp = $('rmTpl').value, txt = tp !== '' ? TEMPLATES[+tp].txt : $('rmPasteTxt').value, list = parseCourse(txt);
+        if (!list.length) { $('rmPMsg').textContent = 'Nothing to import. Paste the list of points (one per line) or pick a course.'; return; }
+        var nm = $('rmCName').value.trim() || (tp !== '' ? TEMPLATES[+tp].name : 'Course ' + (ev.courses.length + 1));
+        var cur0 = route(ev); if (!cur0.wps.length && ev.courses.length === 1) ev.courses = [];
+        ev.courses.push({ name: nm, wps: list, k: 0, r: 50 }); ev.ci = ev.courses.length - 1; S.paste = false; saveEv(ev); render();
+        if (window.RA && window.RA.toast) window.RA.toast(list.length + ' points imported · ' + list.filter(function (p) { return !has(p); }).length + ' need coordinates'); return;
+      }
+      if (t.id === 'rmCDel') { ev.courses.splice(ev.ci, 1); ev.ci = 0; S.paste = false; saveEv(ev); render(); return; }
+      if (t.id === 'rmFlagC') { var fi2 = R.wps.map(function (p) { return p.type; }).lastIndexOf('finish'); if (fi2 >= 0) setK(fi2); return; }
+      if (t.id === 'rmCopy') {
+        var me2 = window.RA && window.RA.nav ? window.RA.nav() : null, T2 = R.wps[R.k];
+        var msg = (ev.name || 'Race') + ' · ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + (me2 && me2.lat ? ' · position ' + fmtLL(me2.lat, 'N', 'S') + ' ' + fmtLL(me2.lon, 'E', 'W') + (me2.sog !== null ? ' · SOG ' + me2.sog.toFixed(1) + ' kn' : '') : '') + (T2 ? ' · next: ' + T2.name + (has(T2) && me2 && me2.lat ? ' (' + distNm(me2, T2).toFixed(1) + ' nm)' : '') : '');
+        (navigator.clipboard ? navigator.clipboard.writeText(msg) : Promise.reject()).then(function () { if (window.RA && window.RA.toast) window.RA.toast('Copied: ' + msg); }).catch(function () { prompt('Copy:', msg); }); return;
+      }
       if (t.id === 'rmPrev') { setK(R.k - 1); return; }
       if (t.id === 'rmNext') { setK(R.k + 1); return; }
       if (t.id === 'rmHere') { var me = window.RA && window.RA.nav ? window.RA.nav() : null; if (me && me.lat) $('rmNewLL').value = fmtLL(me.lat, 'N', 'S') + ' ' + fmtLL(me.lon, 'E', 'W'); else $('rmMsg').textContent = 'No GPS position yet.'; return; }
@@ -149,7 +208,10 @@
     });
     box.addEventListener('change', function (e) {
       var t = e.target, ev = curEv(); if (!ev) return; var R = route(ev);
-      if (t.id === 'rmRad') { R.r = Math.max(15, Math.min(300, +t.value || 50)); saveEv(ev); return; }
+      if (t.id === 'rmRad') { R.r = Math.max(15, Math.min(2000, +t.value || 50)); saveEv(ev); return; }
+      if (t.id === 'rmCourse') { ev.ci = +t.value; S.near = false; S.minD = null; saveEv(ev); render(); return; }
+      if (t.id === 'rmRep') { R.rep = t.checked; S.rep = null; saveEv(ev); tick(); return; }
+      if (t.id === 'rmTpl' && t.value !== '') { $('rmCName').value = TEMPLATES[+t.value].name; return; }
       var row = t.closest('[data-i]'); if (!row || !t.getAttribute('data-f')) return; var p = R.wps[+row.getAttribute('data-i')], f = t.getAttribute('data-f');
       if (f === 'name') p.name = t.value.trim();
       if (f === 'side') p.side = t.value;
@@ -158,6 +220,6 @@
     });
     S.timer = setInterval(function () { var pg = $('p-map'); if (pg && pg.getBoundingClientRect().left > -10 && pg.getBoundingClientRect().left < 10) tick(); }, 1000);
   }
-  window.RaceMap = { render: render, parsePair: parsePair, parseOne: parseOne };
+  window.RaceMap = { render: render, parsePair: parsePair, parseOne: parseOne, parseCourse: parseCourse };
   if (document.readyState !== 'loading') { bind(); render(); } else document.addEventListener('DOMContentLoaded', function () { bind(); render(); });
 })();

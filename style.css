@@ -591,3 +591,9 @@ body.trk-fs-on{overflow:hidden}
 .rm-add{display:flex;flex-direction:column;gap:6px;margin-top:8px}
 .btn.sm{padding:4px 10px;font-size:12px}
 .rm-head .btn{flex:0 0 auto;width:auto}
+
+.rm-cs{gap:6px;margin:4px 0}.rm-cs select{flex:1;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px}
+.rm-paste{display:flex;flex-direction:column;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px;margin:6px 0}
+.rm-paste input,.rm-paste textarea,.rm-paste select{background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:14px}
+.rm-miss{color:#ffb020!important}
+.rm-rep{display:flex;gap:6px;align-items:center;margin-top:6px}
