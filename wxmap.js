@@ -41,7 +41,7 @@
   function fetchGrid() {
     var g = gridDef(M.loc), k = M.loc.lat.toFixed(3) + ',' + M.loc.lon.toFixed(3) + '|' + M.model;
     var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + g.lats.join(',') + '&longitude=' + g.lons.join(',') +
-      '&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=kn&timezone=auto&forecast_hours=24' +
+      '&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=kn&timezone=auto&forecast_hours=72' +
       (M.model !== 'best_match' ? '&models=' + M.model : '');
     var cached = cacheGet(k);
     if (cached) { M.data = cached; M.onStatus('cached'); rebuild(); }

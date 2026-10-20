@@ -1,7 +1,7 @@
-/* The Race App — v0.9.64 */
+/* The Race App — v0.9.65 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.64';
+  var APP_VERSION = '0.9.65';
   // skriveni developer mod: 7 tapova na broj verzije (prikazuje trošak AI obrade samo vlasniku)
   (function () {
     var n = 0, t0 = 0, el = document.getElementById('version'); if (!el) return;
@@ -25,7 +25,7 @@
     damp: store.get('damp', 2),
     heelTau: store.get('heelTau', 0.35), // libela ima svoje (brže) prigušenje; histereza sprečava treptanje
     ledMirror: store.get('ledMirror', false),
-    heelStep: store.get('heelStepMig', false) ? store.get('heelStep', 5) : 5,  // v0.9.64: podrazumevano 5° po LED-u (manje osetljivo)
+    heelStep: store.get('heelStepMig', false) ? store.get('heelStep', 5) : 5,  // v0.9.65: podrazumevano 5° po LED-u (manje osetljivo)
     calOffset: store.get('calOffset', null),
     calTime: store.get('calTime', null),
     theme: store.get('theme', 'night'),
@@ -1116,7 +1116,7 @@
     WX.loading = true; wxStatus('Loading forecast…');
     wxLocate().then(function (loc) {
       if (!loc) { WX.loading = false; wxStatus('Location not available. Allow location or pick a saved spot.', true); return; }
-      var base = 'latitude=' + loc.lat.toFixed(4) + '&longitude=' + loc.lon.toFixed(4) + '&timezone=auto&forecast_hours=24';
+      var base = 'latitude=' + loc.lat.toFixed(4) + '&longitude=' + loc.lon.toFixed(4) + '&timezone=auto&forecast_hours=72';
       var fu = 'https://api.open-meteo.com/v1/forecast?' + base +
         '&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m,temperature_2m,precipitation_probability,precipitation,weather_code&wind_speed_unit=kn' +
         (WX.model !== 'best_match' ? '&models=' + WX.model : '');
