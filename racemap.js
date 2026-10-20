@@ -217,7 +217,7 @@
   function wxBar() {
     if (!S.wxOn && !S.idealOn) return '';
     var H = hrs(), i = Math.max(0, H.indexOf(S.wxT)), id = S.ideal;
-    var chip = S.idealBusy ? 'Ideal route… ' : id ? (id.ok ? 'Ideal <b>' + dur(id.t1 - id.t0) + '</b> · finish ' + ('0' + new Date(id.t1).getHours()).slice(-2) + ':' + ('0' + new Date(id.t1).getMinutes()).slice(-2) + (id.land ? '' : ' · no land check') : 'No route to ' + esc(id.failName) + ': add a via point') : '';
+    var chip = S.idealBusy ? 'Ideal route… ' : id ? (id.ok ? (id.legs && id.legs.length > 1 ? '→ ' + esc(id.next) + ' <b>' + dur(id.legs[0].t - id.t0) + '</b> · ' : '') + 'from ' + esc(id.from) + ' to finish <b>' + dur(id.t1 - id.t0) + '</b> · ETA ' + ('0' + new Date(id.t1).getHours()).slice(-2) + ':' + ('0' + new Date(id.t1).getMinutes()).slice(-2) + (id.land ? '' : ' · no land check') : 'No route ' + esc(id.failName) + ': add a via point') : '';
     return '<div class="rm-wxbar">' + (chip ? '<div class="rm-chip">' + chip + '</div>' : '') + (S.rd ? '<div class="rm-chip">' + S.rd + '</div>' : '') +
       (S.wxD ? '<div class="wm-time"><span id="rmWxT">' + (H[i] ? tLab(H[i]) : '') + '</span><input type="range" id="rmWxS" min="0" max="' + Math.max(0, H.length - 1) + '" value="' + i + '"></div>' : S.wxBusy ? '<div class="rm-chip">Loading forecast…</div>' : '') + '</div>';
   }
@@ -250,7 +250,9 @@
     var R = route(ev), w = R.wps, miss = w.filter(function (p) { return !has(p); }).length;
     var me = window.RA && window.RA.nav ? window.RA.nav() : null, list = [], k0 = 0;
     // u trci: od moje pozicije preko preostalih tačaka
+    // u trci (GPS blizu): od mene ka izabranoj tački; inače od izabrane tačke ka sledećoj i dalje do cilja
     if (me && me.lat && R.k > 0 && has(w[R.k]) && distNm(me, w[R.k]) < 30) { list.push({ lat: me.lat, lon: me.lon, name: 'You' }); k0 = R.k; }
+    else k0 = R.k;
     w.slice(k0).forEach(function (p, j) { if (has(p)) list.push({ lat: p.lat, lon: p.lon, name: nmOf(w, k0 + j) }); });
     if (list.length < 2) { S.idealOn = false; upBar(); return; }
     S.idealBusy = true; upBar();
@@ -264,7 +266,7 @@
         setTimeout(function () {
           var spd = function (tws, a) { var G = c.guide && Profile.guideAt(c.guide, tws); if (G && G.up && a < G.up.twa - 1) return 0; return Profile.speed(c.polar, tws, a); };
           var r = WxRoute.route({ pts: list, t0: S.wxT || defT(ev), wind: S.wxD, speed: spd, upMin: 30, mask: mask, tackS: 12, gybeS: 8 });
-          r.land = !!mask; if (!r.ok) r.failName = list[r.failAt] ? list[r.failAt].name : '';
+          r.land = !!mask; r.from = list[0].name; r.next = list[1] ? list[1].name : ''; if (!r.ok) r.failName = (list[r.failAt - 1] ? list[r.failAt - 1].name + ' → ' : '') + (list[r.failAt] ? list[r.failAt].name : '');
           S.ideal = r; S.idealBusy = false; showIdeal();
           var bb = new maplibregl.LngLatBounds(); r.line.forEach(function (q) { bb.extend(q); }); list.forEach(function (q) { bb.extend([q.lon, q.lat]); });
           if (S.map) S.map.fitBounds(bb, { padding: { top: 30, left: 30, right: 64, bottom: 110 }, duration: 300, maxZoom: 14 });

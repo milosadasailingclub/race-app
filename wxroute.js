@@ -130,7 +130,8 @@
     if (D < 20) return { t: t0, path: [[A.lon, A.lat], [B.lon, B.lat]], tacks: 0 };
     var dt = D > 30000 ? 600 : 300, SEC = 180, maxSteps = Math.ceil(48 * 3600 / dt);
     var toLL = function (x, y) { return { lat: A.lat + y / ky, lon: A.lon + x / kx }; };
-    var clear = function (x1, y1, x2, y2) { if (!o.mask) return true; var n = Math.max(2, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / 60)); for (var i = 1; i <= n; i++) { var ll = toLL(x1 + (x2 - x1) * i / n, y1 + (y2 - y1) * i / n); if (!o.mask.wet(ll.lat, ll.lon)) return false; } return true; };
+    // oznake su često na stenama / hridima (npr. "isolated danger") ili uz obalu: oko početka i cilja etape (300 m) kopno se ne proverava
+    var END = 300, clear = function (x1, y1, x2, y2) { if (!o.mask) return true; var n = Math.max(2, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / 60)); for (var i = 1; i <= n; i++) { var x = x1 + (x2 - x1) * i / n, y = y1 + (y2 - y1) * i / n; if (Math.hypot(x, y) < END || Math.hypot(bx - x, by - y) < END) continue; var ll = toLL(x, y); if (!o.mask.wet(ll.lat, ll.lon)) return false; } return true; };
     var front = [{ x: 0, y: 0, t: t0, side: 0, tk: 0, par: null }], best = null;
     for (var step = 0; step < maxSteps && front.length; step++) {
       var next = new Array(SEC), arrivals = [];
@@ -148,7 +149,7 @@
           if (!clear(n.x, n.y, nx, ny)) continue;
           var node = { x: nx, y: ny, t: n.t + dt * 1000, side: side, tk: n.tk + (pen ? 1 : 0), par: n };
           var sec = Math.round(((Math.atan2(nx, ny) * 180 / Math.PI + 360) % 360) / (360 / SEC)) % SEC, r = Math.hypot(nx, ny), dn = Math.hypot(bx - nx, by - ny);
-          if (dn > D * 1.6) continue;
+          if (dn > D * 2.5 + 3000) continue;
           var score = r - dn * 0.15;
           if (!next[sec] || score > next[sec].sc) { node.sc = score; next[sec] = node; }
         }
