@@ -12,7 +12,7 @@
   function nrm(d) { return ((d % 360) + 540) % 360 - 180; }
   function distNm(a, b) { var R = 3440.065, la1 = rad(a.lat), la2 = rad(b.lat), dla = la2 - la1, dlo = rad(b.lon - a.lon), h = Math.sin(dla / 2) * Math.sin(dla / 2) + Math.cos(la1) * Math.cos(la2) * Math.sin(dlo / 2) * Math.sin(dlo / 2); return 2 * R * Math.asin(Math.min(1, Math.sqrt(h))); }
   function brg(a, b) { var la1 = rad(a.lat), la2 = rad(b.lat), dlo = rad(b.lon - a.lon), y = Math.sin(dlo) * Math.cos(la2), x = Math.cos(la1) * Math.sin(la2) - Math.sin(la1) * Math.cos(la2) * Math.cos(dlo); return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360; }
-  function fmtLL(v, pos, neg) { var a = Math.abs(v), d = Math.floor(a), m = (a - d) * 60; return d + '°' + m.toFixed(3) + '′' + (v >= 0 ? pos : neg); }
+  function fmtLL(v, pos, neg) { var a = Math.abs(v), d = Math.floor(a), m = (a - d) * 60; return d + '°' + (m < 10 ? '0' : '') + m.toFixed(3) + '′' + (v >= 0 ? pos : neg); }
 
   /* ---- koordinate: 45.123456 · 45 7.407 N · 45°07.407'N · 45°07'24.4"N · N45 07.407 · i par "lat, lon" ---- */
   function parseOne(s, isLon) {
