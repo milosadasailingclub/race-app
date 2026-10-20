@@ -654,3 +654,4 @@ body.trk-fs-on{overflow:hidden}
 .rm-more>summary::before{content:'▸ ';color:#00e0c6}
 .rm-more[open]>summary::before{content:'▾ '}
 .trk-fsbtns .icon-btn svg{pointer-events:none;display:block;margin:auto}
+.rm-rdx{background:none;border:0;color:var(--muted);font-size:14px;padding:0 0 0 6px}

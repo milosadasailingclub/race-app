@@ -219,13 +219,13 @@
   function hrs() { var d = S.wxD; if (!d) return []; var now = Date.now() - 3600000; return d.t.filter(function (t) { return t >= now; }); }
   function tLab(t) { var d = new Date(t); return d.toLocaleDateString('en-GB', { weekday: 'short' }) + ' ' + ('0' + d.getHours()).slice(-2) + ':00'; }
   function wxBar() {
-    if (!S.wxOn && !S.idealOn) return '';
+    if (!S.wxOn && !S.idealOn && !S.rd) return '';
     var H = hrs(), i = Math.max(0, H.indexOf(S.wxT)), id = S.ideal;
     var chip = S.idealBusy ? 'Ideal route… ' : !id ? '' : id.msg ? esc(id.msg) :
       id.ok ? esc(id.from) + ' → ' + esc(id.next) + ' <b>' + dur(id.tNext - id.tFrom) + '</b> · ' + (id.live ? 'now' : 'from <b>' + (id.est ? '~' : '') + hm(id.tFrom) + '</b>') + ' · at ' + esc(id.next) + ' <b>' + hm(id.tNext) + '</b>' + (id.land ? '' : ' · no land check') :
       'No route ' + esc(id.failName) + ': add a via point';
     return '<div class="rm-wxbar">' + (chip ? '<div class="rm-chip">' + chip + '</div>' : '') + (S.rd ? '<div class="rm-chip">' + S.rd + '</div>' : '') +
-      (S.wxD ? '<div class="wm-time"><span id="rmWxT">' + (H[i] ? tLab(H[i]) : '') + '</span><input type="range" id="rmWxS" min="0" max="' + Math.max(0, H.length - 1) + '" value="' + i + '"></div>' : S.wxBusy ? '<div class="rm-chip">Loading forecast…</div>' : '') + '</div>';
+      (S.wxD && S.wxOn ? '<div class="wm-time"><span id="rmWxT">' + (H[i] ? tLab(H[i]) : '') + '</span><input type="range" id="rmWxS" min="0" max="' + Math.max(0, H.length - 1) + '" value="' + i + '"></div>' : S.wxBusy ? '<div class="rm-chip">Loading forecast…</div>' : '') + '</div>';
   }
   function upBar() { var el = document.querySelector('.rm-wxbar'), html = wxBar(); if (el) { if (html) el.outerHTML = html; else el.remove(); } else if (html) { var m = $('rmMap'); if (m) m.insertAdjacentHTML('beforeend', html); } var bI = $('rmIdB'); if (bI) bI.classList.toggle('on', S.idealOn); }
   function ticks(id) {
@@ -381,7 +381,14 @@
           return;
         }
         if (!S.edit) {
-          if (S.wxOn && S.wxD) { var sw = WxRoute.sample(S.wxD, e.lngLat.lat, e.lngLat.lng, S.wxT || Date.now()); S.rd = sw ? '<b>' + Math.round(sw.s) + '</b> kn · G' + Math.round(sw.g) + ' · <b>' + d3(sw.dir) + '°</b>' : 'Outside forecast'; upBar(); }
+          // vetar u tački (prognoza): smer u stepenima i jačina u čvorovima, bez izlaska sa ekrana
+          var ll0 = e.lngLat, show = function () {
+            var tq = S.wxOn && S.wxT ? S.wxT : Date.now(), sw = WxRoute.sample(S.wxD, ll0.lat, ll0.lng, tq);
+            S.rd = sw ? '<b>' + d3(sw.dir) + '°</b> · <b>' + Math.round(sw.s) + '</b> kn · gust ' + Math.round(sw.g) + ' · ' + hm(tq) + ' <button class="rm-rdx" id="rmRdX">✕</button>' : 'Outside forecast area <button class="rm-rdx" id="rmRdX">✕</button>';
+            if (S.tapM) S.tapM.remove(); var dEl = document.createElement('div'); dEl.className = 'wm-dot'; S.tapM = new maplibregl.Marker({ element: dEl }).setLngLat(ll0).addTo(m); upBar();
+          };
+          var cv0 = curEv(); if (!cv0 || !window.WxRoute) return;
+          if (S.wxD) show(); else { S.rd = 'Loading forecast…'; upBar(); ensureWx(cv0).then(show).catch(function () { S.rd = 'No forecast (offline?)'; upBar(); }); }
           return;
         }
         var ll = $('rmNewLL'); if (!ll) return;
@@ -441,6 +448,7 @@
       var t = e.target;
       if (t.id === 'rmFs') { S.fs = !S.fs; S.keepCam = true; render(); return; }
       if (t.id === 'rmStartX') { var e3 = curEv(); if (e3) { e3.startAt = null; saveEv(e3); S.ideal = null; render(); } return; }
+      if (t.id === 'rmRdX') { S.rd = ''; if (S.tapM) { S.tapM.remove(); S.tapM = null; } upBar(); return; }
       if (t.id === 'rmWxB') { S.wxOn = !S.wxOn; sset('rmWx', S.wxOn); S.rd = ''; if (S.wxOn && !S.wxD) startWx(curEv()); else { S.keepCam = true; render(); } return; }
       if (t.id === 'rmIdB') { S.idealOn = !S.idealOn; if (S.idealOn) runIdeal(curEv()); else showIdeal(); return; }
       if (t.id === 'rmKp' || t.id === 'rmKn') { var e2 = curEv(); if (e2) setK(route(e2).k + (t.id === 'rmKn' ? 1 : -1)); return; }
