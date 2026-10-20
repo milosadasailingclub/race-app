@@ -620,3 +620,21 @@ body.trk-fs-on{overflow:hidden}
 .rm-pickbar.via{border-color:#00e0c6}
 .rm-vt{color:#00e0c6!important;flex:1}
 .rm-tomark{margin:4px 0}
+.rm-top{display:flex;align-items:center;gap:8px;margin:2px 0 6px}
+.rm-top b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rm-top .small{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rm-setup{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px;margin:0 0 8px;display:flex;flex-direction:column;gap:6px}
+.rm-setup .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+.rm-stage{display:flex;flex-direction:column}
+.rm-stage .rm-map{height:46vh}
+.rm-stage.fs{position:fixed;inset:0;z-index:1000;margin:0;background:var(--bg,#05070a);padding:calc(env(safe-area-inset-top) + 8px) 10px calc(env(safe-area-inset-bottom) + 10px);gap:6px}
+.rm-stage.fs .rm-map{flex:1 1 0;height:auto;min-height:0;margin:0}
+.rm-stage.fs .rm-nav{margin:0}
+.rm-stage.fs .rm-nums b{font-size:24px}
+.rm-stage.fs .rm-step,.rm-stage.fs .rm-tomark{display:none}
+.rm-me{display:grid;grid-template-columns:1fr 1fr;gap:6px;text-align:center;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.rm-me span{display:block;font-size:10px;letter-spacing:.08em;color:var(--muted)}
+.rm-me b{font-family:var(--f-num);font-size:38px;line-height:1.05}
+.rm-me i{font-style:normal;font-size:12px;color:var(--muted);margin-left:3px}
+.rm-list{max-height:48vh;overflow-y:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:10px}
+.rm-leg{color:#00e0c6!important;font-family:var(--f-num)}
