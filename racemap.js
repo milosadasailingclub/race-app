@@ -222,8 +222,8 @@
     if (!S.wxOn && !S.idealOn) return '';
     var H = hrs(), i = Math.max(0, H.indexOf(S.wxT)), id = S.ideal;
     var chip = S.idealBusy ? 'Ideal route… ' : !id ? '' : id.msg ? esc(id.msg) :
-      (id.ok || id.tNext ? (id.live ? 'Now' : 'At ' + esc(id.from) + ' <b>' + (id.est ? '~' : '') + hm(id.tFrom) + '</b>') + (id.tNext ? ' · → ' + esc(id.next) + ' <b>' + dur(id.tNext - id.tFrom) + '</b>' : '') + (id.ok ? ' · finish <b>' + hm(id.t1) + '</b>' : '') + (id.land ? '' : ' · no land check') : '') +
-      (id.ok ? '' : (id.tNext ? '<br>' : '') + 'No route ' + esc(id.failName) + ': add a via point');
+      id.ok ? esc(id.from) + ' → ' + esc(id.next) + ' <b>' + dur(id.tNext - id.tFrom) + '</b> · ' + (id.live ? 'now' : 'from <b>' + (id.est ? '~' : '') + hm(id.tFrom) + '</b>') + ' · at ' + esc(id.next) + ' <b>' + hm(id.tNext) + '</b>' + (id.land ? '' : ' · no land check') :
+      'No route ' + esc(id.failName) + ': add a via point';
     return '<div class="rm-wxbar">' + (chip ? '<div class="rm-chip">' + chip + '</div>' : '') + (S.rd ? '<div class="rm-chip">' + S.rd + '</div>' : '') +
       (S.wxD ? '<div class="wm-time"><span id="rmWxT">' + (H[i] ? tLab(H[i]) : '') + '</span><input type="range" id="rmWxS" min="0" max="' + Math.max(0, H.length - 1) + '" value="' + i + '"></div>' : S.wxBusy ? '<div class="rm-chip">Loading forecast…</div>' : '') + '</div>';
   }
@@ -279,10 +279,10 @@
     var R = route(ev), w = R.wps, miss = w.filter(function (p) { return !has(p); }).length;
     var me = window.RA && window.RA.nav ? window.RA.nav() : null, list = [], live = false, li = 0;
     // u trci (GPS na stazi): od mene, sada, kroz preostale tačke
-    if (me && me.lat && R.k > 0 && has(w[R.k]) && distNm(me, w[R.k]) < 30) { live = true; list.push({ lat: me.lat, lon: me.lon, name: 'You' }); w.slice(R.k).forEach(function (p, j) { if (has(p)) list.push({ lat: p.lat, lon: p.lon, name: nmOf(w, R.k + j) }); }); }
+    if (me && me.lat && R.k > 0 && has(w[R.k]) && distNm(me, w[R.k]) < 30) { live = true; list.push({ lat: me.lat, lon: me.lon, name: 'You' }); w.slice(R.k).forEach(function (p, j) { if (has(p)) list.push({ lat: p.lat, lon: p.lon, name: nmOf(w, R.k + j), via: isVia(p) }); }); }
     else {
       // pre trke / planiranje: cela staza od starta u vreme starta; prikaz od izabrane tačke, u vreme kada ćeš verovatno biti tamo
-      w.forEach(function (p, j) { if (!has(p)) return; if (j <= R.k) li = list.length; list.push({ lat: p.lat, lon: p.lon, name: nmOf(w, j) }); });
+      w.forEach(function (p, j) { if (!has(p)) return; if (j <= R.k) li = list.length; list.push({ lat: p.lat, lon: p.lon, name: nmOf(w, j), via: isVia(p) }); });
       if (!has(w[R.k])) li = Math.max(0, li);
     }
     if (list.length < 2 || li >= list.length - 1) { S.idealOn = false; upBar(); return; }
@@ -298,18 +298,21 @@
           var O = { wind: S.wxD, speed: spd, upMin: 30, mask: mask, tackS: 12, gybeS: 8 };
           var t0 = live ? Date.now() : (startAt(ev) || defT(ev)), last = S.wxD.t[S.wxD.t.length - 1], r, est = false;
           if (t0 > last) { S.ideal = { ok: false, msg: 'Start is after the end of the forecast (72 h)' }; S.idealBusy = false; showIdeal(); return; }
+          var to0 = li + 1; while (to0 < list.length - 1 && list[to0].via) to0++;
+          list = list.slice(0, to0 + 1);
           r = WxRoute.route(Object.assign({ pts: list, t0: t0 }, O));
           if (!live && li > 0 && (!r.ok && r.failAt <= li)) {
             // ruta pre izabrane tačke ne prolazi: računaj od nje, vreme dolaska procenjeno (4 čv)
             var dd = 0; for (var q = 1; q <= li; q++) dd += distNm(list[q - 1], list[q]);
             est = true; list = list.slice(li); li = 0; r = WxRoute.route(Object.assign({ pts: list, t0: t0 + dd / 4 * 3600000 }, O));
           }
-          var off = 0, from = li;
-          if (li > 0 && r.legs[li - 1]) off = r.legs[li - 1].i;
-          var res = { ok: r.ok, land: !!mask, est: est, live: live,
-            line: r.line.slice(off), tl: r.tl.slice(off), from: list[from].name, next: list[from + 1] ? list[from + 1].name : '',
-            tFrom: from > 0 && r.legs[from - 1] ? r.legs[from - 1].t : r.t0, tNext: r.legs[from] ? r.legs[from].t : null, t1: r.t1, t0: r.t0 };
-          if (!r.ok) res.failName = (list[r.failAt - 1] ? list[r.failAt - 1].name + ' → ' : '') + (list[r.failAt] ? list[r.failAt].name : '');
+          // prikaz samo jedne etape: od izabrane tačke do sledeće zvanične tačke (kroz via tačke)
+          var from = li, to = from + 1; while (to < list.length - 1 && list[to].via) to++;
+          var off = from > 0 && r.legs[from - 1] ? r.legs[from - 1].i : 0, endL = r.legs[to - 1] ? r.legs[to - 1].i : r.line.length - 1;
+          var res = { ok: !!r.legs[to - 1], land: !!mask, est: est, live: live,
+            line: r.line.slice(off, endL + 1), tl: r.tl.slice(off, endL + 1), from: list[from].name, next: list[to].name,
+            tFrom: from > 0 && r.legs[from - 1] ? r.legs[from - 1].t : r.t0, tNext: r.legs[to - 1] ? r.legs[to - 1].t : null, t0: r.t0 };
+          if (!res.ok) res.failName = (list[r.failAt - 1] ? list[r.failAt - 1].name + ' → ' : '') + (list[r.failAt] ? list[r.failAt].name : '');
           S.ideal = res; S.idealBusy = false;
           // vetar na mapi u trenutku kada si na početnoj tački
           if (res.tFrom) { var H = hrs(), best = H[0]; H.forEach(function (h) { if (Math.abs(h - res.tFrom) < Math.abs(best - res.tFrom)) best = h; }); if (best) { setWxT(best); var sl = $('rmWxS'); if (sl) sl.value = H.indexOf(best); } }
