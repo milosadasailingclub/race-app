@@ -131,8 +131,6 @@
     h += '<div class="row rm-cs"><select id="rmCourse">' + ev.courses.map(function (c, i) { return '<option value="' + i + '"' + (i === ev.ci ? ' selected' : '') + '>' + esc(c.name) + ' (' + c.wps.length + ')</option>'; }).join('') + '</select><button class="btn sm" id="rmPasteBtn">+ Course</button></div>';
     if (S.paste) h += '<div class="rm-paste"><input id="rmCName" placeholder="Course name (e.g. First 18 / 24)"><textarea id="rmPasteTxt" rows="7" placeholder="Paste the course list from the SI (only your class is used), one point per line:\nStart\nZ isolated danger NW of Iž (STBD)\nOtočič Mrtovnjak (STBD) 44.010643, 15.175301\n…\nFinish"></textarea>' +
       '<div class="row"><select id="rmTpl"><option value="">…or a course we already read</option>' + (function () { var c = myCls(), mine = [], oth = []; TEMPLATES.forEach(function (t, i) { (c && t.cls.indexOf(c) >= 0 ? mine : oth).push('<option value="' + i + '">' + esc(t.name) + '</option>'); }); return (mine.length ? '<optgroup label="Your class">' + mine.join('') + '</optgroup>' : '') + (oth.length ? '<optgroup label="Other classes">' + oth.join('') + '</optgroup>' : ''); })() + '</select></div><div class="row"><button class="btn primary" id="rmImport">Create course</button><button class="btn" id="rmPasteX">Cancel</button>' + (ev.courses.length > 1 || w.length ? '<button class="btn danger" id="rmCDel">Delete this course</button>' : '') + '</div><p class="small" id="rmPMsg"></p></div>';
-    var sa = startAt(ev);
-    h += '<label class="small rm-st">Start <input type="datetime-local" id="rmStart" value="' + (sa ? dtLocal(sa) : '') + '"> <span>' + (ev.startAt ? 'edited' : sa ? 'from SI' : '') + '</span>' + (ev.startAt ? ' <button class="btn sm" id="rmStartX">SI time</button>' : '') + '</label>';
     h += '<div class="row"><button class="btn sm" id="rmFlagC">Flag C → go to finish</button><button class="btn sm" id="rmCopy">Copy position</button></div>';
     h += '<label class="small rm-rep"><input type="checkbox" id="rmRep"' + (R.rep ? ' checked' : '') + '> Position report reminder · ' + (R.repH || 4) + ' h</label></div>';
     }
@@ -148,7 +146,7 @@
       var side = isVia(p) ? '<b class="rm-side via">VIA</b>' : p.side === 'P' ? '<b class="rm-side p">PORT</b>' : p.side === 'S' ? '<b class="rm-side s">STBD</b>' : '<b class="rm-side">PASS</b>', L = lab(w, i), vc = isVia(p) ? ' via' : '';
       var insB = S.edit && i < w.length - 1 ? '<button class="rm-insv" data-ins="' + i + '">+ via ' + viaNext(w, i) + '</button>' : '';
       if (!S.edit) return '<div class="rm-wp' + vc + (i === R.k ? ' on' : '') + '" data-go="' + i + '"><span class="rm-n">' + L + '</span><span class="rm-nm">' + esc(nmOf(w, i)) + (has(p) ? legTxt(w, i) : '<small class="rm-miss">no coordinates yet</small>') + '</span>' + (has(p) ? '' : '<button class="btn sm rm-pin" data-pick="' + i + '">📍 Set on map</button>') + (p.type === 'start' ? '<b class="rm-side">START</b>' : p.type === 'finish' ? '<b class="rm-side">FINISH</b>' : side) + '</div>';
-      return '<div class="rm-wp ed' + vc + '" data-i="' + i + '"><span class="rm-n">' + L + '</span><div class="rm-edf"><input class="rm-in" data-f="name" value="' + esc(clean(p.name)) + '" placeholder="' + (isVia(p) ? 'Via ' + L + ' (name optional)' : 'Name') + '"><input class="rm-in" data-f="ll" value="' + (has(p) ? esc(fmtLL(p.lat, 'N', 'S') + ' ' + fmtLL(p.lon, 'E', 'W')) : '') + '" placeholder="45°07.407′N 13°36.200′E">' +
+      return '<div class="rm-wp ed' + vc + '" data-i="' + i + '"><span class="rm-n">' + L + '</span><div class="rm-edf"><input class="rm-in" data-f="name" value="' + esc(clean(p.name)) + '" placeholder="' + (isVia(p) ? 'Via ' + L + ' (name optional)' : 'Name') + '"><input class="rm-in" data-f="ll" value="' + (has(p) ? esc(fmtLL(p.lat, 'N', 'S') + ' ' + fmtLL(p.lon, 'E', 'W')) : '') + '" placeholder="45°07.407′N 13°36.200′E">' + (p.type === 'start' || i === 0 ? startField(ev) : '') +
         '<div class="row">' + (isVia(p) ? '<span class="small rm-vt">Via point · pass, no rounding</span>' : '<select class="rm-in" data-f="side"><option value="P"' + (p.side === 'P' ? ' selected' : '') + '>Leave to PORT</option><option value="S"' + (p.side === 'S' ? ' selected' : '') + '>Leave to STARBOARD</option><option value=""' + (!p.side ? ' selected' : '') + '>Pass (no rounding)</option></select>') +
         '<button class="icon-btn" data-pick="' + i + '" title="Place on the map">📍</button><button class="icon-btn" data-mv="-1">↑</button><button class="icon-btn" data-mv="1">↓</button><button class="cl-del" data-del="' + i + '">✕</button></div></div></div>' + insB;
     }).join('');
@@ -204,7 +202,7 @@
   // kurs i daljina etape: od prethodne tačke sa koordinatama do ove
   function legTxt(w, i) {
     var p = w[i], q = null; for (var j = i - 1; j >= 0; j--) if (has(w[j])) { q = w[j]; break; }
-    if (!q) return '<small>start of route</small>';
+    if (!q) { var ev0 = curEv(), sa0 = ev0 && startAt(ev0); return '<small class="rm-leg">' + (sa0 ? new Date(sa0).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ' ' + hm(sa0) : 'start of route') + '</small>'; }
     var d = distNm(q, p); return '<small class="rm-leg">' + d3(brg(q, p)) + '° · ' + (d < 10 ? d.toFixed(2) : d.toFixed(1)) + ' nm</small>';
   }
   function pickHint(R, p) {
@@ -251,6 +249,10 @@
   function startAt(ev) { return ev.startAt || siStart(ev); }
   function dtLocal(t) { var d = new Date(t); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2) + 'T' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
   function hm(t) { var d = new Date(t); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+  function startField(ev) {
+    var sa = startAt(ev);
+    return '<label class="small rm-st">Start time <input type="datetime-local" id="rmStart" value="' + (sa ? dtLocal(sa) : '') + '"> <span>' + (ev.startAt ? 'edited' : sa ? 'from SI' : '') + '</span>' + (ev.startAt ? ' <button class="btn sm" id="rmStartX">SI time</button>' : '') + '</label>';
+  }
   function routePts(ev) { return route(ev).wps.filter(has); }
   function ensureWx(ev) {
     var pts = routePts(ev), model = window.WxRoute ? WxRoute.model() : 'best_match', key = ev.id + '|' + model + '|' + pts.length;
