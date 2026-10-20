@@ -31,11 +31,11 @@
     var tMin = race.gun - 30000, tMax = Math.max.apply(null, ids.map(function (id) { var p = fleet[id]; return p[p.length - 1][0]; }));
     el.innerHTML = '<div class="rr-stage" id="rrStage"><div class="rr-map" id="rrMap">' +
       '<div class="trk-fsbtns"><button class="icon-btn" id="rrFs" title="Full screen">⛶</button><button class="icon-btn rr-z" id="rrZin">+</button><button class="icon-btn rr-z" id="rrZout">−</button><button class="icon-btn rr-wbtn" id="rrWind" title="Wind field" hidden>≋</button></div></div>' +
-      '<div class="trk-ctrl"><button class="icon-btn" id="rrPlay">▶</button><input type="range" id="rrSl" min="' + tMin + '" max="' + tMax + '" step="1000" value="' + race.gun + '"><button class="icon-btn rr-spd" id="rrSpd">×10</button><button class="icon-btn rr-full" id="rrFull" title="Full tracks / last 5 min">5′</button></div>' +
+      '<div class="trk-ctrl"><button class="icon-btn" id="rrPlay">▶</button><input type="range" id="rrSl" min="' + tMin + '" max="' + tMax + '" step="1000" value="' + race.gun + '"><button class="icon-btn rr-spd" id="rrSpd">×10</button><button class="icon-btn rr-full" id="rrFull" title="Trail length: 5, 10, 15 min, this leg, all">5′</button></div>' +
       '<div class="rr-time" id="rrTime"></div><div class="rr-leg" id="rrLeg"></div><div class="rr-chips">' +
       '<span class="rr-chip rr-key"><i class="rr-lane-i"></i><span id="rrIdN">AI ideal line (computing…)</span></span><span class="rr-chip rr-key"><i class="rr-best-i"></i>fastest boat of the leg</span></div>' +
       '<div class="rr-wkey" id="rrWKey" hidden><span>less wind</span><i></i><span>more wind</span><small>colour = where there is more / less wind than on the rest of the course at that moment (from boat speeds) · arrows = wind direction</small></div></div>';
-    S = { t: race.gun, playing: false, speed: 10, map: null, mk: {}, race: race, fleet: fleet, legIdx: -1, ideal: null };
+    S = { trail: '5', t: race.gun, playing: false, speed: 10, map: null, mk: {}, race: race, fleet: fleet, legIdx: -1, ideal: null };
     var best = { type: 'FeatureCollection', features: (race.legs || []).map(function (L) { return { type: 'Feature', properties: { n: L.n }, geometry: { type: 'LineString', coordinates: L.lane.map(function (q) { return [q[1], q[0]]; }) } }; }) };
     function idealFc() { return { type: 'FeatureCollection', features: S.ideal ? S.ideal.o.map(function (x, i) { return x && x.path.length > 1 ? { type: 'Feature', properties: { n: race.legs[i].n }, geometry: { type: 'LineString', coordinates: x.path.map(function (q) { return [q[1], q[0]]; }) } } : null; }).filter(Boolean) : [] }; }
     S.setIdeal = function (o, name) {
@@ -77,10 +77,11 @@
     };
     function trails(t) {
       return { type: 'FeatureCollection', features: ids.map(function (id) {
-        var c = [], from = S && S.full ? -Infinity : t - 5 * 60000; fleet[id].forEach(function (q) { if (q[0] <= t && q[0] >= from) c.push([q[2], q[1]]); });
+        var c = [], tr = S ? S.trail : '5', from = tr === 'all' ? -Infinity : tr === 'leg' ? legStart(t) : t - (+tr || 5) * 60000; fleet[id].forEach(function (q) { if (q[0] <= t && q[0] >= from) c.push([q[2], q[1]]); });
         return { type: 'Feature', properties: { id: id, me: id === me ? 1 : 0, c: col[id] }, geometry: { type: 'LineString', coordinates: c.length > 1 ? c : [[0, 0], [0, 0]] } };
       }) };
     }
+    function legStart(t) { var k = legAt(t); return k >= 0 ? race.legs[k].t0 : race.gun - 60000; }
     function legAt(t) { var k = -1; (race.legs || []).forEach(function (L, i) { if (L.t0 <= t) k = i; }); return k; }
     function setT(t) {
       S.t = t; $('rrSl').value = t;
@@ -109,7 +110,9 @@
     function stop() { if (!S) return; S.playing = false; clearTimeout(S.timer); var b = $('rrPlay'); if (b) b.textContent = '▶'; }
     $('rrPlay').addEventListener('click', function () { if (S.playing) stop(); else { if (S.t >= tMax) S.t = tMin; play(); } });
     $('rrSl').addEventListener('input', function (e) { stop(); setT(+e.target.value); });
-    $('rrFull').addEventListener('click', function () { S.full = !S.full; $('rrFull').textContent = S.full ? 'ALL' : '5′'; setT(S.t); });
+    // dužina tragova: 5 / 10 / 15 min, tekući leg, ceo trag
+    var TRAILS = [['5', '5′'], ['10', '10′'], ['15', '15′'], ['leg', 'LEG'], ['all', 'ALL']];
+    $('rrFull').addEventListener('click', function () { var i = TRAILS.map(function (x) { return x[0]; }).indexOf(S.trail); S.trail = TRAILS[(i + 1) % TRAILS.length][0]; $('rrFull').textContent = TRAILS[(i + 1) % TRAILS.length][1]; setT(S.t); });
     $('rrSpd').addEventListener('click', function () { S.speed = SPEEDS[(SPEEDS.indexOf(S.speed) + 1) % SPEEDS.length]; $('rrSpd').textContent = '×' + S.speed; });
     $('rrFs').addEventListener('click', function (e) { e.stopPropagation(); setFs(!$('rrStage').classList.contains('fs')); });
     $('rrZin').addEventListener('click', function (e) { e.stopPropagation(); if (S.map) S.map.zoomIn(); });
