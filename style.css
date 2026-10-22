@@ -687,3 +687,14 @@ body.trk-fs-on{overflow:hidden}
 .prof-det[open]>summary::before{content:'▾ '}
 .prof-det h4{margin:12px 0 4px;font-size:13px;color:var(--muted)}
 .prof-tw{overflow-x:auto}
+
+.set-grp{padding:4px 0 6px}
+.set-sub{border-top:1px solid var(--line)}
+.set-sub:first-child{border-top:0}
+.set-sub>summary{list-style:none;display:flex;align-items:center;gap:10px;padding:12px 14px 12px 22px;cursor:pointer;min-height:46px}
+.set-sub>summary::-webkit-details-marker{display:none}
+.set-sub>summary b{font-size:14px;font-weight:600}
+.set-sub>summary .sum{flex:1;text-align:right;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.set-sub>summary::after{content:'›';color:var(--muted);font-size:20px;line-height:1;transition:transform .15s}
+.set-sub[open]>summary::after{transform:rotate(90deg);color:#00e0c6}
+.set-sub .set-in{padding:4px 14px 14px 22px}

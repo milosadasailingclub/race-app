@@ -1,7 +1,7 @@
-/* The Race App — v0.9.90 */
+/* The Race App — v0.9.91 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.90';
+  var APP_VERSION = '0.9.91';
   // skriveni developer mod: 7 tapova na broj verzije (prikazuje trošak AI obrade samo vlasniku)
   (function () {
     var n = 0, t0 = 0, el = document.getElementById('version'); if (!el) return;
@@ -1090,6 +1090,7 @@
     put('lift', { smart: 'Auto', timed: 'Auto timed', manual: 'Manual' }[cfg.liftMode] || '');
     put('heel', cfg.heelStep + '° per LED');
     put('disp', cfg.theme === 'night' ? 'Dark' : 'Light');
+    put('gen', [cfg.theme === 'night' ? 'Dark' : 'Light', 'damping ' + cfg.damp, cfg.calOffset === null ? 'not calibrated' : 'calibrated'].join(' · '));
     put('log', LOG.on ? 'recording' : LOG.rows.length ? Math.round(LOG.rows.length / 60) + ' min saved' : 'off');
   }
   function renderSettings() {

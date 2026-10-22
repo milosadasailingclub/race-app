@@ -10,11 +10,11 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/saira-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=0.9.90">
+<link rel="stylesheet" href="style.css?v=0.9.91">
 </head>
 <body class="theme-night">
 
-<div id="version" class="version">v0.9.90</div>
+<div id="version" class="version">v0.9.91</div>
 <div id="update" class="update hidden">New version available. Tap to update</div>
 <div id="toast" class="toast hidden"></div>
 
@@ -287,61 +287,65 @@
       </div>
     </details>
 
-    <details class="card set-sec" data-sec="cal"><summary><b>Mount calibration</b><span class="sum" id="sum-cal"></span></summary>
-      <div class="set-in">
-      <p>Mount the phone, keep the boat still and level, then tap Set zero. You can also long-press the heel indicator in Racing Mode.</p>
-      <div id="heelSet" class="heel heel-set"></div>
-      <div class="row">
-        <button id="calBtn" class="btn primary">Set zero</button>
-        <button id="calClear" class="btn">Clear</button>
-      </div>
-      <p class="small" id="calInfo"></p>
-      </div>
-    </details>
+    <details class="card set-sec" data-sec="gen"><summary><b>General settings</b><span class="sum" id="sum-gen"></span></summary>
+      <div class="set-in set-grp">
+      <details class="set-sub" data-sec="cal"><summary><b>Mount calibration</b><span class="sum" id="sum-cal"></span></summary>
+        <div class="set-in">
+        <p>Mount the phone, keep the boat still and level, then tap Set zero. You can also long-press the heel indicator in Racing Mode.</p>
+        <div id="heelSet" class="heel heel-set"></div>
+        <div class="row">
+          <button id="calBtn" class="btn primary">Set zero</button>
+          <button id="calClear" class="btn">Clear</button>
+        </div>
+        <p class="small" id="calInfo"></p>
+        </div>
+      </details>
 
-    <details class="card set-sec" data-sec="damp"><summary><b>Damping</b><span class="sum" id="sum-damp"></span></summary>
-      <div class="set-in">
-      <p>One level for all values (heel, SOG, heading). Higher = steadier display, slower response.</p>
-      <input type="range" id="damp" min="0" max="5" step="1">
-      <div class="small">Level: <b id="dampVal"></b></div>
-      </div>
-    </details>
+      <details class="set-sub" data-sec="damp"><summary><b>Damping</b><span class="sum" id="sum-damp"></span></summary>
+        <div class="set-in">
+        <p>One level for all values (heel, SOG, heading). Higher = steadier display, slower response.</p>
+        <input type="range" id="damp" min="0" max="5" step="1">
+        <div class="small">Level: <b id="dampVal"></b></div>
+        </div>
+      </details>
 
-    <details class="card set-sec" data-sec="lift"><summary><b>Lift / Header</b><span class="sum" id="sum-lift"></span></summary>
-      <div class="set-in">
-      <p>Tapping the Lift/Header field always sets the current heading as reference, until the next maneuver.</p>
-      <div class="row">
-        <button class="btn" data-lmode="smart">Auto</button>
-        <button class="btn" data-lmode="timed">Auto timed</button>
-        <button class="btn" data-lmode="manual">Manual only</button>
-      </div>
-      <p class="small" id="lmodeInfo"></p>
-      <div class="small" style="margin-top:8px">Race starts: <select id="startLeg"><option value="up">Upwind</option><option value="down">Downwind</option></select></div>
-      <p class="small" style="margin-top:8px">Remote button (Bluetooth shutter/keyboard) sets the reference. Last key received: <b id="lastKey">—</b></p>
-      <div class="row" style="margin-top:10px"><button id="simBtn" class="btn">Test: simulate a tack (~2 min)</button></div>
-      </div>
-    </details>
+      <details class="set-sub" data-sec="lift"><summary><b>Lift / Header</b><span class="sum" id="sum-lift"></span></summary>
+        <div class="set-in">
+        <p>Tapping the Lift/Header field always sets the current heading as reference, until the next maneuver.</p>
+        <div class="row">
+          <button class="btn" data-lmode="smart">Auto</button>
+          <button class="btn" data-lmode="timed">Auto timed</button>
+          <button class="btn" data-lmode="manual">Manual only</button>
+        </div>
+        <p class="small" id="lmodeInfo"></p>
+        <div class="small" style="margin-top:8px">Race starts: <select id="startLeg"><option value="up">Upwind</option><option value="down">Downwind</option></select></div>
+        <p class="small" style="margin-top:8px">Remote button (Bluetooth shutter/keyboard) sets the reference. Last key received: <b id="lastKey">—</b></p>
+        <div class="row" style="margin-top:10px"><button id="simBtn" class="btn">Test: simulate a tack (~2 min)</button></div>
+        </div>
+      </details>
 
-    <details class="card set-sec" data-sec="heel"><summary><b>Heel indicator</b><span class="sum" id="sum-heel"></span></summary>
-      <div class="set-in">
-      <label class="check"><input type="checkbox" id="ledMirror"> Mirror LEDs (light the opposite side of the heel). Display only, the sensor is not changed.</label>
-      <div class="small">One LED = <select id="heelStep"><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select>° (5° = all 6 LEDs at 30°)</div>
-      <div class="small">Heel response <select id="heelTau"><option value="0.2">Fast</option><option value="0.35">Normal</option><option value="0.7">Calm</option></select> (the heel LEDs have their own damping)</div>
-      </div>
-    </details>
+      <details class="set-sub" data-sec="heel"><summary><b>Heel indicator</b><span class="sum" id="sum-heel"></span></summary>
+        <div class="set-in">
+        <label class="check"><input type="checkbox" id="ledMirror"> Mirror LEDs (light the opposite side of the heel). Display only, the sensor is not changed.</label>
+        <div class="small">One LED = <select id="heelStep"><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select>° (5° = all 6 LEDs at 30°)</div>
+        <div class="small">Heel response <select id="heelTau"><option value="0.2">Fast</option><option value="0.35">Normal</option><option value="0.7">Calm</option></select> (the heel LEDs have their own damping)</div>
+        </div>
+      </details>
 
-    <details class="card set-sec" data-sec="disp"><summary><b>Display</b><span class="sum" id="sum-disp"></span></summary>
-      <div class="set-in">
-      <div class="row">
-        <button class="btn" data-theme="night">Dark</button>
-        <button class="btn" data-theme="day">Light (sun)</button>
-      </div>
-      </div>
-    </details>
+      <details class="set-sub" data-sec="disp"><summary><b>Display</b><span class="sum" id="sum-disp"></span></summary>
+        <div class="set-in">
+        <div class="row">
+          <button class="btn" data-theme="night">Dark</button>
+          <button class="btn" data-theme="day">Light (sun)</button>
+        </div>
+        </div>
+      </details>
 
-    <details class="card set-sec" data-sec="dnd"><summary><b>Racing mode (DND)</b><span class="sum" id="sum-dnd"></span></summary>
-      <div class="set-in">
-      <p class="small">Automatic Do Not Disturb comes with the native app. For now, turn on Do Not Disturb manually from the phone's quick settings.</p>
+      <details class="set-sub" data-sec="dnd"><summary><b>Racing mode (DND)</b><span class="sum" id="sum-dnd"></span></summary>
+        <div class="set-in">
+        <p class="small">Automatic Do Not Disturb comes with the native app. For now, turn on Do Not Disturb manually from the phone's quick settings.</p>
+        </div>
+      </details>
       </div>
     </details>
 
@@ -366,24 +370,24 @@
   </div>
 </section>
 
-<script src="regatta.js?v=0.9.90"></script>
-<script src="router.js?v=0.9.90"></script>
-<script src="racereplay.js?v=0.9.90"></script>
-<script src="coaching.js?v=0.9.90"></script>
-<script src="brief.js?v=0.9.90"></script>
-<script src="calypso.js?v=0.9.90"></script>
-<script src="racebox.js?v=0.9.90"></script>
-<script src="wxroute.js?v=0.9.90"></script>
-<script src="racemap.js?v=0.9.90"></script>
-<script src="profile.js?v=0.9.90"></script>
-<script src="wxmap.js?v=0.9.90"></script>
-<script src="public-lists.js?v=0.9.90"></script>
-<script src="checklist.js?v=0.9.90"></script>
-<script src="samples/portcup-2026.js?v=0.9.90"></script>
-<script src="courses.js?v=0.9.90"></script>
-<script src="nor.js?v=0.9.90"></script>
-<script src="maneuvers.js?v=0.9.90"></script>
-<script src="track.js?v=0.9.90"></script>
-<script src="app.js?v=0.9.90"></script>
+<script src="regatta.js?v=0.9.91"></script>
+<script src="router.js?v=0.9.91"></script>
+<script src="racereplay.js?v=0.9.91"></script>
+<script src="coaching.js?v=0.9.91"></script>
+<script src="brief.js?v=0.9.91"></script>
+<script src="calypso.js?v=0.9.91"></script>
+<script src="racebox.js?v=0.9.91"></script>
+<script src="wxroute.js?v=0.9.91"></script>
+<script src="racemap.js?v=0.9.91"></script>
+<script src="profile.js?v=0.9.91"></script>
+<script src="wxmap.js?v=0.9.91"></script>
+<script src="public-lists.js?v=0.9.91"></script>
+<script src="checklist.js?v=0.9.91"></script>
+<script src="samples/portcup-2026.js?v=0.9.91"></script>
+<script src="courses.js?v=0.9.91"></script>
+<script src="nor.js?v=0.9.91"></script>
+<script src="maneuvers.js?v=0.9.91"></script>
+<script src="track.js?v=0.9.91"></script>
+<script src="app.js?v=0.9.91"></script>
 </body>
 </html>
