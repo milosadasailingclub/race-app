@@ -1,7 +1,7 @@
-/* The Race App — v0.9.88 */
+/* The Race App — v0.9.89 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.88';
+  var APP_VERSION = '0.9.89';
   // skriveni developer mod: 7 tapova na broj verzije (prikazuje trošak AI obrade samo vlasniku)
   (function () {
     var n = 0, t0 = 0, el = document.getElementById('version'); if (!el) return;
@@ -1078,7 +1078,22 @@
   $('heelTau').value = String(cfg.heelTau);
   $('heelTau').addEventListener('change', function (e) { cfg.heelTau = +e.target.value; store.set('heelTau', cfg.heelTau); });
   $('heelStep').addEventListener('change', function (e) { cfg.heelStep = +e.target.value; store.set('heelStep', cfg.heelStep); });
+  // kratak sažetak u zatvorenom zaglavlju svakog odeljka podešavanja
+  function setSums() {
+    var put = function (k, t) { var el = $('sum-' + k); if (el) el.textContent = t || ''; };
+    var c = window.Profile && Profile.current(); put('boat', [c ? c.name : 'no class chosen', store.get('mySail', '')].filter(Boolean).join(' · '));
+    var C = pageCfg(); put('screens', C.filter(function (x) { return x.on; }).length + ' of ' + C.length + ' on');
+    var rb = window.RaceBox && RaceBox.state(), ws = window.Calypso && Calypso.state(), st = function (x) { return x && x.state === 'on' ? 'connected' : x && (x.state === 'connecting' || x.state === 'lost') ? x.state : 'off'; };
+    put('dev', 'GPS ' + st(rb) + ' · wind ' + st(ws));
+    put('cal', cfg.calOffset === null ? 'not set' : 'set ' + new Date(cfg.calTime).toLocaleDateString('en-GB'));
+    put('damp', 'level ' + cfg.damp);
+    put('lift', { smart: 'Auto', timed: 'Auto timed', manual: 'Manual' }[cfg.liftMode] || '');
+    put('heel', cfg.heelStep + '° per LED');
+    put('disp', cfg.theme === 'night' ? 'Dark' : 'Light');
+    put('log', LOG.on ? 'recording' : LOG.rows.length ? Math.round(LOG.rows.length / 60) + ' min saved' : 'off');
+  }
   function renderSettings() {
+    setTimeout(setSums, 0);
     $('dampVal').textContent = cfg.damp + (cfg.damp === 0 ? ' (off)' : ' (≈' + TAU[cfg.damp] + ' s)');
     $('calInfo').textContent = cfg.calOffset === null ? 'No calibration set.'
       : 'Zero set ' + new Date(cfg.calTime).toLocaleString('en-GB') + ' (offset ' + cfg.calOffset.toFixed(1) + '°).';
@@ -1366,6 +1381,7 @@
     if (!C.some(function (c) { return c.on; })) { e.target.checked = true; toast('At least one screen must stay on'); return; }
     store.set('pages', C); applyPages(); renderPagesSet();
   });
+  ['change', 'click'].forEach(function (ev) { var sb = document.querySelector('#settings .set-body'); if (sb) sb.addEventListener(ev, function () { setTimeout(setSums, 80); }); });
   $('pagesReset').addEventListener('click', function () { store.set('pages', null); applyPages(); renderPagesSet(); });
 
   window.RA = { nav: function () { return S.lastFix ? { lat: S.lastFix.lat, lon: S.lastFix.lon, t: S.lastFix.t, sog: S.sog, hdg: S.hdg } : null; }, extFix: function (p) { p.__ext = true; onFix(p); }, tac: function () { return tacInfo(); }, setMark: function () { setMarkHere(); }, toast: toast, store: store, show: show, goPageId: function (id) { goPageId(id); } };

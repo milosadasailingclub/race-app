@@ -139,11 +139,12 @@
       '<label class="prof-row">Sail number<input id="profSail" type="text" maxlength="12" value="' + esc(sget('mySail', '')) + '" placeholder="e.g. SRB 344"></label>' +
       '<label class="prof-row">Boat class<select id="profClass">' + opts + '</select></label>';
     if (c) {
-      var GT = c.guide ? '<details class="prof-guide"><summary>Speed guide (' + esc(c.guideSrc || '') + ')</summary><table class="co-tbl"><tr><th>TWS</th><th>Up BS</th><th>TWA</th><th>Tack</th><th>Heel</th><th>Dn BS</th><th>TWA</th><th>Gybe</th></tr>' +
-        c.guide.up.tws.map(function (w, i) { var u = c.guide.up, d = c.guide.dn; return '<tr><td>' + w + '</td><td>' + u.bs[i] + '</td><td>' + u.twa[i] + '°</td><td>' + u.turn[i] + '°</td><td>' + u.heel[i] + '°</td><td>' + d.bs[i] + '</td><td>' + d.twa[i] + '°</td><td>' + d.turn[i] + '°</td></tr>'; }).join('') + '</table></details>' : '';
+      var GT = c.guide ? '<h4>Speed guide</h4><div class="prof-tw"><table class="co-tbl"><tr><th>TWS</th><th>Up BS</th><th>TWA</th><th>Tack</th><th>Heel</th><th>Dn BS</th><th>TWA</th><th>Gybe</th></tr>' +
+        c.guide.up.tws.map(function (w, i) { var u = c.guide.up, d = c.guide.dn; return '<tr><td>' + w + '</td><td>' + u.bs[i] + '</td><td>' + u.twa[i] + '°</td><td>' + u.turn[i] + '°</td><td>' + u.heel[i] + '°</td><td>' + d.bs[i] + '</td><td>' + d.twa[i] + '°</td><td>' + d.turn[i] + '°</td></tr>'; }).join('') + '</table></div>' : '';
       var P = c.polar || null, T = P ? targets(P, 10) : null;
+      var D0 = h.length;
       h += '<p class="small">' + esc(c.name) + (c.custom ? ' <span class="pro">PRO</span> custom' : '') + ' · ' + { keel: 'keelboat', dinghy: 'dinghy', multi: 'multihull' }[c.kind || 'keel'] + ' · ' + { sym: 'spinnaker', asym: 'gennaker', none: 'no spinnaker' }[c.spi || 'none'] + '.</p>';
-      h += P ? '<canvas class="prof-polar" id="profPolar"></canvas><p class="small">Polar' + (c.polarSrc ? ' (' + esc(c.polarSrc) + ')' : '') + ': ' + P.tws.length + ' wind speeds × ' + P.twa.length + ' angles. At 10 kn: upwind ' + T.upTwa + '° TWA, ' + T.upBs.toFixed(1) + ' kn · downwind ' + T.dnTwa + '° TWA, ' + T.dnBs.toFixed(1) + ' kn.</p>'
+      h += P ? '<canvas class="prof-polar" id="profPolar"></canvas><p class="small">Polar: ' + P.tws.length + ' wind speeds × ' + P.twa.length + ' angles. At 10 kn: upwind ' + T.upTwa + '° TWA, ' + T.upBs.toFixed(1) + ' kn · downwind ' + T.dnTwa + '° TWA, ' + T.dnBs.toFixed(1) + ' kn.</p>'
         : '<p class="small">No polar for this class yet. ' + (c.custom ? 'Paste one below.' : 'We add class polars as we get reliable data; until then the app learns your speeds from your tracks.') + '</p>';
       if (c.custom) h += '<div class="prof-custom"><label class="prof-row">Class name<input id="pcName" type="text" maxlength="40" value="' + esc(c.name) + '"></label>' +
         '<label class="prof-row">Type<select id="pcKind"><option value="keel"' + (c.kind === 'keel' ? ' selected' : '') + '>Keelboat</option><option value="dinghy"' + (c.kind === 'dinghy' ? ' selected' : '') + '>Dinghy</option><option value="multi"' + (c.kind === 'multi' ? ' selected' : '') + '>Multihull</option></select></label>' +
@@ -153,7 +154,11 @@
         '<p class="small" id="pcMsg"></p><div class="row"><button class="btn primary" id="pcSave">Save class</button><button class="btn danger" id="pcDel">Delete</button></div>' +
         '<p class="small">Coming: read the class rules and the polar from a PDF with AI (PRO), and learn the polar from your own tracks with the Calypso wind sensor.</p></div>';
     }
-    if (c && GT) h += GT;
+    if (c) {
+      // detalji klase (polar, tabela brzina, sopstvena klasa) u jednom meniju koji se otvara
+      var det = h.slice(D0) + (GT || '');
+      h = h.slice(0, D0) + '<details class="prof-det"' + (c.custom ? ' open' : '') + '><summary>' + (c.polar || c.guide ? 'Polar & speed guide' : 'Class details') + '</summary>' + det + '</details>';
+    }
     box.innerHTML = h;
     // Settings je skriven pri učitavanju (širina 0): crtaj kad canvas dobije veličinu
     if (c && c.polar) { var cv = $('profPolar'), draw = function () { if (cv.clientWidth > 0) drawPolar(cv, c.polar); }; draw(); if (window.ResizeObserver) new ResizeObserver(draw).observe(cv); }
