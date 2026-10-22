@@ -252,7 +252,7 @@
 
   /* ---- prognoza za regatu ---- */
   var FC_MODELS = [['best_match', 'Best model'], ['icon_seamless', 'ICON (DWD)'], ['ecmwf_ifs025', 'ECMWF'], ['meteofrance_seamless', 'AROME / ARPEGE'], ['arpae_icon_2i', 'ItaliaMeteo ICON 2I'], ['gfs_seamless', 'GFS']];
-  var fcBusy = {};
+  var fcBusy = {}, fcMem = {}; // fcMem: prognoza u memoriji, i kad localStorage nema mesta
   function ymd(d) { return d.toISOString().slice(0, 10); }
   function geocode(q) {
     return fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&language=en&name=' + encodeURIComponent(q)).then(function (r) { return r.json(); })
@@ -266,7 +266,7 @@
     var head = '<div class="nor-fc-head"><h3>FORECAST</h3><select id="norFcModel">' + FC_MODELS.map(function (m) { return '<option value="' + m[0] + '"' + ((ev.fcModel || 'best_match') === m[0] ? ' selected' : '') + '>' + m[1] + '</option>'; }).join('') + '</select></div>';
     if (to < today) return '<div class="nor-fc">' + head + '<p class="nor-fc-note">The regatta is over.</p></div>';
     if (from > last) return '<div class="nor-fc">' + head + '<p class="nor-fc-note">Forecast opens on ' + new Date(from.getTime() - 15 * 864e5).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' (16 days ahead). ' + esc(ev.loc.name || '') + '</p></div>';
-    var fc = ev.fc;
+    var fc = ev.fc || fcMem[ev.id];
     if (!fc || !fc.hourly.temperature_2m || fc.model !== (ev.fcModel || 'best_match') || Date.now() - fc.at > 3600000) { loadFc(ev); if (!fc) return '<div class="nor-fc">' + head + '<p class="nor-fc-note">Loading forecast…</p></div>'; }
     var rows = fcRows(fc.hourly, ev.dateFrom, ev.dateTo || ev.dateFrom);
     if (!rows) rows = '<p class="nor-fc-note">This model has no data for these days or this place. Try another model.</p>';
@@ -297,6 +297,8 @@
       if (!j || j.error || !j.hourly) throw new Error((j && j.reason) || 'no data');
       // podrži i odgovore sa sufiksom modela (wind_speed_10m_icon_seamless)
       var H = j.hourly; ['wind_speed_10m', 'wind_gusts_10m', 'wind_direction_10m', 'precipitation_probability', 'precipitation', 'temperature_2m'].forEach(function (k) { if (!H[k]) { for (var kk in H) if (kk.indexOf(k + '_') === 0) H[k] = H[kk]; } if (!H[k]) H[k] = H.time.map(function () { return null; }); });
+      var FCo = { at: Date.now(), model: m, hourly: { time: H.time, wind_speed_10m: H.wind_speed_10m, wind_gusts_10m: H.wind_gusts_10m, wind_direction_10m: H.wind_direction_10m, precipitation_probability: H.precipitation_probability, precipitation: H.precipitation, temperature_2m: H.temperature_2m } };
+      fcMem[ev.id] = FCo;
       saveEvents(events().map(function (x) { return x.id === ev.id ? Object.assign(x, { fc: { at: Date.now(), model: m, hourly: { time: H.time, wind_speed_10m: H.wind_speed_10m, wind_gusts_10m: H.wind_gusts_10m, wind_direction_10m: H.wind_direction_10m, precipitation_probability: H.precipitation_probability, precipitation: H.precipitation, temperature_2m: H.temperature_2m } } }) : x; }));
       renderRaceWx();
     }).catch(function (e) { fcBusy[ev.id] = false; var b = $('norFcBox'); if (b) b.innerHTML = '<div class="nor-fc"><p class="nor-fc-note">Forecast not available: ' + esc(e.message) + '</p></div>'; });

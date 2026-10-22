@@ -257,10 +257,10 @@
   function ensureWx(ev) {
     var pts = routePts(ev), model = window.WxRoute ? WxRoute.model() : 'best_match', key = ev.id + '|' + model + '|' + pts.length;
     if (S.wxD && S.wxD.key === key && Date.now() - S.wxD.at < 3600000) return Promise.resolve(S.wxD);
-    var c = sget('rmWxGrid', null); if (c && c.key === key && Date.now() - c.at < 3600000) { S.wxD = c; return Promise.resolve(c); }
+    var c = null; try { localStorage.removeItem('ra.rmWxGrid'); } catch (e) {}
     if (!pts.length) return Promise.reject(new Error('Route has no points with coordinates'));
     S.wxBusy = true;
-    return WxRoute.fetchGrid(pts, model).then(function (d) { d.key = key; S.wxD = d; S.wxBusy = false; sset('rmWxGrid', d); return d; }, function (e) { S.wxBusy = false; if (c && c.key === key) { S.wxD = c; return c; } throw e; });
+    return WxRoute.fetchGrid(pts, model).then(function (d) { d.key = key; S.wxD = d; S.wxBusy = false; return d; }, function (e) { S.wxBusy = false; if (c && c.key === key) { S.wxD = c; return c; } throw e; });
   }
   function defT(ev) {
     var H = hrs(); if (!H.length) return null; var t0 = Date.now();
