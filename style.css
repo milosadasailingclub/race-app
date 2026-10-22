@@ -758,3 +758,12 @@ body.trk-fs-on{overflow:hidden}
 .pg-bar .dots{padding:0}
 .pg-bar .pg-arrow{min-width:40px;width:40px;height:36px}
 .pg-bar .pg-arrow .nav-ico{width:20px;height:20px}
+
+/* gornja traka: meni levo, kamera · katanac · DND desno; libela u svom redu ispod, preko cele širine */
+.race-top{justify-content:space-between}
+.race-top .top-r{gap:10px}
+.heel-row{padding:0 16px 6px}
+.heel-row .heel{width:100%;height:auto;gap:0;justify-content:space-between;padding:4px 0}
+.heel-row .heel i{flex:0 0 auto;width:min(26px,calc((100vw - 32px) / 15));height:auto;aspect-ratio:1/1}
+.heel-row .heel i.c{flex-basis:auto}
+.heel-row .heel i.c:not(.g):not(.w):not(.b){box-shadow:0 0 0 2px rgba(255,255,255,.3) inset}
