@@ -725,3 +725,12 @@ body.trk-fs-on{overflow:hidden}
 .nav-btn:active,.rm-ar:active{color:#00e0c6;border-color:#00e0c6;box-shadow:0 0 0 3px rgba(0,224,198,.18) inset;background:rgba(0,224,198,.08)}
 .rm-ar{display:inline-flex;align-items:center;justify-content:center}
 .rm-ar .nav-ico{width:22px;height:22px}
+
+/* sledeća tačka: najviše 2 reda — gore broj i strana, dole ime u jednom redu (ostatak "…") */
+.rm-next{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;flex-wrap:nowrap}
+.rm-next .rm-ar:last-child{margin-left:0}
+.rm-next .rm-ar{height:56px;width:42px}
+.rm-tc{min-width:0;display:flex;flex-direction:column;gap:4px}
+.rm-tl{display:flex;align-items:center;gap:8px;min-width:0}
+.rm-tl .rm-side{white-space:nowrap}
+.rm-tc .rm-tn{display:block;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:clamp(17px,5.2vw,24px);line-height:1.15}
