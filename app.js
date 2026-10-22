@@ -1,7 +1,7 @@
-/* The Race App — v0.9.93 */
+/* The Race App — v0.9.94 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.93';
+  var APP_VERSION = '0.9.94';
   // skriveni developer mod: 7 tapova na broj verzije (prikazuje trošak AI obrade samo vlasniku)
   (function () {
     var n = 0, t0 = 0, el = document.getElementById('version'); if (!el) return;
@@ -1094,7 +1094,7 @@
     put('log', LOG.on ? 'recording' : LOG.rows.length ? Math.round(LOG.rows.length / 60) + ' min saved' : 'off');
   }
   function renderSettings() {
-    setTimeout(setSums, 0);
+    setTimeout(setSums, 0); if (window.Account) Account.render();
     $('dampVal').textContent = cfg.damp + (cfg.damp === 0 ? ' (off)' : ' (≈' + TAU[cfg.damp] + ' s)');
     $('calInfo').textContent = cfg.calOffset === null ? 'No calibration set.'
       : 'Zero set ' + new Date(cfg.calTime).toLocaleString('en-GB') + ' (offset ' + cfg.calOffset.toFixed(1) + '°).';

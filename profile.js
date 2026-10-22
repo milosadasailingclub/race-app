@@ -135,8 +135,7 @@
     var opts = '<option value="">— choose —</option>' + CLASSES.map(function (x) { return '<option value="' + x.id + '"' + (x.id === cid ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('') +
       (cs.length ? '<optgroup label="My classes">' + cs.map(function (x) { return '<option value="' + x.id + '"' + (x.id === cid ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('') + '</optgroup>' : '') +
       '<option value="__new">+ Custom class / my own boat… (PRO)</option>';
-    var h = '<label class="prof-row">Helm name<input id="profName" type="text" maxlength="40" value="' + esc(sget('myName', '')) + '" placeholder="e.g. Miloš Dobrosavljević"></label>' +
-      '<label class="prof-row">Sail number<input id="profSail" type="text" maxlength="12" value="' + esc(sget('mySail', '')) + '" placeholder="e.g. SRB 344"></label>' +
+    var h = '<label class="prof-row">Sail number<input id="profSail" type="text" maxlength="12" value="' + esc(sget('mySail', '')) + '" placeholder="e.g. SRB 344"></label>' +
       '<label class="prof-row">Boat class<select id="profClass">' + opts + '</select></label>';
     if (c) {
       var GT = c.guide ? '<h4>Speed guide</h4><div class="prof-tw"><table class="co-tbl"><tr><th>TWS</th><th>Up BS</th><th>TWA</th><th>Tack</th><th>Heel</th><th>Dn BS</th><th>TWA</th><th>Gybe</th></tr>' +
