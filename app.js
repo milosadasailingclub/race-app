@@ -1,7 +1,7 @@
-/* The Race App — v0.9.87 */
+/* The Race App — v0.9.88 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.87';
+  var APP_VERSION = '0.9.88';
   // skriveni developer mod: 7 tapova na broj verzije (prikazuje trošak AI obrade samo vlasniku)
   (function () {
     var n = 0, t0 = 0, el = document.getElementById('version'); if (!el) return;
@@ -107,9 +107,42 @@
   }
   function goPageId(id) { var i = vis().map(function (e) { return e.id; }).indexOf(id); if (i >= 0) goPage(i); }
   function renderPagesSet() {
-    var box = $('pagesSet'); if (!box) return; var C = pageCfg();
-    box.innerHTML = C.map(function (c, i) { var nm = (PAGES.filter(function (p) { return p[0] === c.id; })[0] || [])[1]; return '<div class="pg-row"><label><input type="checkbox" data-pgon="' + c.id + '"' + (c.on ? ' checked' : '') + '> ' + esc(nm) + '</label><span><button class="icon-btn sm" data-pgmv="' + i + ':-1"' + (i ? '' : ' disabled') + '>↑</button><button class="icon-btn sm" data-pgmv="' + i + ':1"' + (i < C.length - 1 ? '' : ' disabled') + '>↓</button></span></div>'; }).join('');
+    var box = $('pagesSet'); if (!box) return; var C = pageCfg(), n = 0;
+    box.innerHTML = C.map(function (c) {
+      var nm = (PAGES.filter(function (p) { return p[0] === c.id; })[0] || [])[1];
+      return '<div class="pg-row' + (c.on ? '' : ' off') + '" data-pg="' + c.id + '"><span class="pg-grip" aria-label="Drag to reorder"><i></i><i></i><i></i></span><span class="pg-n">' + (c.on ? ++n : '') + '</span><span class="pg-nm">' + esc(nm) + '</span>' +
+        '<label class="pg-sw"><input type="checkbox" data-pgon="' + c.id + '"' + (c.on ? ' checked' : '') + '><span></span></label></div>';
+    }).join('');
   }
+  // prevlačenje reda za ručku (prst ili miš): red ide za prstom, ostali se pomeraju; redosled se čuva kad se pusti
+  (function () {
+    var box = $('pagesSet'), drag = null;
+    if (!box) return;
+    box.addEventListener('pointerdown', function (e) {
+      var g = e.target.closest('.pg-grip'); if (!g) return;
+      var row = g.closest('.pg-row'); e.preventDefault();
+      drag = { row: row, y0: e.clientY, top0: row.offsetTop, id: e.pointerId };
+      row.classList.add('drag'); box.classList.add('dragging'); try { g.setPointerCapture(e.pointerId); } catch (x) {}
+    });
+    box.addEventListener('pointermove', function (e) {
+      if (!drag || e.pointerId !== drag.id) return; e.preventDefault();
+      var dy = e.clientY - drag.y0; drag.row.style.transform = 'translateY(' + dy + 'px)';
+      var rows = Array.prototype.slice.call(box.querySelectorAll('.pg-row')), mid = drag.row.offsetTop + drag.row.offsetHeight / 2 + dy;
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i]; if (r === drag.row) continue; var rm = r.offsetTop + r.offsetHeight / 2;
+        if (r.offsetTop < drag.row.offsetTop && mid < rm) { var before = drag.row.offsetTop; box.insertBefore(drag.row, r); drag.y0 += drag.row.offsetTop - before; break; }
+        if (r.offsetTop > drag.row.offsetTop && mid > rm) { var b0 = drag.row.offsetTop; box.insertBefore(drag.row, r.nextSibling); drag.y0 += drag.row.offsetTop - b0; break; }
+      }
+      drag.row.style.transform = 'translateY(' + (e.clientY - drag.y0) + 'px)';
+    });
+    function end() {
+      if (!drag) return; var row = drag.row; drag = null; row.style.transform = ''; row.classList.remove('drag'); box.classList.remove('dragging');
+      var order = Array.prototype.map.call(box.querySelectorAll('.pg-row'), function (r) { return r.getAttribute('data-pg'); }), C = pageCfg();
+      var N = order.map(function (id) { return C.filter(function (c) { return c.id === id; })[0]; }).filter(Boolean);
+      store.set('pages', N); applyPages(); renderPagesSet();
+    }
+    box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);
+  })();
   function goPage(i, smooth) {
     pager.scrollTo({ left: i * pager.clientWidth, behavior: smooth === false ? 'auto' : 'smooth' });
   }
@@ -1332,10 +1365,6 @@
     var id = e.target.getAttribute('data-pgon'); if (!id) return; var C = pageCfg(); C.forEach(function (c) { if (c.id === id) c.on = e.target.checked; });
     if (!C.some(function (c) { return c.on; })) { e.target.checked = true; toast('At least one screen must stay on'); return; }
     store.set('pages', C); applyPages(); renderPagesSet();
-  });
-  $('pagesSet').addEventListener('click', function (e) {
-    var b = e.target.closest('[data-pgmv]'); if (!b) return; var a = b.getAttribute('data-pgmv').split(':'), i = +a[0], j = i + (+a[1]), C = pageCfg(); if (j < 0 || j >= C.length) return;
-    var x = C[i]; C[i] = C[j]; C[j] = x; store.set('pages', C); applyPages(); renderPagesSet();
   });
   $('pagesReset').addEventListener('click', function () { store.set('pages', null); applyPages(); renderPagesSet(); });
 

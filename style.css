@@ -598,9 +598,6 @@ body.trk-fs-on{overflow:hidden}
 .rm-miss{color:#ffb020!important}
 .rm-rep{display:flex;gap:6px;align-items:center;margin-top:6px}
 
-.pg-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}
-.pg-row label{display:flex;gap:8px;align-items:center}
-.pg-row .icon-btn.sm{width:34px;height:34px;font-size:16px;margin-left:4px}
 
 .rm-note{display:flex;flex-direction:column;gap:3px;border-left:3px solid #2fa3d6;background:var(--surface);border-radius:6px;padding:8px 10px;margin:8px 0;font-size:13px}
 .rm-note.warn{border-left-color:#ffb020}
@@ -655,3 +652,20 @@ body.trk-fs-on{overflow:hidden}
 .rm-more[open]>summary::before{content:'▾ '}
 .trk-fsbtns .icon-btn svg{pointer-events:none;display:block;margin:auto}
 .rm-rdx{background:none;border:0;color:var(--muted);font-size:14px;padding:0 0 0 6px}
+
+#pagesSet{display:flex;flex-direction:column;gap:6px;margin:8px 0 10px;touch-action:pan-y}
+.pg-row{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-height:52px;font-size:15px;position:relative;transition:opacity .15s}
+.pg-row.off .pg-nm{color:var(--muted)}
+.pg-row.drag{z-index:5;box-shadow:0 8px 24px rgba(0,0,0,.5);border-color:#00e0c6;transition:none}
+.pg-grip{display:flex;flex-direction:column;justify-content:center;gap:4px;width:28px;height:36px;cursor:grab;touch-action:none;flex:0 0 auto;padding:0 4px}
+.pg-grip i{display:block;height:2px;border-radius:1px;background:var(--muted)}
+.pg-row.drag .pg-grip i{background:#00e0c6}
+.pg-n{width:24px;height:24px;border-radius:50%;background:rgba(0,224,198,.15);color:#00e0c6;font-family:var(--f-num);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.pg-row.off .pg-n{background:none}
+.pg-nm{flex:1;min-width:0}
+.pg-sw{position:relative;width:46px;height:28px;flex:0 0 auto}
+.pg-sw input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer;z-index:1}
+.pg-sw span{position:absolute;inset:0;border-radius:14px;background:#2a3238;transition:background .15s}
+.pg-sw span::after{content:'';position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#cfd6da;transition:transform .15s}
+.pg-sw input:checked+span{background:#00b8a2}
+.pg-sw input:checked+span::after{transform:translateX(18px);background:#fff}
