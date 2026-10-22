@@ -10,11 +10,11 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/saira-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=0.9.92">
+<link rel="stylesheet" href="style.css?v=0.9.93">
 </head>
 <body class="theme-night">
 
-<div id="version" class="version">v0.9.92</div>
+<div id="version" class="version">v0.9.93</div>
 <div id="update" class="update hidden">New version available. Tap to update</div>
 <div id="toast" class="toast hidden"></div>
 
@@ -263,30 +263,6 @@
       </div>
     </details>
 
-    <details class="card set-sec" data-sec="screens"><summary><b>Racing mode screens</b><span class="sum" id="sum-screens"></span></summary>
-      <div class="set-in">
-      <p class="small">Drag <b>≡</b> to change the swipe order. The switch shows or hides a screen. Numbers show the order in Racing mode.</p>
-      <div id="pagesSet"></div>
-      <div class="row"><button class="btn sm" id="pagesReset">Reset to default</button></div>
-      </div>
-    </details>
-
-    <details class="card set-sec" data-sec="dev"><summary><b>External devices</b><span class="sum" id="sum-dev"></span></summary>
-      <div class="set-in">
-      <h4>GPS receiver (RaceBox)</h4>
-      <p class="small">RaceBox Mini / Mini S / Micro over Bluetooth (Chrome on Android): 25 Hz GNSS instead of the phone's GPS. Mount it with the arrow to the bow. Tap Marine mode once (needs firmware 3.3+): it is saved in the device.</p>
-      <div class="row"><button class="btn" id="rbConn">Connect</button><button class="btn" id="rbMarine" disabled>Marine mode</button></div>
-      <p class="small" id="rbStat">Not connected.</p>
-      <pre id="rbRaw" class="diag" style="min-height:0"></pre>
-      <h4>Wind sensor (Calypso)</h4>
-      <p class="small">Calypso Ultrasonic Portable over Bluetooth (Chrome on Android). Turn the sensor on, mount it with its mark pointing to the bow, then tap Connect and pick it from the list.</p>
-      <div class="row"><button class="btn" id="wsConn">Connect</button></div>
-      <p class="small" id="wsStat">Not connected.</p>
-      <label class="small">Mount offset (°, if the mark does not point exactly to the bow) <input id="wsOff" type="number" step="1" min="-180" max="180" value="0" style="width:80px"></label>
-      <pre id="wsRaw" class="diag" style="min-height:0"></pre>
-      </div>
-    </details>
-
     <details class="card set-sec" data-sec="gen"><summary><b>General settings</b><span class="sum" id="sum-gen"></span></summary>
       <div class="set-in set-grp">
       <details class="set-sub" data-sec="cal"><summary><b>Mount calibration</b><span class="sum" id="sum-cal"></span></summary>
@@ -341,11 +317,35 @@
         </div>
       </details>
 
-      <details class="set-sub" data-sec="dnd"><summary><b>Racing mode (DND)</b><span class="sum" id="sum-dnd"></span></summary>
+      <details class="set-sub" data-sec="dnd"><summary><b>Do Not Disturb</b><span class="sum" id="sum-dnd"></span></summary>
         <div class="set-in">
         <p class="small">Automatic Do Not Disturb comes with the native app. For now, turn on Do Not Disturb manually from the phone's quick settings.</p>
         </div>
       </details>
+      </div>
+    </details>
+
+    <details class="card set-sec" data-sec="screens"><summary><b>Racing mode</b><span class="sum" id="sum-screens"></span></summary>
+      <div class="set-in">
+      <p class="small">Drag <b>≡</b> to change the swipe order. The switch shows or hides a screen. Numbers show the order in Racing mode.</p>
+      <div id="pagesSet"></div>
+      <div class="row"><button class="btn sm" id="pagesReset">Reset to default</button></div>
+      </div>
+    </details>
+
+    <details class="card set-sec" data-sec="dev"><summary><b>External devices</b><span class="sum" id="sum-dev"></span></summary>
+      <div class="set-in">
+      <h4>GPS receiver (RaceBox)</h4>
+      <p class="small">RaceBox Mini / Mini S / Micro over Bluetooth (Chrome on Android): 25 Hz GNSS instead of the phone's GPS. Mount it with the arrow to the bow. Tap Marine mode once (needs firmware 3.3+): it is saved in the device.</p>
+      <div class="row"><button class="btn" id="rbConn">Connect</button><button class="btn" id="rbMarine" disabled>Marine mode</button></div>
+      <p class="small" id="rbStat">Not connected.</p>
+      <pre id="rbRaw" class="diag" style="min-height:0"></pre>
+      <h4>Wind sensor (Calypso)</h4>
+      <p class="small">Calypso Ultrasonic Portable over Bluetooth (Chrome on Android). Turn the sensor on, mount it with its mark pointing to the bow, then tap Connect and pick it from the list.</p>
+      <div class="row"><button class="btn" id="wsConn">Connect</button></div>
+      <p class="small" id="wsStat">Not connected.</p>
+      <label class="small">Mount offset (°, if the mark does not point exactly to the bow) <input id="wsOff" type="number" step="1" min="-180" max="180" value="0" style="width:80px"></label>
+      <pre id="wsRaw" class="diag" style="min-height:0"></pre>
       </div>
     </details>
 
@@ -370,24 +370,24 @@
   </div>
 </section>
 
-<script src="regatta.js?v=0.9.92"></script>
-<script src="router.js?v=0.9.92"></script>
-<script src="racereplay.js?v=0.9.92"></script>
-<script src="coaching.js?v=0.9.92"></script>
-<script src="brief.js?v=0.9.92"></script>
-<script src="calypso.js?v=0.9.92"></script>
-<script src="racebox.js?v=0.9.92"></script>
-<script src="wxroute.js?v=0.9.92"></script>
-<script src="racemap.js?v=0.9.92"></script>
-<script src="profile.js?v=0.9.92"></script>
-<script src="wxmap.js?v=0.9.92"></script>
-<script src="public-lists.js?v=0.9.92"></script>
-<script src="checklist.js?v=0.9.92"></script>
-<script src="samples/portcup-2026.js?v=0.9.92"></script>
-<script src="courses.js?v=0.9.92"></script>
-<script src="nor.js?v=0.9.92"></script>
-<script src="maneuvers.js?v=0.9.92"></script>
-<script src="track.js?v=0.9.92"></script>
-<script src="app.js?v=0.9.92"></script>
+<script src="regatta.js?v=0.9.93"></script>
+<script src="router.js?v=0.9.93"></script>
+<script src="racereplay.js?v=0.9.93"></script>
+<script src="coaching.js?v=0.9.93"></script>
+<script src="brief.js?v=0.9.93"></script>
+<script src="calypso.js?v=0.9.93"></script>
+<script src="racebox.js?v=0.9.93"></script>
+<script src="wxroute.js?v=0.9.93"></script>
+<script src="racemap.js?v=0.9.93"></script>
+<script src="profile.js?v=0.9.93"></script>
+<script src="wxmap.js?v=0.9.93"></script>
+<script src="public-lists.js?v=0.9.93"></script>
+<script src="checklist.js?v=0.9.93"></script>
+<script src="samples/portcup-2026.js?v=0.9.93"></script>
+<script src="courses.js?v=0.9.93"></script>
+<script src="nor.js?v=0.9.93"></script>
+<script src="maneuvers.js?v=0.9.93"></script>
+<script src="track.js?v=0.9.93"></script>
+<script src="app.js?v=0.9.93"></script>
 </body>
 </html>
