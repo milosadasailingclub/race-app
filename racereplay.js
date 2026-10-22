@@ -31,6 +31,7 @@
     var tMin = race.gun - 30000, tMax = Math.max.apply(null, ids.map(function (id) { var p = fleet[id]; return p[p.length - 1][0]; }));
     el.innerHTML = '<div class="rr-stage" id="rrStage"><div class="rr-map" id="rrMap">' +
       '<div class="trk-fsbtns"><button class="icon-btn" id="rrFs" title="Full screen">⛶</button><button class="icon-btn rr-z" id="rrZin">+</button><button class="icon-btn rr-z" id="rrZout">−</button><button class="icon-btn rr-wbtn" id="rrWind" title="Wind field" hidden>≋</button></div></div>' +
+      '<div class="rr-vid" id="rrVid" hidden></div><div class="rr-vtel" id="rrVtel" hidden></div>' +
       '<div class="trk-ctrl"><button class="icon-btn" id="rrPlay">▶</button><input type="range" id="rrSl" min="' + tMin + '" max="' + tMax + '" step="1000" value="' + race.gun + '"><button class="icon-btn rr-spd" id="rrSpd">×10</button><button class="icon-btn rr-full" id="rrFull" title="Trail length: 5, 10, 15 min, this leg, all">5′</button></div>' +
       '<div class="rr-time" id="rrTime"></div><div class="rr-leg" id="rrLeg"></div><div class="rr-chips">' +
       '<span class="rr-chip rr-key"><i class="rr-lane-i"></i><span id="rrIdN">AI ideal line (computing…)</span></span><span class="rr-chip rr-key"><i class="rr-best-i"></i>fastest boat of the leg</span></div>' +
@@ -44,6 +45,7 @@
       S.legIdx = -2; setT(S.t);
     };
     S.wOn = true; S.fKey = null;
+    if (window.CamRec) CamRec.attach($('rrVid'), tMin, tMax).then(function (n) { S.vid = n > 0; if (n) { var k = $('rrIdN'); setT(S.t); } });
     function drawField(t) {
       if (!S.fieldFn || !S.map || !S.ready || !S.map.getSource('wa')) return;
       var F = S.fieldFn(t); if (F.key === S.fKey) return; S.fKey = F.key;
@@ -85,6 +87,8 @@
     function legAt(t) { var k = -1; (race.legs || []).forEach(function (L, i) { if (L.t0 <= t) k = i; }); return k; }
     function setT(t) {
       S.t = t; $('rrSl').value = t;
+      // video sa telefona (ako postoji za ovaj trenutak) + brzina i kurs moje jedrilice u istom trenutku
+      if (window.CamRec && S.vid) { CamRec.sync(t, S.playing, S.speed); var vb = $('rrVid'), vt = $('rrVtel'); if (vb && vt) { vt.hidden = vb.hidden; if (!vb.hidden && me && fleet[me]) { var a0 = at(fleet[me], t - 2000), a1 = at(fleet[me], t + 2000); if (a0 && a1 && a1[0] > a0[0]) { var dy = (a1[1] - a0[1]) * 111120, dx = (a1[2] - a0[2]) * 111120 * Math.cos(a0[1] * Math.PI / 180), d = Math.hypot(dx, dy); vt.innerHTML = '<span>SOG <b>' + (d / ((a1[0] - a0[0]) / 1000) * 1.943844).toFixed(1) + '</b> kn</span><span>COG <b>' + ('00' + Math.round((Math.atan2(dx, dy) * 180 / Math.PI + 360) % 360)).slice(-3) + '°</b></span>'; } } } }
       $('rrTime').textContent = (t < race.gun ? 'start in ' + mmss((race.gun - t) / 1000) : 'race time ' + mmss((t - race.gun) / 1000));
       if (!S.map || !S.ready) return;
       if (S.wOn) drawField(t); else if (S.probeAt) showProbe();

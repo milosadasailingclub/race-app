@@ -51,6 +51,7 @@
   function stopRec() {
     if (!rec) return;
     var t = rec; rec = null; t.end = Date.now(); t.stats = stats(t.points);
+    try { window.dispatchEvent(new CustomEvent('ra:trackstop')); } catch (e) {}
     putTrack(t).then(function () { renderRecBtn(); toast('Track saved: ' + t.stats.dist.toFixed(2) + ' NM, ' + fmtDur(t.stats.dur)); });
   }
   // vetromer (Calypso), ako je povezan: [AWS kn, AWA °]

@@ -1,7 +1,7 @@
-/* The Race App — v0.9.96 */
+/* The Race App — v0.9.97 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.96';
+  var APP_VERSION = '0.9.97';
   // skriveni developer mod: 7 tapova na broj verzije (prikazuje trošak AI obrade samo vlasniku)
   (function () {
     var n = 0, t0 = 0, el = document.getElementById('version'); if (!el) return;
@@ -629,6 +629,7 @@
     var a = L.taS.slice().sort(function (x, y) { return x - y; }); L.ta = a[Math.floor(a.length / 2)]; // medijana: otporna na šiftove
   }
   function finishManeuver(t) {
+    try { window.dispatchEvent(new CustomEvent('ra:maneuver', { detail: { t: t } })); } catch (e) {}
     if (typeof LW !== 'undefined' && LW.phase !== 'off') { L.leg = 'up'; var hq = hdgs(win(t - 3000, t)); L.side = sideFromAxis(hq.length ? cmean(hq) : S.hdg) || L.side; L.note = 'Learning'; return; }
     if (prestart()) {
       // pre starta kretanje je nepredvidivo: leg i osa se ne uče iz manevara
@@ -883,6 +884,18 @@
   document.addEventListener('touchstart', function (e) { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
   ['gesturestart', 'gesturechange', 'dblclick'].forEach(function (n) { document.addEventListener(n, function (e) { e.preventDefault(); }, { passive: false }); });
   var swipeLock = store.get('swipeLock', false);
+  // kamera: dugme gore u Racing mode-u
+  (function () {
+    var b = $('camBtn'); if (!b || !window.CamRec) return;
+    var up = function (st) { b.classList.toggle('rec', !!st.on); if (st.err) toast(st.err); st.err = ''; };
+    CamRec.on(up);
+    b.addEventListener('click', function () { var on = CamRec.state().on; CamRec.toggle().then(function () { var s2 = CamRec.state(); if (s2.on && !on) toast(store.get('camMode', 'clips') === 'all' ? 'Camera on: recording everything' : 'Camera on: saving 10 s before and after each maneuver'); else if (!s2.on && on) toast('Camera off'); }); });
+    var info = function () { if (!$('camInfo')) return; CamRec.stats().then(function (x) { $('camInfo').textContent = x.n ? 'Saved: ' + Math.round(x.min * 10) / 10 + ' min of video · ' + Math.round(x.mb) + ' MB on this phone.' : 'No videos saved yet.'; var sm = $('sum-cam'); if (sm) sm.textContent = (store.get('camMode', 'clips') === 'all' ? 'everything' : 'maneuvers only') + (x.n ? ' · ' + Math.round(x.mb) + ' MB' : ''); }); };
+    document.querySelectorAll('input[name=camMode]').forEach(function (r) { r.checked = r.value === store.get('camMode', 'clips'); r.addEventListener('change', function () { if (r.checked) { store.set('camMode', r.value); info(); } }); });
+    var f = $('camFacing'); if (f) { f.value = store.get('camFacing', 'user'); f.addEventListener('change', function () { store.set('camFacing', f.value); }); }
+    var c = $('camClear'); if (c) c.addEventListener('click', function () { if (!confirm('Delete all saved videos from this phone?')) return; CamRec.clear().then(info); });
+    window.RA_camInfo = info; info();
+  })();
   function renderSwipeLock() { document.body.classList.toggle('swipe-lock', swipeLock); $('lockBtn').textContent = swipeLock ? '🔒' : '🔓'; }
   $('lockBtn').addEventListener('click', function () { swipeLock = !swipeLock; store.set('swipeLock', swipeLock); renderSwipeLock(); toast(swipeLock ? 'Screen locked: only buttons work. Use ‹ › to change page.' : 'Screen unlocked: swipe to change page'); });
   $('pgPrev').addEventListener('click', function () { goPage(Math.max(0, pageIdx - 1)); });
@@ -1094,7 +1107,7 @@
     put('log', LOG.on ? 'recording' : LOG.rows.length ? Math.round(LOG.rows.length / 60) + ' min saved' : 'off');
   }
   function renderSettings() {
-    setTimeout(setSums, 0); if (window.Account) Account.render();
+    setTimeout(setSums, 0); if (window.RA_camInfo) RA_camInfo(); if (window.Account) Account.render();
     $('dampVal').textContent = cfg.damp + (cfg.damp === 0 ? ' (off)' : ' (≈' + TAU[cfg.damp] + ' s)');
     $('calInfo').textContent = cfg.calOffset === null ? 'No calibration set.'
       : 'Zero set ' + new Date(cfg.calTime).toLocaleString('en-GB') + ' (offset ' + cfg.calOffset.toFixed(1) + '°).';
