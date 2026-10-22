@@ -10,11 +10,11 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/saira-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=0.9.94">
+<link rel="stylesheet" href="style.css?v=0.9.95">
 </head>
 <body class="theme-night">
 
-<div id="version" class="version">v0.9.94</div>
+<div id="version" class="version">v0.9.95</div>
 <div id="update" class="update hidden">New version available. Tap to update</div>
 <div id="toast" class="toast hidden"></div>
 
@@ -40,9 +40,9 @@
   <div class="race-top">
     <button class="icon-btn" data-go="menu" aria-label="Menu">☰</button>
     <div id="heel" class="heel" title="Long press = calibrate"></div>
-    <button class="icon-btn pg-arrow" id="pgPrev" aria-label="Previous page">‹</button>
+    <button class="icon-btn nav-btn pg-arrow" id="pgPrev" aria-label="Previous page"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg></button>
     <button class="icon-btn" id="lockBtn" aria-label="Lock screen">🔓</button>
-    <button class="icon-btn pg-arrow" id="pgNext" aria-label="Next page">›</button>
+    <button class="icon-btn nav-btn pg-arrow" id="pgNext" aria-label="Next page"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5 16 12l-6.5 6.5"/></svg></button>
     <button class="icon-btn" id="dndBtn" aria-label="Racing mode">DND</button>
   </div>
 
@@ -187,7 +187,7 @@
 <!-- WEATHER -->
 <section id="weather" class="view">
   <div class="set-head">
-    <button class="icon-btn" data-go="menu" aria-label="Back">←</button>
+    <button class="icon-btn nav-btn" data-go="menu" aria-label="Back"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg></button>
     <h2>WEATHER</h2>
     <button class="icon-btn wx-refresh" id="wxRefresh" aria-label="Refresh">⟳</button>
   </div>
@@ -224,7 +224,7 @@
 <!-- CHECKLIST -->
 <section id="checklist" class="view">
   <div class="set-head">
-    <button class="icon-btn" id="clBack" aria-label="Back">←</button>
+    <button class="icon-btn nav-btn" id="clBack" aria-label="Back"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg></button>
     <h2 id="clTitle">CHECKLIST</h2>
     <button class="icon-btn cl-act hidden" id="clEdit" aria-label="Edit">✎</button>
   </div>
@@ -234,7 +234,7 @@
 <!-- TRACKING -->
 <section id="tracking" class="view">
   <div class="set-head">
-    <button class="icon-btn" id="trkBack" aria-label="Back">←</button>
+    <button class="icon-btn nav-btn" id="trkBack" aria-label="Back"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg></button>
     <h2 id="trkTitle">TRACKING</h2>
     <button class="icon-btn cl-act hidden" id="trkMore" aria-label="Export">⤓</button>
   </div>
@@ -244,7 +244,7 @@
 <!-- COACHING (Race Log) -->
 <section id="coaching" class="view">
   <div class="set-head">
-    <button class="icon-btn" id="coBack" aria-label="Back">←</button>
+    <button class="icon-btn nav-btn" id="coBack" aria-label="Back"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg></button>
     <h2 id="coTitle">DEBRIEF</h2>
   </div>
   <div class="wx-body" id="coBody"></div>
@@ -253,7 +253,7 @@
 <!-- SETTINGS -->
 <section id="settings" class="view">
   <div class="set-head">
-    <button class="icon-btn" data-go="back" aria-label="Back">←</button>
+    <button class="icon-btn nav-btn" data-go="back" aria-label="Back"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg></button>
     <h2>SETTINGS</h2>
   </div>
   <div class="set-body">
@@ -376,25 +376,25 @@
   </div>
 </section>
 
-<script src="regatta.js?v=0.9.94"></script>
-<script src="router.js?v=0.9.94"></script>
-<script src="racereplay.js?v=0.9.94"></script>
-<script src="coaching.js?v=0.9.94"></script>
-<script src="brief.js?v=0.9.94"></script>
-<script src="calypso.js?v=0.9.94"></script>
-<script src="racebox.js?v=0.9.94"></script>
-<script src="wxroute.js?v=0.9.94"></script>
-<script src="racemap.js?v=0.9.94"></script>
-<script src="account.js?v=0.9.94"></script>
-<script src="profile.js?v=0.9.94"></script>
-<script src="wxmap.js?v=0.9.94"></script>
-<script src="public-lists.js?v=0.9.94"></script>
-<script src="checklist.js?v=0.9.94"></script>
-<script src="samples/portcup-2026.js?v=0.9.94"></script>
-<script src="courses.js?v=0.9.94"></script>
-<script src="nor.js?v=0.9.94"></script>
-<script src="maneuvers.js?v=0.9.94"></script>
-<script src="track.js?v=0.9.94"></script>
-<script src="app.js?v=0.9.94"></script>
+<script src="regatta.js?v=0.9.95"></script>
+<script src="router.js?v=0.9.95"></script>
+<script src="racereplay.js?v=0.9.95"></script>
+<script src="coaching.js?v=0.9.95"></script>
+<script src="brief.js?v=0.9.95"></script>
+<script src="calypso.js?v=0.9.95"></script>
+<script src="racebox.js?v=0.9.95"></script>
+<script src="wxroute.js?v=0.9.95"></script>
+<script src="racemap.js?v=0.9.95"></script>
+<script src="account.js?v=0.9.95"></script>
+<script src="profile.js?v=0.9.95"></script>
+<script src="wxmap.js?v=0.9.95"></script>
+<script src="public-lists.js?v=0.9.95"></script>
+<script src="checklist.js?v=0.9.95"></script>
+<script src="samples/portcup-2026.js?v=0.9.95"></script>
+<script src="courses.js?v=0.9.95"></script>
+<script src="nor.js?v=0.9.95"></script>
+<script src="maneuvers.js?v=0.9.95"></script>
+<script src="track.js?v=0.9.95"></script>
+<script src="app.js?v=0.9.95"></script>
 </body>
 </html>
