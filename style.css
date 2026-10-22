@@ -747,3 +747,14 @@ body.trk-fs-on{overflow:hidden}
 .rr-vtel{display:flex;gap:16px;justify-content:center;font-size:13px;color:var(--muted);margin:4px 0}
 .rr-vtel b{color:var(--fg);font-family:var(--f-num);font-size:18px}
 .rr-stage.fs .rr-vid video{max-height:28vh}
+
+/* gornja traka: meni levo, nagib u sredini, desno kamera · katanac · DND */
+.top-r{display:flex;gap:6px;flex:0 0 auto}
+.race-top .top-r .icon-btn{min-width:44px;width:44px;height:44px}
+.race-top .top-r .nav-ico{width:22px;height:22px;stroke-width:2.1}
+#lockBtn.on{color:#00e0c6;border-color:#00e0c6}
+/* donja traka: strelice za ekrane uz tačkice (samo kad je listanje zaključano) */
+.pg-bar{display:flex;align-items:center;justify-content:center;gap:12px;padding:6px 10px 20px}
+.pg-bar .dots{padding:0}
+.pg-bar .pg-arrow{min-width:40px;width:40px;height:36px}
+.pg-bar .pg-arrow .nav-ico{width:20px;height:20px}

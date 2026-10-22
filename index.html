@@ -10,11 +10,11 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/saira-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=0.9.97">
+<link rel="stylesheet" href="style.css?v=0.9.98">
 </head>
 <body class="theme-night">
 
-<div id="version" class="version">v0.9.97</div>
+<div id="version" class="version">v0.9.98</div>
 <div id="update" class="update hidden">New version available. Tap to update</div>
 <div id="toast" class="toast hidden"></div>
 
@@ -40,11 +40,11 @@
   <div class="race-top">
     <button class="icon-btn" data-go="menu" aria-label="Menu">☰</button>
     <div id="heel" class="heel" title="Long press = calibrate"></div>
+    <div class="top-r">
     <button class="icon-btn nav-btn cam-btn" id="camBtn" aria-label="Camera"><svg class="nav-ico cam-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 8.5a2 2 0 0 1 2-2h2l1.4-2h6.2l1.4 2h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.6"/></svg><i class="cam-dot"></i></button>
-    <button class="icon-btn nav-btn pg-arrow" id="pgPrev" aria-label="Previous page"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg></button>
-    <button class="icon-btn" id="lockBtn" aria-label="Lock screen">🔓</button>
-    <button class="icon-btn nav-btn pg-arrow" id="pgNext" aria-label="Next page"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5 16 12l-6.5 6.5"/></svg></button>
-    <button class="icon-btn" id="dndBtn" aria-label="Racing mode">DND</button>
+    <button class="icon-btn nav-btn" id="lockBtn" aria-label="Lock swipe"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9.5" rx="2"/><path d="M8.5 11V7.5a3.5 3.5 0 0 1 6.8-1.2"/></svg></button>
+    <button class="icon-btn nav-btn" id="dndBtn" aria-label="Do not disturb"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 14.5A7.5 7.5 0 0 1 9.5 4.5a7.5 7.5 0 1 0 10 10z"/></svg></button>
+    </div>
   </div>
 
   <div id="pager" class="pager">
@@ -181,7 +181,11 @@
     </div>
   </div>
 
-  <div class="dots" id="dots"><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="pg-bar">
+    <button class="icon-btn nav-btn pg-arrow" id="pgPrev" aria-label="Previous page"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg></button>
+    <div class="dots" id="dots"><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <button class="icon-btn nav-btn pg-arrow" id="pgNext" aria-label="Next page"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5 16 12l-6.5 6.5"/></svg></button>
+  </div>
   <button id="sensorsBtn" class="sensors-btn hidden">Tap to enable sensors</button>
 </section>
 
@@ -388,26 +392,26 @@
   </div>
 </section>
 
-<script src="regatta.js?v=0.9.97"></script>
-<script src="router.js?v=0.9.97"></script>
-<script src="camera.js?v=0.9.97"></script>
-<script src="racereplay.js?v=0.9.97"></script>
-<script src="coaching.js?v=0.9.97"></script>
-<script src="brief.js?v=0.9.97"></script>
-<script src="calypso.js?v=0.9.97"></script>
-<script src="racebox.js?v=0.9.97"></script>
-<script src="wxroute.js?v=0.9.97"></script>
-<script src="racemap.js?v=0.9.97"></script>
-<script src="account.js?v=0.9.97"></script>
-<script src="profile.js?v=0.9.97"></script>
-<script src="wxmap.js?v=0.9.97"></script>
-<script src="public-lists.js?v=0.9.97"></script>
-<script src="checklist.js?v=0.9.97"></script>
-<script src="samples/portcup-2026.js?v=0.9.97"></script>
-<script src="courses.js?v=0.9.97"></script>
-<script src="nor.js?v=0.9.97"></script>
-<script src="maneuvers.js?v=0.9.97"></script>
-<script src="track.js?v=0.9.97"></script>
-<script src="app.js?v=0.9.97"></script>
+<script src="regatta.js?v=0.9.98"></script>
+<script src="router.js?v=0.9.98"></script>
+<script src="camera.js?v=0.9.98"></script>
+<script src="racereplay.js?v=0.9.98"></script>
+<script src="coaching.js?v=0.9.98"></script>
+<script src="brief.js?v=0.9.98"></script>
+<script src="calypso.js?v=0.9.98"></script>
+<script src="racebox.js?v=0.9.98"></script>
+<script src="wxroute.js?v=0.9.98"></script>
+<script src="racemap.js?v=0.9.98"></script>
+<script src="account.js?v=0.9.98"></script>
+<script src="profile.js?v=0.9.98"></script>
+<script src="wxmap.js?v=0.9.98"></script>
+<script src="public-lists.js?v=0.9.98"></script>
+<script src="checklist.js?v=0.9.98"></script>
+<script src="samples/portcup-2026.js?v=0.9.98"></script>
+<script src="courses.js?v=0.9.98"></script>
+<script src="nor.js?v=0.9.98"></script>
+<script src="maneuvers.js?v=0.9.98"></script>
+<script src="track.js?v=0.9.98"></script>
+<script src="app.js?v=0.9.98"></script>
 </body>
 </html>

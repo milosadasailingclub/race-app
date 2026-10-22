@@ -1,7 +1,7 @@
-/* The Race App — v0.9.97 */
+/* The Race App — v0.9.98 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.9.97';
+  var APP_VERSION = '0.9.98';
   // skriveni developer mod: 7 tapova na broj verzije (prikazuje trošak AI obrade samo vlasniku)
   (function () {
     var n = 0, t0 = 0, el = document.getElementById('version'); if (!el) return;
@@ -896,7 +896,7 @@
     var c = $('camClear'); if (c) c.addEventListener('click', function () { if (!confirm('Delete all saved videos from this phone?')) return; CamRec.clear().then(info); });
     window.RA_camInfo = info; info();
   })();
-  function renderSwipeLock() { document.body.classList.toggle('swipe-lock', swipeLock); $('lockBtn').textContent = swipeLock ? '🔒' : '🔓'; }
+  function renderSwipeLock() { document.body.classList.toggle('swipe-lock', swipeLock); $('lockBtn').innerHTML = swipeLock ? '<svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9.5" rx="2"/><path d="M8.5 11V7.5a3.5 3.5 0 0 1 7 0V11"/></svg>' : '<svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9.5" rx="2"/><path d="M8.5 11V7.5a3.5 3.5 0 0 1 6.8-1.2"/></svg>'; $('lockBtn').classList.toggle('on', swipeLock); }
   $('lockBtn').addEventListener('click', function () { swipeLock = !swipeLock; store.set('swipeLock', swipeLock); renderSwipeLock(); toast(swipeLock ? 'Screen locked: only buttons work. Use ‹ › to change page.' : 'Screen unlocked: swipe to change page'); });
   $('pgPrev').addEventListener('click', function () { goPage(Math.max(0, pageIdx - 1)); });
   $('pgNext').addEventListener('click', function () { goPage(Math.min(vis().length - 1, pageIdx + 1)); });
