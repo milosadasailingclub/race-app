@@ -350,6 +350,13 @@
       .catch(function () { here.busy = false; var b = $('rwBody'); if (b && !here.fc) b.innerHTML = hereHtml('Forecast not available (offline or no location).'); });
   }
   // RACE WEATHER: posebna strana pre NOR / SI, prognoza samo za dane trke izabranog eventa, po satu
+  // mesto regate: iz eventa, a ako ga nema, iz rute na Race Map (start ili prva tačka sa koordinatama)
+  function evLoc(c) {
+    if (c.loc) return c.loc;
+    var cs = c.courses || [], w = (cs[c.ci || 0] || cs[0] || {}).wps || [], p = w.filter(function (q) { return q && typeof q.lat === 'number' && typeof q.lon === 'number'; })[0];
+    return p ? { name: 'race area', lat: p.lat, lon: p.lon } : null;
+  }
+  function farOff(c) { var last = new Date(); last.setHours(0, 0, 0, 0); return c.dateFrom && new Date(c.dateFrom + 'T00:00:00') > new Date(last.getTime() + 15 * 864e5); }
   function renderRaceWx() {
     var box = $('rwBody'); if (!box) return;
     var c = cur();
@@ -358,8 +365,11 @@
       var ms = $('rwModel'); if (ms) ms.addEventListener('change', function () { sset('wxModel', ms.value); here.fc = null; renderRaceWx(); });
       return;
     }
+    var L = evLoc(c); if (L && !c.loc) c = Object.assign({}, c, { loc: L });
     box.innerHTML = '<div class="nor-title"><b>' + esc((c.summary && c.summary.event) || c.name) + '</b><span>' + esc([c.loc && c.loc.name, c.dateFrom ? [c.dateFrom, c.dateTo && c.dateTo !== c.dateFrom ? c.dateTo : null].filter(Boolean).map(function (d) { return new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); }).join(' – ') : ''].filter(Boolean).join(' · ')) + '</span></div><div id="norFcBox">' + fcHtml(c) + '</div>';
     bindFc(c);
+    // regata je dalje od 16 dana: ispod, prognoza za mesto gde si sada
+    if (farOff(c)) { var hw = document.createElement('div'); hw.className = 'rw-here'; hw.innerHTML = hereHtml(''); box.appendChild(hw); loadHere(); var ms2 = $('rwModel'); if (ms2) ms2.addEventListener('change', function () { sset('wxModel', ms2.value); here.fc = null; renderRaceWx(); }); }
   }
   var showOld = false;
   function renderSummary() {
