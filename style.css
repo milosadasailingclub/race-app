@@ -844,3 +844,10 @@ body.trk-fs-on{overflow:hidden}
 .limit-card span{font-size:13px;color:var(--muted)}
 .limit-card .btn{align-self:flex-start;width:auto;padding:0 16px}
 .limit-card small{font-size:11px;color:var(--muted)}
+
+.rp-acts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
+.rp-acts .btn{min-width:0;width:auto;padding:0 4px;font-size:13px}
+.rp-acts .btn.on{border-color:#00e0c6;color:#00e0c6}
+.rp-exp{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.rp-exp .btn{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:54px;width:auto}
+.rp-exp small{font-size:11px;color:var(--muted);font-weight:400;letter-spacing:0;text-transform:none}

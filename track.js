@@ -218,7 +218,7 @@
       var mO = t.axis !== undefined && t.axis !== null ? { axis: t.flip ? (t.axis + 180) % 360 : t.axis } : { upAt: t.raceStart || null, flip: !!t.flip };
       view.mnv = window.Maneuvers ? window.Maneuvers.analyze(mP, mO) : null;
       view.cum = [0]; for (var ci = 1; ci < t.points.length; ci++) view.cum.push(view.cum[ci - 1] + dist(t.points[ci - 1], t.points[ci]) / 1852);
-      $('trkTitle').textContent = 'REPLAY'; $('trkMore').classList.remove('hidden'); $('trkInfo').classList.add('hidden');
+      $('trkTitle').textContent = 'REPLAY'; $('trkInfo').classList.add('hidden');
       var st = t.stats || stats(t.points);
       $('trkBody').innerHTML = '<div class="trk-name"><b>' + esc(t.name) + '</b><span>' + st.dist.toFixed(2) + ' NM · ' + fmtDur(st.dur) + ' · avg ' + st.avg.toFixed(1) + ' · max ' + st.max.toFixed(1) + ' kn</span></div>' +
         '<div class="trk-stage" id="rpStage">' +
@@ -229,7 +229,8 @@
         '</div>' +
         '<div class="mnv" id="rpMnv"></div>' +
         '<div class="wm-legend trk-legend"><i style="background:linear-gradient(90deg,#0a5566,#00b3a4 25%,#00e0c6 42%,#9b3bff 58%,#ff2e93 75%,#ff1fd2)"></i><span>0</span><span>3</span><span>5</span><span>7</span><span>9</span><span>12 kn</span></div>' +
-        '<div class="row"><button class="btn" id="rpLog">+ Race Log</button><button class="btn" id="rpRename">Rename</button><button class="btn" id="rpGpx">Export GPX</button><button class="btn" id="rpCsv">Export CSV</button><button class="btn danger" id="rpDel">Delete</button></div>';
+        '<div class="rp-acts"><button class="btn primary" id="rpLog">+ Debrief</button><button class="btn" id="rpRename">Rename</button><button class="btn" id="rpExp">Export</button><button class="btn danger" id="rpDel">Delete</button></div>' +
+        '<div class="rp-exp hidden" id="rpExpBox"><button class="btn" id="rpGpx">GPX<small>maps, other apps</small></button><button class="btn" id="rpCsv">CSV<small>spreadsheet, all data</small></button></div>';
       loadLib().then(function () {
         if (view.map) { view.map.remove(); view.map = null; }
         var p = t.points, b = new maplibregl.LngLatBounds();
@@ -269,9 +270,10 @@
       $('rpZout').addEventListener('click', function (e) { e.stopPropagation(); if (view.map) view.map.zoomOut(); });
       $('rpSpeed').addEventListener('click', function () { view.speed = view.speed === 10 ? 30 : view.speed === 30 ? 1 : 10; $('rpSpeed').textContent = '×' + view.speed; });
       $('rpRename').addEventListener('click', function () { var n = prompt('Track name', t.name); if (n && n.trim()) { t.name = n.trim(); putTrack(t).then(function () { openTrack(id); }); } });
-      $('rpGpx').addEventListener('click', function () { gpx(t); });
+      $('rpExp').addEventListener('click', function () { var bx = $('rpExpBox'), op = bx.classList.toggle('hidden') === false; $('rpExp').classList.toggle('on', op); });
+      $('rpGpx').addEventListener('click', function () { gpx(t); $('rpExpBox').classList.add('hidden'); $('rpExp').classList.remove('on'); });
       $('rpLog').addEventListener('click', function () { if (window.Coach) window.Coach.addFromTrack(id); });
-      $('rpCsv').addEventListener('click', function () { csv(t); });
+      $('rpCsv').addEventListener('click', function () { csv(t); $('rpExpBox').classList.add('hidden'); $('rpExp').classList.remove('on'); });
       $('rpDel').addEventListener('click', function () { toast('Delete this track?', 'Delete', function () { delTrack(id).then(openList); }, 4000); });
     });
   }
