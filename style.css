@@ -777,3 +777,10 @@ body.trk-fs-on{overflow:hidden}
 .co-fe .icon-btn.sm{min-width:36px;width:36px;height:36px}
 @media (max-width:360px){.co-sg{grid-template-columns:1fr}}
 .co-sh .btn{flex:0 0 auto;width:auto;padding:0 12px}
+
+.co-grp>.co-race,.co-grp>.co-sec{margin:6px 0;border-color:rgba(255,255,255,.06)}
+.co-grp>.co-sec>summary{font-size:14px}
+.co-grp .co-setup{border:0;padding:0;margin:8px 0}
+.co-how{margin:4px 0 8px}
+.co-how>summary{cursor:pointer;color:var(--muted);font-size:13px;list-style:none}
+.co-how>summary::before{content:'ⓘ ';color:#00e0c6}
