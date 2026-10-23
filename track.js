@@ -177,7 +177,7 @@
   /* ---- list + replay ---- */
   var view = { id: null, map: null, pts: null, i: 0, playing: false, timer: null, speed: 10 };
   function openList() {
-    stopPlay(); document.body.classList.remove('trk-fs-on'); var sf = document.querySelector('body > #rpStage'); if (sf) sf.remove(); view.id = null; $('trkTitle').textContent = 'TRACKING'; $('trkMore').classList.add('hidden'); $('trkInfo').classList.remove('hidden');
+    stopPlay(); document.body.classList.remove('trk-fs-on'); var sf = document.querySelector('body > #rpStage'); if (sf) sf.remove(); view.id = null; if (window.RA && window.RA.setTitle) window.RA.setTitle('trkTitle', 'TRACKING'); else $('trkTitle').textContent = 'TRACKING'; $('trkMore').classList.add('hidden'); $('trkInfo').classList.remove('hidden');
     allTracks().then(function (a) {
       var h = '';
       if (rec) h += '<div class="trk-recnow"><i></i> Recording: ' + esc(rec.name) + ' · ' + rec.points.length + ' points</div>';
@@ -218,7 +218,7 @@
       var mO = t.axis !== undefined && t.axis !== null ? { axis: t.flip ? (t.axis + 180) % 360 : t.axis } : { upAt: t.raceStart || null, flip: !!t.flip };
       view.mnv = window.Maneuvers ? window.Maneuvers.analyze(mP, mO) : null;
       view.cum = [0]; for (var ci = 1; ci < t.points.length; ci++) view.cum.push(view.cum[ci - 1] + dist(t.points[ci - 1], t.points[ci]) / 1852);
-      $('trkTitle').textContent = 'REPLAY'; $('trkInfo').classList.add('hidden');
+      if (window.RA && window.RA.setTitle) window.RA.setTitle('trkTitle', t.name, function (v) { t.name = v; putTrack(t); var nb = document.querySelector('.trk-name b'); if (nb) nb.textContent = v; }); else $('trkTitle').textContent = t.name; $('trkInfo').classList.add('hidden');
       var st = t.stats || stats(t.points);
       $('trkBody').innerHTML = '<div class="trk-name"><b>' + esc(t.name) + '</b><span>' + st.dist.toFixed(2) + ' NM · ' + fmtDur(st.dur) + ' · avg ' + st.avg.toFixed(1) + ' · max ' + st.max.toFixed(1) + ' kn</span></div>' +
         '<div class="trk-stage" id="rpStage">' +

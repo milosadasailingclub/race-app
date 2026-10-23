@@ -58,10 +58,13 @@
       return { rg: rg, fleet: a.fleet, host: host };
     });
   }
+  function title(t, ren) { if (window.RA && window.RA.setTitle) window.RA.setTitle('coTitle', t, ren); else $('coTitle').textContent = t; }
+  function renEntry(id) { return function (v) { saveEntries(entries().map(function (x) { if (x.id === id) x.title = v; return x; })); }; }
+  function renReg(id) { return function (v) { var all = regattas(), r = all.filter(function (x) { return x.id === id; })[0]; if (r) { r.name = v.replace(/\s·\sR\d+$/, ''); saveRegattas(all); } }; }
   function eidCur() { return cur && cur.indexOf('rs:') === 0 ? cur.slice(3) : cur; }
   function renderSolo(eid) {
     var e = entries().filter(function (x) { return x.id === eid; })[0]; if (!e) { cur = null; renderList(); return; }
-    $('coTitle').textContent = 'REPLAY'; $('coBody').innerHTML = '<p class="small">Analysing the track…</p>';
+    title(e.title, renEntry(eid)); $('coBody').innerHTML = '<p class="small">Analysing the track…</p>';
     soloOf(e).then(function (SO) { if (cur !== 'rs:' + eid) return; renderRace(SO.rg.id, 1, SO); })
       .catch(function (err) { $('coBody').innerHTML = '<p class="small">' + esc(err.message) + '. Open it in Tracking instead.</p><div class="row"><button class="btn" id="coOpenTrk">Open track replay</button></div>'; });
   }
@@ -477,9 +480,9 @@
   // trka iz regate ili (SO) jedan brod, trek snimljen aplikacijom: isti prikaz, replay i AI linija
   function renderRace(rgId, n, SO) {
     var rg = SO ? SO.rg : regattas().filter(function (x) { return x.id === rgId; })[0], r = rg && rg.races[n - 1]; if (!r) { cur = null; renderList(); return; }
-    $('coTitle').textContent = SO ? 'REPLAY' : 'RACE ' + n;
+    if (SO) title(entries().filter(function (x) { return x.id === eidCur(); }).map(function (x) { return x.title; })[0] || rg.name, renEntry(eidCur())); else title(rg.name + ' · R' + n, renReg(rg.id));
     var me = rg.me, lbl = function (id) { return nameOf(rg, id).split(' / ')[0]; }, tg = raceTargets(r);
-    var h = '<div class="co-when">' + esc(rg.name) + ' · ' + dateTxt(r.gun) + ' ' + timeTxt(r.gun) + ' · wind ' + d3(r.wind) + '° · ' + r.laps + ' laps</div><div id="rrBox"></div>' + theoryLine(rg, r);
+    var h = '<div class="co-when">' + (SO ? '' : 'Race ' + n + ' · ') + dateTxt(r.gun) + ' ' + timeTxt(r.gun) + ' · wind ' + d3(r.wind) + '° · ' + r.laps + ' laps</div><div id="rrBox"></div>' + theoryLine(rg, r);
     if (r.legs && r.legs.length) {
       var bs = Object.keys(r.legs[0].boats);
       var sel = RT.sel && bs.indexOf(RT.sel) >= 0 && RT.key === rgId + ':' + n ? RT.sel : (bs.indexOf(me) >= 0 ? me : r.legs[0].best);
@@ -518,9 +521,9 @@
   }
   function renderRegatta(id) {
     var rg = regattas().filter(function (x) { return x.id === id; })[0]; if (!rg) { cur = null; renderList(); return; }
-    $('coTitle').textContent = 'REGATTA';
+    title(rg.name, renReg(rg.id));
     var S = window.Regatta.summary(rg.races, rg.me), me = rg.me;
-    var h = '<input class="co-title co-rgt" id="coRgName" value="' + esc(rg.name) + '"><div class="co-when">' + esc(rg.place || '') + ' · ' + rg.races.length + ' races · ' + dateTxt(rg.races[0].gun) + '</div>';
+    var h = '<div class="co-when">' + esc(rg.place || '') + ' · ' + rg.races.length + ' races · ' + dateTxt(rg.races[0].gun) + '</div>';
     var pickH = S.list.map(function (x) { return '<button class="cl-card' + (x.id === me ? ' on' : '') + '" data-me2="' + x.id + '"><span class="cl-name">' + esc(nameOf(rg, x.id)) + '</span></button>'; }).join('');
     if (!me) h += '<p class="small">Pick your boat to see your comparison:</p>' + pickH;
     else h += '<div class="co-me">Your boat: <b>' + esc(nameOf(rg, me)) + '</b> <button class="btn sm" id="coMeChg">Not you? Change</button></div><div id="coMePick" hidden><p class="small">Tap your boat. Your Debrief entries for this regatta are rebuilt from your boat\'s track; notes and setup are kept.</p>' + pickH + '</div>';
@@ -570,7 +573,7 @@
   }
   var INFO = false;
   function renderList() {
-    $('coTitle').textContent = 'DEBRIEF';
+    title('DEBRIEF');
     var q = (sget('coFilter', '') || '').toLowerCase(), all = entries(), rgs = regattas();
     var hit = function (s) { return !q || s.toLowerCase().indexOf(q) >= 0; };
     // jedna lista: pojedinačni zapisi + regate (grupa trka) po datumu
@@ -599,14 +602,14 @@
   }
   function renderEntry() {
     var e = entries().filter(function (x) { return x.id === cur; })[0]; if (!e) { cur = null; renderList(); return; }
-    $('coTitle').textContent = 'RACE';
+    title(e.title, renEntry(e.id));
     $('coBody').innerHTML = entryHtml(e, false);
   }
   // detalji sesije (vreme, mesto, vetar, izmereno, rezultat); solo = bez setup-a i beleški (one su u prikazu trke)
   function entryHtml(e, solo) {
     var m = e.m, w = e.wx;
     function tile(l, v) { return '<div><em>' + l + '</em><b>' + v + '</b></div>'; }
-    var h = '<input class="co-title" data-f="title" value="' + esc(e.title) + '">' +
+    var h = '' +
       '<div class="co-when">' + (m.start ? dateTxt(m.start) + ' · ' + timeTxt(m.start) + '–' + timeTxt(m.end) + ' · ' + fmtDur((m.end - m.start) / 1000) : '') + '</div>' +
       '<label class="co-lbl">Place<input data-f="place" value="' + esc(e.place) + '"></label>' +
       '<div class="co-sec"><h3>WEATHER THAT DAY</h3><p class="co-wx">' + wxLine(w) + '</p>' + (w && w.err ? '<button class="btn" id="coWxRetry">Try again</button>' : '') +

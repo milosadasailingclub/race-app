@@ -1,7 +1,7 @@
-/* The Race App — v0.10.9 */
+/* The Race App — v0.10.10 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.10.9';
+  var APP_VERSION = '0.10.10';
   // skriveni developer mod: 7 tapova na broj verzije (prikazuje trošak AI obrade samo vlasniku)
   (function () {
     var n = 0, t0 = 0, el = document.getElementById('version'); if (!el) return;
@@ -1421,6 +1421,21 @@
   ['change', 'click'].forEach(function (ev) { var sb = document.querySelector('#settings .set-body'); if (sb) sb.addEventListener(ev, function () { setTimeout(setSums, 80); }); });
   $('pagesReset').addEventListener('click', function () { store.set('pages', null); applyPages(); renderPagesSet(); });
 
-  window.RA = { nav: function () { return S.lastFix ? { lat: S.lastFix.lat, lon: S.lastFix.lon, t: S.lastFix.t, sog: S.sog, hdg: S.hdg } : null; }, extFix: function (p) { p.__ext = true; onFix(p); }, tac: function () { return tacInfo(); }, setMark: function () { setMarkHere(); }, toast: toast, store: store, show: show, goPageId: function (id) { goPageId(id); } };
+  // naslov ekrana = ime sesije; tap na naslov menja ime (kad je dozvoljeno)
+  function setTitle(id, text, ren) {
+    var el = $(id); if (!el) return; el.textContent = text || ''; el._ren = ren || null; el.classList.toggle('ren', !!ren); el.title = ren ? 'Tap to rename' : '';
+    if (!el._bound) {
+      el._bound = true;
+      el.addEventListener('click', function () {
+        if (!el._ren || el.querySelector('input')) return;
+        var old = el.textContent, inp = document.createElement('input'); inp.className = 'title-in'; inp.value = old; inp.maxLength = 60;
+        el.textContent = ''; el.appendChild(inp); inp.focus(); inp.select();
+        var done = false, fin = function (ok) { if (done) return; done = true; var v = inp.value.trim(); el.textContent = ok && v ? v : old; if (ok && v && v !== old && el._ren) el._ren(v); };
+        inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); fin(true); } else if (e.key === 'Escape') fin(false); });
+        inp.addEventListener('blur', function () { fin(true); });
+      });
+    }
+  }
+  window.RA = { setTitle: setTitle, nav: function () { return S.lastFix ? { lat: S.lastFix.lat, lon: S.lastFix.lon, t: S.lastFix.t, sog: S.sog, hdg: S.hdg } : null; }, extFix: function (p) { p.__ext = true; onFix(p); }, tac: function () { return tacInfo(); }, setMark: function () { setMarkHere(); }, toast: toast, store: store, show: show, goPageId: function (id) { goPageId(id); } };
   window.__ra = { S: S, T: T, L: L, FZ: FZ, LW: LW, cfg: cfg, calibrate: calibrate, show: show };
 })();

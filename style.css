@@ -858,3 +858,9 @@ body.trk-fs-on{overflow:hidden}
 #coBody>.info-card{margin-bottom:10px}
 .co-add .co-imp{display:flex;align-items:center;justify-content:center;text-align:center}
 .rr-map .trk-fsbtns .rr-ibtn{display:inline-flex;align-items:center;justify-content:center}
+
+/* naslov = ime sesije; dugačka imena u jednom redu sa "…"; olovka kad može da se preimenuje */
+#coTitle,#trkTitle{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:clamp(20px,6.4vw,30px)}
+#coTitle.ren,#trkTitle.ren{cursor:pointer}
+#coTitle.ren::after,#trkTitle.ren::after{content:'';display:inline-block;width:14px;height:14px;margin-left:8px;vertical-align:middle;opacity:.55;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20h4l10.5-10.5a2.1 2.1 0 0 0-4-4L4 16z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20h4l10.5-10.5a2.1 2.1 0 0 0-4-4L4 16z'/%3E%3C/svg%3E") center/contain no-repeat}
+.title-in{width:100%;font:inherit;color:inherit;background:var(--surface);border:1px solid #00e0c6;border-radius:8px;padding:2px 8px;text-transform:none}
