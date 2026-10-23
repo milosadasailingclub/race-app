@@ -272,7 +272,7 @@
       $('rpRename').addEventListener('click', function () { var n = prompt('Track name', t.name); if (n && n.trim()) { t.name = n.trim(); putTrack(t).then(function () { openTrack(id); }); } });
       $('rpExp').addEventListener('click', function () { var bx = $('rpExpBox'), op = bx.classList.toggle('hidden') === false; $('rpExp').classList.toggle('on', op); });
       $('rpGpx').addEventListener('click', function () { gpx(t); $('rpExpBox').classList.add('hidden'); $('rpExp').classList.remove('on'); });
-      $('rpLog').addEventListener('click', function () { if (window.Coach) window.Coach.addFromTrack(id); });
+      $('rpLog').addEventListener('click', function () { if (window.Coach) window.Coach.addFromTrack(id, { stay: true }); });
       $('rpCsv').addEventListener('click', function () { csv(t); $('rpExpBox').classList.add('hidden'); $('rpExp').classList.remove('on'); });
       $('rpDel').addEventListener('click', function () { toast('Delete this track?', 'Delete', function () { delTrack(id).then(openList); }, 4000); });
     });

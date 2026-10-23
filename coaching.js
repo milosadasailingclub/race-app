@@ -116,7 +116,7 @@
   function addFromTrack(trackId, o) {
     o = o || {};
     var ex = entries().filter(function (x) { return x.trackId === trackId; })[0];
-    if (ex) { if (!o.silent) open(ex.id); return Promise.resolve(ex); }
+    if (ex) { if (o.stay) toast('Already in Debrief', 'Open', function () { open(ex.id); }, 4000); else if (!o.silent) open(ex.id); return Promise.resolve(ex); }
     return window.Track.get(trackId).then(function (t) {
       if (!t || !t.points || t.points.length < 20) { toast('Track too short for Debrief'); return null; }
       var m = measure(t.points, t), all = entries(), last = all[0];
@@ -124,7 +124,9 @@
         setup: last && last.setup ? Object.assign({}, last.setup) : {}, notes: '', result: t.place ? t.place + ' of ' + t.fleet : (t.fleet ? 'not finished (' + t.fleet + ' boats)' : ''), created: Date.now(), regatta: o.regatta || null, raceN: o.raceN || null, cls: sget('boatClass', '') || null };
       all.unshift(e); all.sort(function (a, b) { return (b.m.start || 0) - (a.m.start || 0); }); saveEntries(all);
       fetchWx(e); if (o.silent) return e;
-      open(e.id); toast('Added to Debrief' + (last && last.setup ? ' (setup copied from the last entry)' : ''));
+      // iz Tracking-a: ostani na treku, ponudi da se otvori
+      if (o.stay) { toast('Added to Debrief', 'Open', function () { open(e.id); }, 4000); return e; }
+      open(e.id); toast('Added to Debrief');
       return e;
     });
   }
