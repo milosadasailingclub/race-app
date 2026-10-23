@@ -831,3 +831,16 @@ body.trk-fs-on{overflow:hidden}
 .wx-save input{flex:1 1 auto}
 .wx-save .btn{flex:0 0 auto;width:auto;padding:0 18px}
 .wx-status{text-align:right}
+
+/* (i) objašnjenja i poruka o limitu: umesto stalnog teksta na vrhu */
+.set-head .info-btn{margin-left:auto}
+.set-head .info-btn+.cl-act{margin-left:0}
+.info-btn.on{color:#00e0c6;border-color:#00e0c6}
+.info-card{background:rgba(0,224,198,.07);border:1px solid rgba(0,224,198,.35);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--muted)}
+.info-card p{margin:0 0 6px}.info-card p:last-child{margin:0}
+.info-card b{color:var(--fg)}
+.limit-card{display:flex;flex-direction:column;gap:6px;margin-top:12px;padding:12px;border-radius:12px;border:1px solid rgba(155,59,255,.55);background:linear-gradient(135deg,rgba(155,59,255,.12),rgba(0,224,198,.08))}
+.limit-card b{font-size:14px}
+.limit-card span{font-size:13px;color:var(--muted)}
+.limit-card .btn{align-self:flex-start;width:auto;padding:0 16px}
+.limit-card small{font-size:11px;color:var(--muted)}

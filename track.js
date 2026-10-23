@@ -46,7 +46,7 @@
     var now = Date.now();
     rec = { id: 't' + now, name: (auto ? 'Race ' : 'Track ') + new Date(now).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }), start: now, points: [], auto: !!auto };
     putTrack(rec); renderRecBtn(); toast(auto ? 'Race start: track recording' : 'Track recording started');
-    allTracks().then(function (a) { if (a.length > FREE_LIMIT) toast('Free keeps ' + FREE_LIMIT + ' tracks. Pro: unlimited (unlocked for testing).', null, null, 4000); });
+    allTracks().then(function (a) { if (a.length > FREE_LIMIT && (!window.Account || window.Account.plan() !== 'pro')) toast('Free keeps ' + FREE_LIMIT + ' tracks · Pro: unlimited', null, null, 4000); });
   }
   function stopRec() {
     if (!rec) return;
@@ -177,17 +177,21 @@
   /* ---- list + replay ---- */
   var view = { id: null, map: null, pts: null, i: 0, playing: false, timer: null, speed: 10 };
   function openList() {
-    stopPlay(); document.body.classList.remove('trk-fs-on'); var sf = document.querySelector('body > #rpStage'); if (sf) sf.remove(); view.id = null; $('trkTitle').textContent = 'TRACKING'; $('trkMore').classList.add('hidden');
+    stopPlay(); document.body.classList.remove('trk-fs-on'); var sf = document.querySelector('body > #rpStage'); if (sf) sf.remove(); view.id = null; $('trkTitle').textContent = 'TRACKING'; $('trkMore').classList.add('hidden'); $('trkInfo').classList.remove('hidden');
     allTracks().then(function (a) {
       var h = '';
       if (rec) h += '<div class="trk-recnow"><i></i> Recording: ' + esc(rec.name) + ' · ' + rec.points.length + ' points</div>';
-      h += '<p class="small">Free keeps ' + FREE_LIMIT + ' tracks · <span class="pro">PRO</span> unlimited (unlocked for testing). Tracks start automatically at the race gun, or with START TRACK on the Live tracking screen.</p>';
-      if (!a.length) h += '<p class="small">No tracks yet.</p>';
+      // objašnjenje samo na dugme (i); lista je prva
+      h += '<div class="info-card' + (view.info ? '' : ' hidden') + '" id="trkInfoBox"><p>Tracks start automatically at the race gun, or with <b>START TRACK</b> on the Live tracking screen. Tap a track to replay it, export it or add it to Debrief.</p><p>Free keeps ' + FREE_LIMIT + ' tracks · <span class="pro">PRO</span> unlimited.</p></div>';
+      if (!a.length) h += '<p class="small">No tracks yet. They start automatically at the race gun.</p>';
       a.forEach(function (t) {
         var st = t.stats || stats(t.points || []);
         h += '<button class="cl-card" data-trk="' + t.id + '"><span class="cl-name">' + esc(t.name) + '</span><span class="cl-meta">' + st.dist.toFixed(2) + ' NM</span>' +
           '<span class="trk-meta">' + (t.imported ? '<b class="trk-imp">IMPORTED</b> ' : '') + fmtDur(st.dur) + ' · avg ' + st.avg.toFixed(1) + ' kn · max ' + st.max.toFixed(1) + ' kn' + (rec && rec.id === t.id ? ' · recording' : '') + '</span></button>';
       });
+      // poruka tek kad se pređe limit (Free plan): vodi na Pro ili dokup
+      var free = !window.Account || window.Account.plan() !== 'pro';
+      if (free && a.length > FREE_LIMIT) h += '<div class="limit-card"><b>' + a.length + ' tracks saved · Free keeps ' + FREE_LIMIT + '</b><span>Go <span class="pro">PRO</span> for unlimited tracks, the fleet replay and more AI credits.</span><button class="btn primary sm" id="trkGoPro">See Pro</button><small>Unlocked for testing: nothing is deleted for now.</small></div>';
       $('trkBody').innerHTML = h;
     });
   }
@@ -214,7 +218,7 @@
       var mO = t.axis !== undefined && t.axis !== null ? { axis: t.flip ? (t.axis + 180) % 360 : t.axis } : { upAt: t.raceStart || null, flip: !!t.flip };
       view.mnv = window.Maneuvers ? window.Maneuvers.analyze(mP, mO) : null;
       view.cum = [0]; for (var ci = 1; ci < t.points.length; ci++) view.cum.push(view.cum[ci - 1] + dist(t.points[ci - 1], t.points[ci]) / 1852);
-      $('trkTitle').textContent = 'REPLAY'; $('trkMore').classList.remove('hidden');
+      $('trkTitle').textContent = 'REPLAY'; $('trkMore').classList.remove('hidden'); $('trkInfo').classList.add('hidden');
       var st = t.stats || stats(t.points);
       $('trkBody').innerHTML = '<div class="trk-name"><b>' + esc(t.name) + '</b><span>' + st.dist.toFixed(2) + ' NM · ' + fmtDur(st.dur) + ' · avg ' + st.avg.toFixed(1) + ' · max ' + st.max.toFixed(1) + ' kn</span></div>' +
         '<div class="trk-stage" id="rpStage">' +
@@ -339,6 +343,8 @@
   });
   $('trkBack').addEventListener('click', function () { if (view.id) openList(); else R().show('menu'); });
   $('trkMore').addEventListener('click', function () { if (view.t) gpx(view.t); });
+  $('trkInfo').addEventListener('click', function () { view.info = !view.info; var b = $('trkInfoBox'); if (b) b.classList.toggle('hidden', !view.info); $('trkInfo').classList.toggle('on', !!view.info); });
+  document.addEventListener('click', function (e) { if (e.target && e.target.id === 'trkGoPro' && window.RA) { window.RA.show('settings'); setTimeout(function () { var d = document.querySelector('[data-sec=me]'); if (d) { d.open = true; d.scrollIntoView({ block: 'start' }); } }, 120); } });
 
   // resume an interrupted recording (page reload)
   allTracks().then(function (a) {
