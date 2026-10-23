@@ -851,3 +851,9 @@ body.trk-fs-on{overflow:hidden}
 .rp-exp{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
 .rp-exp .btn{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:54px;width:auto}
 .rp-exp small{font-size:11px;color:var(--muted);font-weight:400;letter-spacing:0;text-transform:none}
+
+.co-add{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.co-add .btn{width:auto;min-width:0}
+#coBody>.co-filter{margin-bottom:8px}
+#coBody>.info-card{margin-bottom:10px}
+.co-add .co-imp{display:flex;align-items:center;justify-content:center;text-align:center}

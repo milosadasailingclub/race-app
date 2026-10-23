@@ -536,6 +536,7 @@
   function list() { cur = null; render(); }
   function toTop() { var b = $('coBody'); if (b) b.scrollTop = 0; window.scrollTo(0, 0); }
   function render() {
+    var ib = $('coInfo'); if (ib) { ib.classList.toggle('hidden', !!cur); ib.classList.toggle('on', INFO); }
     if (!(cur && cur.indexOf('rr:') === 0) && window.RaceReplay) window.RaceReplay.close();
     if (cur && cur.indexOf('rr:') === 0) renderRace(cur.split(':')[1], +cur.split(':')[2]);
     else if (cur && cur.indexOf('rg:') === 0) renderRegatta(cur.slice(3)); else if (cur) renderEntry(); else renderList();
@@ -545,6 +546,7 @@
     if (w.err) return 'Weather not available (' + esc(w.err) + ')';
     return (Math.round(w.min) === Math.round(w.max) ? Math.round(w.min) : Math.round(w.min) + '–' + Math.round(w.max)) + ' kn, gusts ' + (w.gust !== null ? Math.round(w.gust) : '–') + ' · from ' + d3(w.dir) + '° ' + compass(w.dir) + (w.temp !== null ? ' · ' + Math.round(w.temp) + '°C' : '');
   }
+  var INFO = false;
   function renderList() {
     $('coTitle').textContent = 'DEBRIEF';
     var q = (sget('coFilter', '') || '').toLowerCase(), all = entries(), rgs = regattas();
@@ -554,17 +556,16 @@
       .filter(function (e) { return hit([e.title, e.place, e.notes, e.result].join(' ')); }).map(function (e) { return { t: e.m.start || 0, e: e }; })
       .concat(rgs.filter(function (r) { return hit([r.name, r.place].join(' ') + ' ' + all.filter(function (e) { return e.regatta === r.id; }).map(function (e) { return e.notes; }).join(' ')); }).map(function (r) { return { t: r.races[0].gun, r: r }; }))
       .sort(function (a, b) { return b.t - a.t; });
-    var h = '<div class="co-sec"><h3>MY RACES</h3><p class="small">Every sail and regatta: your numbers, weather and notes. Regattas get a fleet replay, the AI ideal line and a wind map.</p>' +
-      '<div class="row"><button class="btn" id="coAddTrack">+ Saved track</button><label class="btn co-imp">Import files<input type="file" id="coImport" multiple accept=".gpx,.csv,.gz,.txt,.tsv,.json,.html,.htm,text/csv,application/gpx+xml" hidden></label></div>' +
-      '<p class="small co-hint">Your GPX / CSV, or all race files of a regatta together with the results.</p>' +
-      (items.length || q ? '<input type="search" id="coFilter" class="co-filter" placeholder="Search place, notes… (e.g. Palić)" value="' + esc(q) + '">' : '') + '<div id="coPick"></div><div id="coRegPick"></div>';
+    // prvo pretraga i lista; dodavanje dole; objašnjenje samo na (i)
+    var h = '<div class="info-card' + (INFO ? '' : ' hidden') + '" id="coInfoBox"><p>Every sail and regatta: your numbers, weather, setup and notes. Regattas get a fleet replay, the AI ideal line and a wind map.</p><p><b>Import files</b>: your GPX / CSV, or all race files of a regatta together with the results.</p></div>' +
+      (items.length || q ? '<input type="search" id="coFilter" class="co-filter" placeholder="Search place, notes… (e.g. Palić)" value="' + esc(q) + '">' : '');
     h += items.length ? items.map(function (it) {
       if (it.r) { var r = it.r; return '<button class="cl-card co-card co-rgcard" data-rg="' + r.id + '"><span class="cl-name">' + esc(r.name) + '</span><span class="cl-meta">' + r.races.length + ' races</span><span class="co-sub">' + esc(r.place || '') + ' · ' + dateTxt(r.races[0].gun) + ' · fleet of ' + r.races[0].rows.length + (r.me ? ' · you: ' + esc(nameOf(r, r.me).split(' / ')[0]) : '') + '</span></button>'; }
       var e = it.e;
       return '<button class="cl-card co-card" data-le="' + e.id + '"><span class="cl-name">' + esc(e.title) + '</span><span class="cl-meta">' + (e.m.start ? dateTxt(e.m.start) : '') + '</span>' +
         '<span class="co-sub">' + esc(e.place) + ' · ' + (e.wx && !e.wx.err ? (Math.round(e.wx.min) === Math.round(e.wx.max) ? Math.round(e.wx.min) : Math.round(e.wx.min) + '–' + Math.round(e.wx.max)) + ' kn ' + compass(e.wx.dir) : (e.m.windDir !== null ? 'wind ~' + d3(e.m.windDir) + '°' : '')) + ' · ' + f1(e.m.dist) + ' NM</span></button>';
-    }).join('') : '<p class="small">' + (q ? 'Nothing matches.' : 'No entries yet. Add one from a saved track or import a file.') + '</p>';
-    h += '</div><div class="co-sec co-soon"><h3>TRAINING SESSIONS</h3><p class="small">Coming soon: tack and gybe drills with entry / exit speed, acceleration and start drills.</p></div>';
+    }).join('') : '<p class="small">' + (q ? 'Nothing matches.' : 'Nothing here yet. Add a saved track or import files below.') + '</p>';
+    h += '<div class="co-add"><button class="btn" id="coAddTrack">+ Saved track</button><label class="btn co-imp">Import files<input type="file" id="coImport" multiple accept=".gpx,.csv,.gz,.txt,.tsv,.json,.html,.htm,text/csv,application/gpx+xml" hidden></label></div><div id="coPick"></div><div id="coRegPick"></div>';
     $('coBody').innerHTML = h;
   }
   function fleetHtml(e) {
@@ -633,6 +634,7 @@
       var used = entries().map(function (x) { return x.trackId; });
       window.Track.all().then(function (a) {
         var free = a.filter(function (t) { return used.indexOf(t.id) < 0 && t.points && t.points.length >= 20; });
+        setTimeout(function () { var pk = $('coPick'); if (pk) pk.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 50);
         $('coPick').innerHTML = free.length ? '<p class="small">Pick a track:</p>' + free.map(function (t) { return '<button class="cl-card" data-pick="' + t.id + '"><span class="cl-name">' + esc(t.name) + '</span><span class="cl-meta">' + ((t.stats && t.stats.dist) || 0).toFixed(2) + ' NM</span></button>'; }).join('') : '<p class="small">All saved tracks are already in Debrief.</p>';
       });
       return;
@@ -646,6 +648,7 @@
     body.addEventListener('input', function (ev) {
       if (ev.target.id === 'coRgName' && cur && cur.indexOf('rg:') === 0) { var all = regattas(), r = all.filter(function (x) { return 'rg:' + x.id === cur; })[0]; if (r) { r.name = ev.target.value; saveRegattas(all); } return; } if (ev.target.id === 'coFilter') { sset('coFilter', ev.target.value); var p = ev.target.selectionStart; renderList(); var f = $('coFilter'); if (f) { f.focus(); try { f.setSelectionRange(p, p); } catch (e) {} } return; } onInput(ev); });
     body.addEventListener('click', onClick);
+    var ci = $('coInfo'); if (ci) ci.addEventListener('click', function () { INFO = !INFO; var bx = $('coInfoBox'); if (bx) bx.classList.toggle('hidden', !INFO); ci.classList.toggle('on', INFO); });
     body.addEventListener('change', function (ev) {
       if (ev.target.id === 'coRegImp' && ev.target.files.length) {
         var fs = Array.prototype.slice.call(ev.target.files); toast('Reading ' + fs.length + ' file' + (fs.length > 1 ? 's' : '') + '…');
