@@ -61,6 +61,21 @@
   function title(t, ren) { if (window.RA && window.RA.setTitle) window.RA.setTitle('coTitle', t, ren); else $('coTitle').textContent = t; }
   function renEntry(id) { return function (v) { saveEntries(entries().map(function (x) { if (x.id === id) x.title = v; return x; })); }; }
   function renReg(id) { return function (v) { var all = regattas(), r = all.filter(function (x) { return x.id === id; })[0]; if (r) { r.name = v.replace(/\s·\sR\d+$/, ''); saveRegattas(all); } }; }
+  function sessionHtml(rg, r, E, solo) {
+    var me = rg.me, row = (r.rows || []).filter(function (x) { return x.id === me; })[0] || (r.rows || [])[0] || {};
+    function tile(l, v) { return '<div><em>' + l + '</em><b>' + v + '</b></div>'; }
+    var w = E && E.wx, place = row.offPlace !== undefined ? row.offPlace : row.place, N = (r.rows || []).length;
+    var h = '<details class="co-sec co-race co-grp"><summary>SESSION DETAILS · numbers, weather, result</summary>';
+    h += '<div class="co-tiles">' + tile('UPWIND kn', f1(row.up)) + tile('VMG UP', f1(row.vmgUp)) + tile('DOWNWIND kn', f1(row.down)) + tile('VMG DOWN', f1(row.vmgDown)) +
+      tile('UP ANGLE', row.upAng !== null && row.upAng !== undefined ? Math.round(row.upAng) + '°' : '–') + tile('TACK ANGLE', row.ta !== null && row.ta !== undefined ? Math.round(row.ta) + '°' : '–') +
+      tile('TACKS', (row.tacks || 0) + (row.tackLoss !== null && row.tackLoss !== undefined ? ' · ' + Math.round(row.tackLoss) + ' m' : '')) + tile('GYBES', (row.gybes || 0) + (row.gybeLoss !== null && row.gybeLoss !== undefined ? ' · ' + Math.round(row.gybeLoss) + ' m' : '')) +
+      tile('MAX kn', f1(row.max)) + tile('TIME', row.elapsed ? fmtT(row.elapsed) : '–') + '</div>';
+    if (E) h += '<p class="co-wx">Weather: ' + wxLine(w) + '</p>' + (w && w.err ? '<button class="btn sm" id="coWxRetry" data-eid="' + E.id + '">Try weather again</button>' : '');
+    if (E && E.place !== undefined) h += '<label class="co-lbl">Place<input data-f="place" data-eid="' + E.id + '" value="' + esc(E.place || '') + '"></label>';
+    h += E ? '<label class="co-lbl">Result<input data-f="result" data-eid="' + E.id + '" placeholder="e.g. 3rd of 12" value="' + esc(E.result || (N > 1 && place ? place + ' of ' + N : '')) + '"></label>' : (N > 1 && place ? '<p class="small">Result: <b>' + place + ' of ' + N + '</b></p>' : '');
+    h += '<div class="row">' + (E && E.trackId ? '<button class="btn sm" id="coOpenTrk" data-eid="' + E.id + '">Track view</button>' : '') + (solo && E ? '<button class="btn sm danger" id="coDel" data-eid="' + E.id + '">Delete session</button>' : '') + '</div></details>';
+    return h;
+  }
   function eidCur() { return cur && cur.indexOf('rs:') === 0 ? cur.slice(3) : cur; }
   function renderSolo(eid) {
     var e = entries().filter(function (x) { return x.id === eid; })[0]; if (!e) { cur = null; renderList(); return; }
@@ -482,11 +497,11 @@
     var rg = SO ? SO.rg : regattas().filter(function (x) { return x.id === rgId; })[0], r = rg && rg.races[n - 1]; if (!r) { cur = null; renderList(); return; }
     if (SO) title(entries().filter(function (x) { return x.id === eidCur(); }).map(function (x) { return x.title; })[0] || rg.name, renEntry(eidCur())); else title(rg.name + ' · R' + n, renReg(rg.id));
     var me = rg.me, lbl = function (id) { return nameOf(rg, id).split(' / ')[0]; }, tg = raceTargets(r);
-    var h = '<div class="co-when">' + (SO ? '' : 'Race ' + n + ' · ') + dateTxt(r.gun) + ' ' + timeTxt(r.gun) + ' · wind ' + d3(r.wind) + '° · ' + r.laps + ' laps</div><div id="rrBox"></div>' + theoryLine(rg, r);
+    var h = '<div class="co-when">' + dateTxt(r.gun) + ' ' + timeTxt(r.gun) + ' · wind ' + d3(r.wind) + '° · ' + r.laps + ' laps</div><div id="rrBox"></div>' + theoryLine(rg, r);
     if (r.legs && r.legs.length) {
       var bs = Object.keys(r.legs[0].boats);
       var sel = RT.sel && bs.indexOf(RT.sel) >= 0 && RT.key === rgId + ':' + n ? RT.sel : (bs.indexOf(me) >= 0 ? me : r.legs[0].best);
-      h += '<div class="co-sec"><h3>LEGS</h3><label class="co-selb">Boat <select id="coSel">' + bs.map(function (id) { return '<option value="' + esc(id) + '"' + (id === sel ? ' selected' : '') + '>' + esc(lbl(id)) + (id === me ? ' (you)' : '') + '</option>'; }).join('') + '</select></label>' +
+      h += '<div class="co-sec"><h3>LEGS</h3><label class="co-selb"' + (bs.length > 1 ? '' : ' hidden') + '>Boat <select id="coSel">' + bs.map(function (id) { return '<option value="' + esc(id) + '"' + (id === sel ? ' selected' : '') + '>' + esc(lbl(id)) + (id === me ? ' (you)' : '') + '</option>'; }).join('') + '</select></label>' +
         '<details class="co-how"><summary>How to read the map and table</summary>' + '<p class="small">Turquoise shaded lane = <b>AI ideal line</b> for the selected boat: the fastest way to the mark from where and when that boat started the leg, sailed at its own speeds and pointing, through the wind shifts and pressure the whole fleet showed at that time and place. Gold dashed line = track of the boat that sailed the leg fastest. Gain = time that line would have saved. Tap a leg to jump there.</p>' + '</details>' +
         '<div id="coLegs">' + legsTable(rg, r, sel, null) + '</div></div>';
       if (bs.length > 1) h += '<details class="co-sec co-race co-grp"><summary>ALL BOATS · LEG BY LEG (' + r.legs.length + ')</summary>' + r.legs.map(function (L) {
@@ -495,7 +510,10 @@
       }).join('') + '</details>';
     } else h += '<p class="small">This regatta was imported before the replay existed. Import the race files again to get the fleet replay and the fastest lanes.</p>';
     var HS = SO ? SO.host : raceHost(rgId, n), PH = !SO && n > 1 ? raceHost(rgId, n - 1) : null;
-    if (SO) { var eS = entries().filter(function (x) { return x.id === eidCur(); })[0]; if (eS) h += '<details class="co-sec co-race co-grp"><summary>SESSION DETAILS · weather, numbers, result</summary>' + entryHtml(eS, true) + '</details>'; }
+    // ISTO za svaku sesiju (samostalna ili plov regate): detalji iz analize trka + vreme/rezultat iz zapisa, ako postoji
+    var E = SO ? entries().filter(function (x) { return x.id === eidCur(); })[0] : entries().filter(function (x) { return x.regatta === rgId && x.raceN === n; })[0];
+    h += sessionHtml(rg, r, E, !!SO);
+    if (r.rows && r.rows.length > 1) h += '<details class="co-sec co-race co-grp"><summary>FLEET RESULTS · ' + r.rows.length + ' boats</summary>' + raceTable(rg, r) + '</details>';
     if (HS) h += '<details class="co-sec co-race co-grp"' + (SED ? ' open' : '') + '><summary>SETUP &amp; NOTES' + (function () { var n = Object.keys(HS.vals).filter(function (k) { return HS.vals[k]; }).length; return n ? ' · ' + n + ' filled' : ''; })() + '</summary>' + setupHtml(HS.vals, HS.notes, PH && Object.keys(PH.vals).some(function (k) { return PH.vals[k]; }) ? '<div class="row"><button class="btn sm" id="coSetPrev">Copy setup from race ' + (n - 1) + '</button></div>' : '') + '</details>';
     $('coBody').innerHTML = h;
     if (r.legs && window.Track && window.RaceReplay) (SO ? Promise.resolve({ boats: SO.fleet }) : window.Track.get('f' + rgId + '_' + n)).then(function (f) {
@@ -602,6 +620,9 @@
   }
   function renderEntry() {
     var e = entries().filter(function (x) { return x.id === cur; })[0]; if (!e) { cur = null; renderList(); return; }
+    // jedna vrsta prikaza za sve sesije: plov regate ili samostalna sesija
+    if (e.regatta && regattas().some(function (g) { return g.id === e.regatta; }) && e.raceN) { cur = 'rr:' + e.regatta + ':' + e.raceN; render(); return; }
+    if (e.trackId) { cur = 'rs:' + e.id; render(); return; }
     title(e.title, renEntry(e.id));
     $('coBody').innerHTML = entryHtml(e, false);
   }
@@ -629,6 +650,7 @@
   function onInput(ev) {
     var el = ev.target;
     if (el.hasAttribute && el.hasAttribute('data-fl')) { var F = fields().map(function (x) { return x.slice(); }), i = +el.getAttribute('data-fl'); if (F[i]) { F[i][1] = el.value; saveFields(F); } return; }
+    if (el.hasAttribute && el.hasAttribute('data-eid') && el.getAttribute('data-f')) { var de = el.getAttribute('data-eid'), df = el.getAttribute('data-f'), dv = el.value; saveEntries(entries().map(function (x) { if (x.id === de) x[df] = dv; return x; })); return; }
     if (cur && cur.indexOf('rr:') === 0 && el.getAttribute && (el.hasAttribute('data-s') || el.getAttribute('data-f') === 'notes')) { var pp = cur.split(':'), H = raceHost(pp[1], +pp[2]); if (H) H.set(el.getAttribute('data-s'), el.value, !el.hasAttribute('data-s')); return; }
     var f = el.getAttribute && (el.getAttribute('data-f') || el.getAttribute('data-s')); if (!f || !cur) return;
     var isS = el.hasAttribute('data-s'), val = el.value, id = eidCur();
@@ -668,9 +690,9 @@
       });
       return;
     }
-    if (b.id === 'coOpenTrk') { var e = entries().filter(function (x) { return x.id === eidCur(); })[0]; if (e) window.Track.open(e.trackId); return; }
-    if (b.id === 'coWxRetry') { var e2 = entries().filter(function (x) { return x.id === eidCur(); })[0]; if (e2) { update(e2.id, { wx: null }); fetchWx(e2); } return; }
-    if (b.id === 'coDel') { var id = eidCur(); toast('Delete this entry? The track stays in Tracking.', 'Delete', function () { saveEntries(entries().filter(function (x) { return x.id !== id; })); cur = null; renderList(); }, 4000); }
+    if (b.id === 'coOpenTrk') { var eo = b.getAttribute('data-eid') || eidCur(), e = entries().filter(function (x) { return x.id === eo; })[0]; if (e) window.Track.open(e.trackId); return; }
+    if (b.id === 'coWxRetry') { var ew = b.getAttribute('data-eid') || eidCur(), e2 = entries().filter(function (x) { return x.id === ew; })[0]; if (e2) { update(e2.id, { wx: null }); fetchWx(e2); } return; }
+    if (b.id === 'coDel') { var id = b.getAttribute('data-eid') || eidCur(); toast('Delete this entry? The track stays in Tracking.', 'Delete', function () { saveEntries(entries().filter(function (x) { return x.id !== id; })); cur = null; renderList(); }, 4000); }
   }
   function init() {
     var body = $('coBody'); if (!body) return;
