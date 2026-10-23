@@ -30,7 +30,7 @@
     var me = meta.me, col = {}, ci = 0; ids.forEach(function (id) { col[id] = id === me ? '#ffffff' : COLORS[ci++ % COLORS.length]; });
     var tMin = race.gun - 30000, tMax = Math.max.apply(null, ids.map(function (id) { var p = fleet[id]; return p[p.length - 1][0]; }));
     el.innerHTML = '<div class="rr-stage" id="rrStage"><div class="rr-map" id="rrMap">' +
-      '<div class="trk-fsbtns"><button class="icon-btn" id="rrFs" title="Full screen">⛶</button><button class="icon-btn rr-z" id="rrZin">+</button><button class="icon-btn rr-z" id="rrZout">−</button><button class="icon-btn rr-wbtn" id="rrWind" title="Wind field" hidden>≋</button></div></div>' +
+      '<div class="trk-fsbtns"><button class="icon-btn" id="rrFs" title="Full screen">⛶</button><button class="icon-btn rr-z" id="rrZin">+</button><button class="icon-btn rr-z" id="rrZout">−</button><button class="icon-btn rr-wbtn" id="rrWind" title="Wind field" hidden><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="pointer-events:none;display:block;margin:auto"><path d="M3 8h11a3 3 0 1 0-3-3"/><path d="M3 12h16a3 3 0 1 1-3 3"/><path d="M3 16h7"/></svg></button><button class="icon-btn rr-wbtn rr-ibtn" id="rrIdB" title="AI ideal line"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;display:block;margin:auto"><path d="M7 11.5v7.5h4.5z" fill="currentColor" stroke="none"/><path d="M6.2 11v8.6"/><path d="M3.2 20.3h9.4l-1.6 2H4.8z" fill="currentColor" stroke="none"/><path d="M13.5 19.5c4.5 0 5.5-3 2.5-5s-2-5 2-5.5" stroke-dasharray="1.6 2.2"/><path d="M19 1.8a3.4 3.4 0 0 1 3.4 3.4c0 2.5-3.4 5.6-3.4 5.6s-3.4-3.1-3.4-5.6A3.4 3.4 0 0 1 19 1.8z" fill="currentColor" stroke="none"/><circle cx="19" cy="5.2" r="1.25" fill="#05070a" stroke="none"/></svg></button></div></div>' +
       '<div class="rr-vid" id="rrVid" hidden></div><div class="rr-vtel" id="rrVtel" hidden></div>' +
       '<div class="trk-ctrl"><button class="icon-btn" id="rrPlay">▶</button><input type="range" id="rrSl" min="' + tMin + '" max="' + tMax + '" step="1000" value="' + race.gun + '"><button class="icon-btn rr-spd" id="rrSpd">×10</button><button class="icon-btn rr-full" id="rrFull" title="Trail length: 5, 10, 15 min, this leg, all">5′</button></div>' +
       '<div class="rr-time" id="rrTime"></div><div class="rr-leg" id="rrLeg"></div><div class="rr-chips">' +
@@ -126,6 +126,11 @@
       S.fKey = null; if (S.wOn) drawField(S.t);
     });
     $('rrZout').addEventListener('click', function (e) { e.stopPropagation(); if (S.map) S.map.zoomOut(); });
+    // AI idealna linija: uključi / isključi (pamti se)
+    S.iOn = (function () { try { return localStorage.getItem('ra.rrIdeal') !== 'false'; } catch (x) { return true; } })();
+    function applyIdeal() { var b = $('rrIdB'); if (b) b.classList.toggle('off', !S.iOn); var k = document.querySelector('#rrStage .rr-lane-i'); if (k && k.parentNode) k.parentNode.style.opacity = S.iOn ? '' : '.35'; if (S.map && S.ready) ['ideal', 'idealC'].forEach(function (l) { if (S.map.getLayer(l)) S.map.setLayoutProperty(l, 'visibility', S.iOn ? 'visible' : 'none'); }); }
+    $('rrIdB').addEventListener('click', function (e) { e.stopPropagation(); S.iOn = !S.iOn; try { localStorage.setItem('ra.rrIdeal', S.iOn ? 'true' : 'false'); } catch (x) {} applyIdeal(); });
+    S.applyIdeal = applyIdeal; applyIdeal();
     S.goLeg = function (k) { var L = race.legs[k]; if (!L) return; stop(); setT(L.t0); };
     window.Track.lib().then(function () {
       var b = new maplibregl.LngLatBounds(); ids.forEach(function (id) { fleet[id].forEach(function (q) { if (q[0] >= race.gun) b.extend([q[2], q[1]]); }); });
@@ -151,6 +156,7 @@
         map.addLayer({ id: 'ideal', type: 'line', source: 'ideal', filter: none, layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: { 'line-color': '#00e0c6', 'line-opacity': 0.45, 'line-blur': ['interpolate', ['exponential', 2], ['zoom'], 10, 0.3, 18, 60], 'line-width': ['interpolate', ['exponential', 2], ['zoom'], 10, 1.5, 13, 9, 18, 150] } });
         map.addLayer({ id: 'idealC', type: 'line', source: 'ideal', filter: none, layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#00e0c6', 'line-opacity': 0.9, 'line-width': 1.6 } });
+        if (S.applyIdeal) setTimeout(S.applyIdeal, 0);
         // najbrži brod na legu: zlatna isprekidana
         map.addSource('best', { type: 'geojson', data: best });
         map.addLayer({ id: 'best', type: 'line', source: 'best', filter: none, layout: { 'line-join': 'round' }, paint: { 'line-color': GOLD, 'line-opacity': 0.95, 'line-width': 2.2, 'line-dasharray': [2, 1.6] } });
