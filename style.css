@@ -784,3 +784,24 @@ body.trk-fs-on{overflow:hidden}
 .co-how{margin:4px 0 8px}
 .co-how>summary{cursor:pointer;color:var(--muted);font-size:13px;list-style:none}
 .co-how>summary::before{content:'ⓘ ';color:#00e0c6}
+
+/* Weather: mesto + pretraga u jednom redu, panel za traženje/čuvanje se otvara lupom; danas otvoreno, ostali dani zatvoreni */
+.wx-controls .wx-placeb{flex:0 0 44px;min-width:44px;width:44px;height:44px}
+.wx-placeb.on{color:#00e0c6;border-color:#00e0c6}
+.wx-place{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.wx-place .wx-find{margin:0}
+.wx-now{grid-template-columns:repeat(4,1fr);gap:6px}
+.wx-now .wx-tile{padding:8px 8px}
+.wx-now .wx-tile .v{font-size:26px}
+.wx-now .wx-tile .v small{font-size:12px}
+.wx-now .wx-tile .lbl{font-size:10px;letter-spacing:.08em}
+.wx-dg{border-top:1px solid var(--line)}
+.wx-dg:first-child{border-top:0}
+.wx-dg>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;background:var(--bg);padding-right:10px}
+.wx-dg>summary::-webkit-details-marker{display:none}
+.wx-dg>summary .wx-day{border-top:0;background:none;flex:0 0 auto}
+.wx-dsum{color:var(--muted);font-size:13px;font-family:var(--f-num);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wx-dg>summary::after{content:'›';color:var(--muted);font-size:20px;transition:transform .15s}
+.wx-dg[open]>summary::after{transform:rotate(90deg);color:#00e0c6}
+
+.wx-place .wx-find-row .btn{flex:0 0 auto;width:auto;padding:0 16px}

@@ -1,7 +1,7 @@
-/* The Race App — v0.10.1 */
+/* The Race App — v0.10.2 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.10.1';
+  var APP_VERSION = '0.10.2';
   // skriveni developer mod: 7 tapova na broj verzije (prikazuje trošak AI obrade samo vlasniku)
   (function () {
     var n = 0, t0 = 0, el = document.getElementById('version'); if (!el) return;
@@ -1241,8 +1241,7 @@
       return (mh[k] || []).some(function (v) { return v !== null && v !== undefined; });
     });
     var modelName = $('wxModel').selectedOptions[0] ? $('wxModel').selectedOptions[0].textContent : L.model;
-    wxStatus((stale ? 'Offline · ' : '') + esc(L.loc.name) + ' · ' + L.loc.lat.toFixed(3) + ', ' + L.loc.lon.toFixed(3) + ' · ' + modelName +
-      ' · updated ' + new Date(L.at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + (hasSea ? '' : ' · no sea data (inland)'));
+    wxStatus((stale ? 'Offline · ' : '') + esc(L.loc.name) + ' · ' + modelName + ' · updated ' + new Date(L.at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + (hasSea ? ' · with waves & current' : ''));
     // NOW
     var i0 = 0, n = $('wxNow');
     if (ws[i0] !== undefined && ws[i0] !== null) {
@@ -1258,14 +1257,13 @@
     var DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'], MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
     var dayLbl = function (iso) { var d = new Date(iso.slice(0, 10) + 'T12:00:00Z'); return DAYS[d.getUTCDay()] + ' ' + d.getUTCDate() + ' ' + MON[d.getUTCMonth()]; };
     var num = function (x) { return x === null || x === undefined ? '–' : Math.round(x); };
-    var rows = '<div class="wx-day">' + dayLbl(times[0]) + '</div>' +
-      '<div class="wx-row head"><span>TIME</span><span class="wx-wg-h"><span>WIND</span><span>GUST</span></span><span style="text-align:right">DIR</span><span style="text-align:right">°C / 💧</span></div>', prevDay = times[0].slice(0, 10);
-    for (var i = 0; i < N; i++) {
-      var day = times[i].slice(0, 10);
-      if (day !== prevDay) { rows += '<div class="wx-day">' + dayLbl(times[i]) + '</div>'; prevDay = day; }
-      var a = ws[i], gg = wg[i];
-      var ratio = (a !== null && gg) ? Math.max(0.15, Math.min(0.85, a / gg)) : 0.5;
-      rows += '<div class="wx-row"><span class="t">' + times[i].slice(11, 13) + ':00</span>' +
+    // danas otvoreno, ostali dani zatvoreni sa kratkim sažetkom (vetar od–do, udar, smer)
+    var HEAD = '<div class="wx-row head"><span>TIME</span><span class="wx-wg-h"><span>WIND</span><span>GUST</span></span><span style="text-align:right">DIR</span><span style="text-align:right">°C / 💧</span></div>';
+    var CMP = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'], groups = [], g = null;
+    for (var i = 0; i < N; i++) { var day = times[i].slice(0, 10); if (!g || g.day !== day) { g = { day: day, idx: [] }; groups.push(g); } g.idx.push(i); }
+    var rowHtml = function (i) {
+      var a = ws[i], gg = wg[i], ratio = (a !== null && gg) ? Math.max(0.15, Math.min(0.85, a / gg)) : 0.5;
+      var r = '<div class="wx-row"><span class="t">' + times[i].slice(11, 13) + ':00</span>' +
         '<span class="wx-wg" style="--r:' + Math.round(ratio * 100) + '%"><b>' + num(a) + '</b><b>' + num(gg) + '</b></span>' +
         '<span class="wx-dir">' + (wd[i] === null || wd[i] === undefined ? '–' : d3(wd[i]) + arrow(wd[i])) + '</span>' +
         '<span class="wx-misc">' + rainTxt(pp[i], pr[i]) + num(tp[i]) + '°</span>';
@@ -1275,10 +1273,17 @@
         if (v('swell_wave_height') !== null) parts.push('Swell <b>' + v('swell_wave_height').toFixed(1) + ' m</b>' + (v('swell_wave_direction') !== null ? ' ' + d3(v('swell_wave_direction')) + '°' : '') + (v('swell_wave_period') !== null ? ' ' + Math.round(v('swell_wave_period')) + 's' : ''));
         if (v('wind_wave_height') !== null) parts.push('Chop <b>' + v('wind_wave_height').toFixed(1) + ' m</b>');
         if (v('ocean_current_velocity') !== null) parts.push('Current <b>' + (v('ocean_current_velocity') * toKn).toFixed(1) + ' kn</b>' + (v('ocean_current_direction') !== null ? ' → ' + d3(v('ocean_current_direction')) + '°' : ''));
-        if (parts.length) rows += '<div class="wx-sea">' + parts.map(function (x) { return '<span>' + x + '</span>'; }).join('') + '</div>';
+        if (parts.length) r += '<div class="wx-sea">' + parts.map(function (x) { return '<span>' + x + '</span>'; }).join('') + '</div>';
       }
-      rows += '</div>';
-    }
+      return r + '</div>';
+    };
+    var rows = groups.map(function (G, gi) {
+      var sw = G.idx.map(function (i) { return ws[i]; }).filter(function (x) { return x !== null && x !== undefined; }), sg = G.idx.map(function (i) { return wg[i]; }).filter(function (x) { return x !== null && x !== undefined; });
+      var day8 = G.idx.filter(function (i) { var hh = +times[i].slice(11, 13); return hh >= 8 && hh <= 19; }), use = day8.length ? day8 : G.idx, ux = 0, uy = 0;
+      use.forEach(function (i) { if (wd[i] === null || wd[i] === undefined) return; var w = ws[i] || 1; ux += Math.sin(wd[i] * Math.PI / 180) * w; uy += Math.cos(wd[i] * Math.PI / 180) * w; });
+      var md = (Math.atan2(ux, uy) * 180 / Math.PI + 360) % 360, sum = sw.length ? Math.round(Math.min.apply(null, sw)) + '–' + Math.round(Math.max.apply(null, sw)) + ' kn' + (sg.length ? ' · G ' + Math.round(Math.max.apply(null, sg)) : '') + ' · ' + CMP[Math.round(md / 45) % 8] : '';
+      return '<details class="wx-dg"' + (gi === 0 ? ' open' : '') + '><summary><span class="wx-day">' + dayLbl(times[G.idx[0]]) + (gi === 0 ? ' · TODAY' : '') + '</span><span class="wx-dsum">' + sum + '</span></summary>' + HEAD + G.idx.map(rowHtml).join('') + '</details>';
+    }).join('');
     $('wxTable').innerHTML = rows;
     wxSetView(WX.view);
   }
@@ -1310,6 +1315,8 @@
   $('wxSpot').addEventListener('change', function (e) { WX.spot = e.target.value; if (WX.spot !== 'tmp') store.set('wxSpot', WX.spot); wxRenderSpots(); wxFetch(); });
   $('wxModel').addEventListener('change', function (e) { WX.model = e.target.value; store.set('wxModel', WX.model); wxFetch(); });
   $('wxRefresh').addEventListener('click', wxFetch);
+  $('wxPlaceB').addEventListener('click', function () { var p = $('wxPlace'), op = p.classList.toggle('hidden') === false; $('wxPlaceB').classList.toggle('on', op); if (op) setTimeout(function () { $('wxFind').focus(); }, 50); });
+  function wxPlaceClose() { $('wxPlace').classList.add('hidden'); $('wxPlaceB').classList.remove('on'); $('wxFindRes').innerHTML = ''; }
   $('wxSaveSpot').addEventListener('click', function () {
     var name = $('wxSpotName').value.trim();
     var L = WX.last;
@@ -1320,7 +1327,7 @@
     WX.spots.push({ id: id, name: name, lat: src.lat, lon: src.lon });
     if (WX.spot === 'tmp') WX.tmp = null;
     store.set('wxSpots', WX.spots); WX.spot = id; store.set('wxSpot', id); $('wxSpotName').value = '';
-    wxRenderSpots(); toast('Spot saved: ' + name); wxFetch();
+    wxRenderSpots(); toast('Spot saved: ' + name); wxPlaceClose(); wxFetch();
   });
   // pretraga mesta (Open-Meteo geocoding) ili koordinate "45.52, 13.57"
   function wxFind() {
@@ -1352,7 +1359,7 @@
     var s = WX.spots.filter(function (x) { return x.id === WX.spot; })[0]; if (!s) return;
     toast('Delete ' + s.name + '?', 'Delete', function () {
       WX.spots = WX.spots.filter(function (x) { return x.id !== s.id; }); store.set('wxSpots', WX.spots);
-      WX.spot = 'gps'; store.set('wxSpot', 'gps'); wxRenderSpots(); wxFetch();
+      WX.spot = 'gps'; store.set('wxSpot', 'gps'); wxRenderSpots(); wxPlaceClose(); wxFetch();
     }, 4000);
   });
 
