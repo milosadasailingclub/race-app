@@ -1,7 +1,7 @@
-/* The Race App — v0.10.2 */
+/* The Race App — v0.10.3 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.10.2';
+  var APP_VERSION = '0.10.3';
   // skriveni developer mod: 7 tapova na broj verzije (prikazuje trošak AI obrade samo vlasniku)
   (function () {
     var n = 0, t0 = 0, el = document.getElementById('version'); if (!el) return;
@@ -1170,11 +1170,16 @@
     if (WX.spot === 'tmp' && !WX.tmp) WX.spot = 'gps';
     if (WX.spot !== 'gps' && WX.spot !== 'tmp' && !WX.spots.some(function (s) { return s.id === WX.spot; })) WX.spot = 'gps';
     sel.value = WX.spot; $('wxModel').value = WX.model;
-    var canSave = WX.spot === 'gps' || WX.spot === 'tmp';
-    $('wxDelSpot').classList.toggle('hidden', canSave);
-    $('wxSpotName').classList.toggle('hidden', !canSave);
-    $('wxSaveSpot').classList.toggle('hidden', !canSave);
+    // izgled u stilu aplikacije: dugme sa imenom mesta, zvezdica (omiljeno), lista mesta
+    var saved = WX.spot !== 'gps' && WX.spot !== 'tmp', cur = WX.spot === 'gps' ? 'My location' : WX.spot === 'tmp' ? (WX.tmp && WX.tmp.name) : (WX.spots.filter(function (s) { return s.id === WX.spot; })[0] || {}).name;
+    $('wxLocL').textContent = (WX.spot === 'gps' ? '📍 ' : '') + (cur || 'My location');
+    $('wxStar').classList.toggle('on', saved); $('wxStar').setAttribute('aria-label', saved ? 'Remove from favourites' : 'Save as favourite');
+    var li = function (id, name, sub, star) { return '<button class="wx-li' + (id === WX.spot ? ' on' : '') + '" data-spot="' + esc(id) + '"><span>' + name + (sub ? '<small>' + sub + '</small>' : '') + '</span>' + (star ? '<i class="wx-li-star">★</i>' : '') + '</button>'; };
+    $('wxLocList').innerHTML = li('gps', '📍 My location', 'GPS', false) + WX.spots.map(function (s) { return li(s.id, esc(s.name), '', true); }).join('') + (WX.tmp ? li('tmp', '🔎 ' + esc(WX.tmp.name), 'not saved · tap ☆ to save', false) : '');
+    var mo = $('wxModel'); $('wxModL').textContent = mo.selectedOptions[0] ? mo.selectedOptions[0].textContent : 'Best model';
+    $('wxModList').innerHTML = Array.prototype.map.call(mo.options, function (o) { return '<button class="wx-li' + (o.value === WX.model ? ' on' : '') + '" data-model="' + esc(o.value) + '"><span>' + esc(o.textContent) + '</span></button>'; }).join('');
   }
+  function wxDD(id, open) { ['wxLocDD', 'wxModDD'].forEach(function (k) { var el = $(k), on = k === id ? (open === undefined ? el.classList.contains('hidden') : open) : false; el.classList.toggle('hidden', !on); }); $('wxLocB').classList.toggle('on', !$('wxLocDD').classList.contains('hidden')); $('wxModB').classList.toggle('on', !$('wxModDD').classList.contains('hidden')); }
   function wxStatus(msg, err) { var el = $('wxStatus'); el.textContent = msg; el.classList.toggle('err', !!err); }
   function wxLocate() {
     return new Promise(function (res) {
@@ -1241,7 +1246,7 @@
       return (mh[k] || []).some(function (v) { return v !== null && v !== undefined; });
     });
     var modelName = $('wxModel').selectedOptions[0] ? $('wxModel').selectedOptions[0].textContent : L.model;
-    wxStatus((stale ? 'Offline · ' : '') + esc(L.loc.name) + ' · ' + modelName + ' · updated ' + new Date(L.at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + (hasSea ? ' · with waves & current' : ''));
+    wxStatus((stale ? 'Offline · ' : '') + 'Updated ' + new Date(L.at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + (hasSea ? ' · with waves & current' : ''));
     // NOW
     var i0 = 0, n = $('wxNow');
     if (ws[i0] !== undefined && ws[i0] !== null) {
@@ -1315,8 +1320,19 @@
   $('wxSpot').addEventListener('change', function (e) { WX.spot = e.target.value; if (WX.spot !== 'tmp') store.set('wxSpot', WX.spot); wxRenderSpots(); wxFetch(); });
   $('wxModel').addEventListener('change', function (e) { WX.model = e.target.value; store.set('wxModel', WX.model); wxFetch(); });
   $('wxRefresh').addEventListener('click', wxFetch);
-  $('wxPlaceB').addEventListener('click', function () { var p = $('wxPlace'), op = p.classList.toggle('hidden') === false; $('wxPlaceB').classList.toggle('on', op); if (op) setTimeout(function () { $('wxFind').focus(); }, 50); });
-  function wxPlaceClose() { $('wxPlace').classList.add('hidden'); $('wxPlaceB').classList.remove('on'); $('wxFindRes').innerHTML = ''; }
+  function wxPlaceClose() { wxDD(null); $('wxSaveRow').classList.add('hidden'); $('wxFindRes').innerHTML = ''; }
+  $('wxLocB').addEventListener('click', function () { $('wxSaveRow').classList.add('hidden'); wxDD('wxLocDD'); });
+  $('wxModB').addEventListener('click', function () { wxDD('wxModDD'); });
+  $('wxLocList').addEventListener('click', function (e) { var b = e.target.closest('[data-spot]'); if (!b) return; var sel = $('wxSpot'); sel.value = b.getAttribute('data-spot'); sel.dispatchEvent(new Event('change')); wxPlaceClose(); });
+  $('wxModList').addEventListener('click', function (e) { var b = e.target.closest('[data-model]'); if (!b) return; var sel = $('wxModel'); sel.value = b.getAttribute('data-model'); sel.dispatchEvent(new Event('change')); wxRenderSpots(); wxDD(null); });
+  // zvezdica: nesačuvano mesto → ime i Save; sačuvano → ukloni iz omiljenih
+  $('wxStar').addEventListener('click', function () {
+    wxDD(null);
+    if (WX.spot !== 'gps' && WX.spot !== 'tmp') { $('wxDelSpot').click(); return; }
+    var row = $('wxSaveRow'), op = row.classList.toggle('hidden') === false;
+    if (op) { if (!$('wxSpotName').value && WX.spot === 'tmp' && WX.tmp) $('wxSpotName').value = WX.tmp.name; setTimeout(function () { $('wxSpotName').focus(); }, 50); }
+  });
+  $('wxSpotName').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('wxSaveSpot').click(); } });
   $('wxSaveSpot').addEventListener('click', function () {
     var name = $('wxSpotName').value.trim();
     var L = WX.last;
@@ -1353,11 +1369,11 @@
     if (ex) { WX.spot = ex.id; store.set('wxSpot', ex.id); }
     else { WX.tmp = { lat: g.lat, lon: g.lon, name: name }; WX.spot = 'tmp'; }
     $('wxFind').value = ''; $('wxFindRes').innerHTML = '';
-    wxRenderSpots(); if (!ex) $('wxSpotName').value = name; wxFetch();
+    wxRenderSpots(); if (!ex) $('wxSpotName').value = name; wxDD(null); wxFetch(); if (!ex) toast('Tap ☆ to save ' + name + ' as a favourite');
   });
   $('wxDelSpot').addEventListener('click', function () {
     var s = WX.spots.filter(function (x) { return x.id === WX.spot; })[0]; if (!s) return;
-    toast('Delete ' + s.name + '?', 'Delete', function () {
+    toast('Remove ' + s.name + ' from favourites?', 'Remove', function () {
       WX.spots = WX.spots.filter(function (x) { return x.id !== s.id; }); store.set('wxSpots', WX.spots);
       WX.spot = 'gps'; store.set('wxSpot', 'gps'); wxRenderSpots(); wxPlaceClose(); wxFetch();
     }, 4000);
