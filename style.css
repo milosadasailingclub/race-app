@@ -767,3 +767,13 @@ body.trk-fs-on{overflow:hidden}
 .heel-row .heel i{flex:0 0 auto;width:min(26px,calc((100vw - 32px) / 15));height:auto;aspect-ratio:1/1}
 .heel-row .heel i.c{flex-basis:auto}
 .heel-row .heel i.c:not(.g):not(.w):not(.b){box-shadow:0 0 0 2px rgba(255,255,255,.3) inset}
+
+.co-sh{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.co-sg{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px}
+.co-sg .co-lbl{margin:0}
+.co-old{opacity:.75}
+.co-fe{display:flex;gap:6px;align-items:center;margin:6px 0}
+.co-fe input{flex:1;min-width:0}
+.co-fe .icon-btn.sm{min-width:36px;width:36px;height:36px}
+@media (max-width:360px){.co-sg{grid-template-columns:1fr}}
+.co-sh .btn{flex:0 0 auto;width:auto;padding:0 12px}
