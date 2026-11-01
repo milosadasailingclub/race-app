@@ -570,7 +570,7 @@ body.trk-fs-on{overflow:hidden}
 .rm-side{font:800 11px/18px var(--f-num);letter-spacing:.08em;padding:0 6px;border-radius:4px;background:#555;color:#fff}
 .rm-side.p{background:#e8413a}.rm-side.s{background:#2bbf5a}
 .rm-side.big{font-size:14px;line-height:24px;padding:0 10px}
-.rm-nums{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px;text-align:center}
+.rm-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px;text-align:center}
 .rm-nums span{display:block;font-size:10px;letter-spacing:.08em;color:var(--muted)}
 .rm-nums b{font-family:var(--f-num);font-size:30px;line-height:1.1}
 .rm-step{margin-top:6px;justify-content:space-between}
@@ -629,7 +629,7 @@ body.trk-fs-on{overflow:hidden}
 .rm-stage.fs .rm-nav{margin:0}
 .rm-stage.fs .rm-nums b{font-size:24px}
 .rm-stage.fs .rm-step,.rm-stage.fs .rm-tomark{display:none}
-.rm-me{display:grid;grid-template-columns:1fr 1fr;gap:6px;text-align:center;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.rm-me{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--line)}
 .rm-me span{display:block;font-size:10px;letter-spacing:.08em;color:var(--muted)}
 .rm-me b{font-family:var(--f-num);font-size:38px;line-height:1.05}
 .rm-me i{font-style:normal;font-size:12px;color:var(--muted);margin-left:3px}
@@ -864,3 +864,6 @@ body.trk-fs-on{overflow:hidden}
 #coTitle.ren,#trkTitle.ren{cursor:pointer}
 #coTitle.ren::after,#trkTitle.ren::after{content:'';display:inline-block;width:14px;height:14px;margin-left:8px;vertical-align:middle;opacity:.55;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20h4l10.5-10.5a2.1 2.1 0 0 0-4-4L4 16z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20h4l10.5-10.5a2.1 2.1 0 0 0-4-4L4 16z'/%3E%3C/svg%3E") center/contain no-repeat}
 .title-in{width:100%;font:inherit;color:inherit;background:var(--surface);border:1px solid #00e0c6;border-radius:8px;padding:2px 8px;text-transform:none}
+
+.rm-vmg.good{color:#00e0c6}
+.rm-vmg.bad{color:#ff3b5c}
