@@ -398,16 +398,37 @@
   }
 
   /* ---- navigacija ---- */
+  // smer vetra (odakle duva): naučen iz okreta na brodu, pa Calypso, pa prognoza za ovo mesto i vreme
+  function windFrom(me) {
+    try { var tc = window.RA && window.RA.tac ? window.RA.tac() : null; if (tc && tc.axis !== null && tc.axis !== undefined) return tc.axis; } catch (e) {}
+    try { var c = window.Calypso && window.Calypso.now(); if (c) { var tw = window.Calypso.trueWind(c.aws, c.awa, me.sog, me.hdg); if (tw && tw.twd !== null) return tw.twd; } } catch (e) {}
+    if (S.wxD && window.WxRoute) { var sw = WxRoute.sample(S.wxD, me.lat, me.lon, Date.now()); if (sw) return sw.dir; }
+    return null;
+  }
   function tick() {
     var ev = curEv(); if (!ev) return; var R = route(ev), w = R.wps, nav = $('rmNav'); if (!nav || !w.length) return;
     var me = window.RA && window.RA.nav ? window.RA.nav() : null, T = w[Math.min(R.k, w.length - 1)];
     var side = isVia(T) ? '<b class="rm-side via big">VIA · PASS</b>' : T.side === 'P' ? '<b class="rm-side p big">LEAVE TO PORT</b>' : T.side === 'S' ? '<b class="rm-side s big">LEAVE TO STARBOARD</b>' : '<b class="rm-side big">PASS</b>';
-    var h = '<div class="rm-me"><div><span>SOG</span><b>' + (me && me.sog !== null && me.sog !== undefined ? me.sog.toFixed(1) : '–') + '</b><i>kn</i></div><div><span>COG</span><b>' + (me && me.hdg !== null && me.hdg !== undefined && me.sog > 0.5 ? d3(me.hdg) + '°' : '–') + '</b></div></div>';
+    // VMG ka sledećoj tački (via ili zvaničnoj) i poređenje sa drugim halsom: tirkizno = ovaj hals je bolji, crveno = drugi hals je bolji
+    var vmg = null, vcls = '';
+    if (me && me.lat && has(T) && me.sog !== null && me.sog !== undefined && me.hdg !== null && me.hdg !== undefined && me.sog > 0.5) {
+      var bT = brg(me, T); vmg = me.sog * Math.cos(rad(nrm(me.hdg - bT)));
+      var wd = windFrom(me);
+      if (wd === null && !S.wxD && !S.wxTried && window.WxRoute) { S.wxTried = true; ensureWx(ev).catch(function () {}); }
+      if (wd !== null) {
+        var twa = Math.abs(nrm(me.hdg - wd));
+        // samo uz vetar ili niz vetar (na bočnom vetru nema "drugog halsa" za poređenje)
+        if (twa < 75 || twa > 105) { var other = ((2 * wd - me.hdg) % 360 + 360) % 360, vo = me.sog * Math.cos(rad(nrm(other - bT))); vcls = vmg >= vo - 0.05 ? ' good' : ' bad'; }
+      }
+    }
+    var h = '<div class="rm-me"><div><span>SOG</span><b>' + (me && me.sog !== null && me.sog !== undefined ? me.sog.toFixed(1) : '–') + '</b><i>kn</i></div>' +
+      '<div><span>VMG</span><b class="rm-vmg' + vcls + '">' + (vmg === null ? '–' : vmg.toFixed(1)) + '</b><i>kn</i></div>' +
+      '<div><span>COG</span><b>' + (me && me.hdg !== null && me.hdg !== undefined && me.sog > 0.5 ? d3(me.hdg) + '°' : '–') + '</b></div></div>';
     h += '<div class="rm-next"><button class="rm-ar" id="rmKp" aria-label="Previous point"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg></button><div class="rm-tc"><div class="rm-tl"><span class="rm-k">' + lab(w, R.k) + '/' + w.filter(function (p) { return !isVia(p); }).length + '</span>' + side + '</div><b class="rm-tn" title="' + esc(nmOf(w, R.k)) + '">' + esc(nmOf(w, R.k)) + '</b></div><button class="rm-ar" id="rmKn" aria-label="Next point"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5 16 12l-6.5 6.5"/></svg></button></div>';
     if (!has(T)) h += '<p class="small rm-miss">No coordinates for this point. Tap Edit and add them (NoR list of waypoints, or tap the map).</p>';
     else if (me && me.lat) {
       var d = distNm(me, T), b = brg(me, T), vmc = me.sog !== null && me.hdg !== null ? me.sog * Math.cos(rad(nrm(me.hdg - b))) : null, eta = vmc && vmc > 0.3 ? d / vmc * 3600 : null;
-      h += '<div class="rm-nums"><div><span>BRG</span><b>' + d3(b) + '°</b></div><div><span>DST nm</span><b>' + (d < 10 ? d.toFixed(2) : d.toFixed(1)) + '</b></div><div><span>VMG kn</span><b>' + (vmc === null ? '–' : vmc.toFixed(1)) + '</b></div><div><span>ETA</span><b>' + (eta === null ? '–' : (eta >= 3600 ? Math.floor(eta / 3600) + 'h' + ('0' + Math.floor(eta % 3600 / 60)).slice(-2) : Math.floor(eta / 60) + ':' + ('0' + Math.round(eta % 60)).slice(-2))) + '</b></div></div>';
+      h += '<div class="rm-nums"><div><span>BRG</span><b>' + d3(b) + '°</b></div><div><span>DST nm</span><b>' + (d < 10 ? d.toFixed(2) : d.toFixed(1)) + '</b></div><div><span>ETA</span><b>' + (eta === null ? '–' : (eta >= 3600 ? Math.floor(eta / 3600) + 'h' + ('0' + Math.floor(eta % 3600 / 60)).slice(-2) : Math.floor(eta / 60) + ':' + ('0' + Math.round(eta % 60)).slice(-2))) + '</b></div></div>';
       // auto-prelazak: ušao u krug obilaska, pa počeo da se udaljava
       var dm = d * 1852;
       if (isVia(T)) {
