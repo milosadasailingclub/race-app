@@ -1,7 +1,7 @@
-/* The Race App — v0.10.12 */
+/* The Race App — v0.10.13 */
 (function () {
   'use strict';
-  var APP_VERSION = '0.10.12';
+  var APP_VERSION = '0.10.13';
   // skriveni developer mod: 7 tapova na broj verzije (prikazuje trošak AI obrade samo vlasniku)
   (function () {
     var n = 0, t0 = 0, el = document.getElementById('version'); if (!el) return;
@@ -1436,6 +1436,8 @@
       });
     }
   }
+  // tragovi i video su u IndexedDB: traži od browsera da ih ne briše sam kad mu zatreba prostor
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persisted().then(function (p) { if (!p) return navigator.storage.persist(); }).catch(function () {}); } catch (e) {}
   window.RA = { setTitle: setTitle, nav: function () { return S.lastFix ? { lat: S.lastFix.lat, lon: S.lastFix.lon, t: S.lastFix.t, sog: S.sog, hdg: S.hdg } : null; }, extFix: function (p) { p.__ext = true; onFix(p); }, tac: function () { return tacInfo(); }, setMark: function () { setMarkHere(); }, toast: toast, store: store, show: show, goPageId: function (id) { goPageId(id); } };
   window.__ra = { S: S, T: T, L: L, FZ: FZ, LW: LW, cfg: cfg, calibrate: calibrate, show: show };
 })();
