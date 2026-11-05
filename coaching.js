@@ -256,6 +256,7 @@
   function saveRegattas(a) { sset('regattas', a); }
   function nameOf(r, id) { var c = (r.comp || {})[id]; return c ? c.name + (c.sail ? ' ' + c.sail : '') : 'Boat ' + id; }
   function readFile(f) {
+    if (f._t !== undefined) return Promise.resolve(f._t);
     if (/\.gz$/i.test(f.name)) {
       if (typeof DecompressionStream === 'undefined') return Promise.reject(new Error('This browser cannot open .gz files. Unzip it first.'));
       return new Response(f.stream().pipeThrough(new DecompressionStream('gzip'))).text();
@@ -287,6 +288,85 @@
     rg.races.forEach(function (r) { r.rows.forEach(function (row) { if (rg.comp[row.id]) { row.name = rg.comp[row.id].name; row.sail = rg.comp[row.id].sail; } }); });
     if (/^Regatta \d/.test(rg.name)) rg.name = k.name;
     rg.knownApplied = 2; return true;
+  }
+  /* ---- ZIP: raspakuj u "fajlove" (samo tekst) ---- */
+  function unzip(f) {
+    return f.arrayBuffer().then(function (buf) {
+      var v = new DataView(buf), u8 = new Uint8Array(buf), e = -1, dec = new TextDecoder();
+      for (var i = buf.byteLength - 22; i >= Math.max(0, buf.byteLength - 66000); i--) if (v.getUint32(i, true) === 0x06054b50) { e = i; break; }
+      if (e < 0) throw new Error('Not a ZIP file');
+      var n = v.getUint16(e + 10, true), o = v.getUint32(e + 16, true), list = [];
+      for (var k = 0; k < n; k++) {
+        if (v.getUint32(o, true) !== 0x02014b50) break;
+        var meth = v.getUint16(o + 10, true), cs = v.getUint32(o + 20, true), nl = v.getUint16(o + 28, true), xl = v.getUint16(o + 30, true), cl = v.getUint16(o + 32, true), lo = v.getUint32(o + 42, true);
+        var name = dec.decode(u8.subarray(o + 46, o + 46 + nl)); o += 46 + nl + xl + cl;
+        if (/\/$/.test(name) || /(^|\/)(__MACOSX|\.)/.test(name) || !/\.(csv|txt|tsv|json|gpx)$/i.test(name)) continue;
+        var d0 = lo + 30 + v.getUint16(lo + 26, true) + v.getUint16(lo + 28, true);
+        list.push({ name: name, meth: meth, data: u8.slice(d0, d0 + cs) });
+      }
+      return Promise.all(list.map(function (x) {
+        if (x.meth === 0) return { name: x.name, _t: dec.decode(x.data) };
+        if (x.meth !== 8) return null;
+        if (typeof DecompressionStream === 'undefined') throw new Error('This browser cannot open ZIP files. Unzip it first.');
+        return new Response(new Blob([x.data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text().then(function (t) { return { name: x.name, _t: t }; });
+      })).then(function (a) { return a.filter(Boolean); });
+    });
+  }
+  function expand(files) {
+    return Promise.all(files.map(function (f) { return /\.zip$/i.test(f.name) || f.type === 'application/zip' ? unzip(f) : [f]; })).then(function (a) { return [].concat.apply([], a); });
+  }
+  /* ---- trag po brodu (jedan CSV po brodu i trci, npr. Race3/Race3_4_Prezime_SRB344.csv) -> CSV flote po trci ---- */
+  function perBoat(all) {
+    var R = window.Regatta, map = {}, groups = {}, cnt = 0;
+    all.forEach(function (x) { // summary: race, sailor, device
+      var L = x.t.trim().split(/\r?\n/), h = L[0].toLowerCase().split(',');
+      var cr = h.indexOf('race'), cs = h.indexOf('sailor'), cd = h.indexOf('device');
+      if (cr < 0 || cs < 0 || cd < 0 || h.indexOf('lat') >= 0) return; x.used = true;
+      L.slice(1).forEach(function (l) { var c = l.split(','); if (c[cd]) map[c[cr] + '|' + fold(c[cs])] = c[cd]; });
+    });
+    all.forEach(function (x) {
+      if (x.used || /^\s*[{\[<]/.test(x.t)) return;
+      var h = x.t.slice(0, 300).split(/\r?\n/)[0].toLowerCase();
+      if (!/\b(time|timestamp|utc)\b/.test(h) || !/\blat/.test(h) || /\b(device|deviceid|boatid|tracker|boat)\b/.test(h)) return;
+      var base = x.f.name.split('/').pop().replace(/\.\w+$/, ''), full = x.f.name, m = /race\s*_?(\d+)/i.exec(full);
+      if (!m) return;
+      var parts = base.split('_'), sail = (parts.filter(function (s) { return /^[A-Z]{3}\d+$/i.test(s); })[0] || '').toUpperCase(),
+        who = parts.filter(function (s, i) { return i > 0 && !/^\d+$/.test(s) && !/^(DNF|DNS|DSQ|RET|OCS|DNC|BFD|UFD)$/i.test(s) && s.toUpperCase() !== sail; }).join(' ');
+      var D = R.parseFleetCsv('device,' + x.t.replace(/\r?\n/g, '\n0,').replace(/\n0,\s*$/, ''));
+      if (!D || !D['0'] || D['0'].length < 30) return;
+      var n = +m[1]; (groups[n] = groups[n] || []).push({ who: who, sail: sail, P: D['0'], dev: map[n + '|' + fold(who)] || null }); cnt++;
+    });
+    return cnt >= 2 ? groups : null;
+  }
+  function boatId(rg, b) {
+    if (b.dev) return b.dev;
+    var dg = b.sail.replace(/\D/g, ''), hit = rg ? Object.keys(rg.comp || {}).filter(function (id) { return String(rg.comp[id].sail || '').replace(/\D/g, '') === dg; }) : [];
+    return hit.length === 1 ? hit[0] : (b.sail || b.who);
+  }
+  // vrati tragove flote u postojeću regatu (legovi, rezultati i beleške ostaju), pa iznova napravi moje trke u Trackingu
+  function restoreFleet(groups) {
+    var ns = Object.keys(groups), rgs = regattas(), hit = null;
+    rgs.forEach(function (rg) {
+      var ok = ns.filter(function (n) { var B = groups[n], t0 = Math.min.apply(null, B.map(function (b) { return b.P[0][0]; })), t1 = Math.max.apply(null, B.map(function (b) { return b.P[b.P.length - 1][0]; })); return rg.races.some(function (r) { return r.gun >= t0 && r.gun <= t1; }); }).length;
+      if (ok && (!hit || ok > hit.ok)) hit = { rg: rg, ok: ok };
+    });
+    if (!hit) return null;
+    var rg = hit.rg, done = 0, p = Promise.resolve();
+    ns.forEach(function (n) {
+      var B = groups[n], t0 = Math.min.apply(null, B.map(function (b) { return b.P[0][0]; })), t1 = Math.max.apply(null, B.map(function (b) { return b.P[b.P.length - 1][0]; }));
+      var r = rg.races.filter(function (r) { return r.gun >= t0 && r.gun <= t1; })[0]; if (!r) return;
+      var boats = {};
+      B.forEach(function (b) { var last = -1e15; boats[boatId(rg, b)] = b.P.filter(function (q) { if (q[0] - last < 2000) return false; last = q[0]; return true; }).map(function (q) { return [q[0], +q[1].toFixed(6), +q[2].toFixed(6), q[3] === null ? null : +(+q[3]).toFixed(1)]; }); });
+      p = p.then(function () { return window.Track.put({ id: 'f' + rg.id + '_' + r.n, fleet: true, boats: boats, start: r.gun, points: [] }); }).then(function () { done++; });
+    });
+    return p.then(function () { return rg.me ? relinkMe(rg.id, rg.me) : null; }).then(function () { return { rg: rg, n: done }; });
+  }
+  function fleetFiles(groups, rg) {
+    return Object.keys(groups).map(function (n) {
+      var t = 'device,time,lat,lon,sog,cog';
+      groups[n].forEach(function (b) { var id = boatId(rg, b); b.P.forEach(function (q) { t += '\n' + id + ',' + q[0] + ',' + q[1] + ',' + q[2] + ',' + (q[3] === null ? '' : q[3]) + ',' + (q[4] === null ? '' : q[4]); }); });
+      return { name: 'Race' + n + '.csv', _t: t };
+    });
   }
   var regPending = null;
   function importRegatta(files) {
@@ -517,7 +597,7 @@
     if (HS) h += '<details class="co-sec co-race co-grp"' + (SED ? ' open' : '') + '><summary>SETUP &amp; NOTES' + (function () { var n = Object.keys(HS.vals).filter(function (k) { return HS.vals[k]; }).length; return n ? ' · ' + n + ' filled' : ''; })() + '</summary>' + setupHtml(HS.vals, HS.notes, PH && Object.keys(PH.vals).some(function (k) { return PH.vals[k]; }) ? '<div class="row"><button class="btn sm" id="coSetPrev">Copy setup from race ' + (n - 1) + '</button></div>' : '') + '</details>';
     $('coBody').innerHTML = h;
     if (r.legs && window.Track && window.RaceReplay) (SO ? Promise.resolve({ boats: SO.fleet }) : window.Track.get('f' + rgId + '_' + n)).then(function (f) {
-      if (!f || !f.boats) { $('rrBox').innerHTML = '<p class="small">Fleet tracks not found. Import the race files again.</p>'; return; }
+      if (!f || !f.boats) { $('rrBox').innerHTML = '<div class="co-miss"><p class="small">The tracks of this race are no longer on this phone. Import the race files (CSV or ZIP) to bring them back.</p><label class="btn primary co-imp">Import files<input type="file" id="coImport" multiple accept=".csv,.gz,.zip,.txt,.tsv,.json,text/csv,application/zip" hidden></label></div>'; return; }
       window.RaceReplay.open($('rrBox'), r, f.boats, { me: me, label: lbl, short: function (id) { var c = (rg.comp || {})[id], sl = c && c.sail ? String(c.sail).trim() : ''; if (!sl) return id.slice(-3); return /[a-z]/i.test(sl) ? sl.toUpperCase() : ((c.nat ? String(c.nat).toUpperCase() + ' ' : '') + sl); } });
       var k = rgId + ':' + n; if (RT.key !== k) { RT.key = k; RT.model = null; RT.opt = {}; RT.sel = null; }
       var calc = function (id) {
@@ -608,7 +688,7 @@
       return '<button class="cl-card co-card" data-rs="' + e.id + '"><span class="cl-name">' + esc(e.title) + '</span><span class="cl-meta">' + (e.m.start ? dateTxt(e.m.start) : '') + '</span>' +
         '<span class="co-sub">' + esc(e.place) + ' · ' + (e.wx && !e.wx.err ? (Math.round(e.wx.min) === Math.round(e.wx.max) ? Math.round(e.wx.min) : Math.round(e.wx.min) + '–' + Math.round(e.wx.max)) + ' kn ' + compass(e.wx.dir) : (e.m.windDir !== null ? 'wind ~' + d3(e.m.windDir) + '°' : '')) + ' · ' + f1(e.m.dist) + ' NM</span></button>';
     }).join('') : '<p class="small">' + (q ? 'Nothing matches.' : 'Nothing here yet. Add a saved track or import files below.') + '</p>';
-    h += '<div class="co-add"><button class="btn" id="coAddTrack">+ Saved track</button><label class="btn co-imp">Import files<input type="file" id="coImport" multiple accept=".gpx,.csv,.gz,.txt,.tsv,.json,.html,.htm,text/csv,application/gpx+xml" hidden></label></div><div id="coPick"></div><div id="coRegPick"></div>';
+    h += '<div class="co-add"><button class="btn" id="coAddTrack">+ Saved track</button><label class="btn co-imp">Import files<input type="file" id="coImport" multiple accept=".gpx,.csv,.gz,.zip,.txt,.tsv,.json,.html,.htm,text/csv,application/gpx+xml,application/zip" hidden></label></div><div id="coPick"></div><div id="coRegPick"></div>';
     $('coBody').innerHTML = h;
   }
   function fleetHtml(e) {
@@ -708,9 +788,15 @@
       }
       if (ev.target.id === 'coResFile' && ev.target.files.length) { var rid = cur.slice(3); ev.target.files[0].text().then(function (t) { resultsInto(rid, t); }); return; }
       if (ev.target.id !== 'coImport' || !ev.target.files.length) return;
-      var files = Array.prototype.slice.call(ev.target.files); toast('Reading ' + files.length + ' file' + (files.length > 1 ? 's' : '') + '…');
+      var picked = Array.prototype.slice.call(ev.target.files), files; toast('Reading ' + picked.length + ' file' + (picked.length > 1 ? 's' : '') + '…'); ev.target.value = '';
       // fajlovi sa više brodova -> regata (poređenje sa flotom); inače trag jednog broda
-      Promise.all(files.map(function (f) { return readFile(f).then(function (t) { return { f: f, t: t }; }); })).then(function (all) {
+      expand(picked).then(function (fs) { files = fs; return Promise.all(files.map(function (f) { return readFile(f).then(function (t) { return { f: f, t: t }; }); })); }).then(function (all) {
+        var G = perBoat(all);
+        if (G) {
+          var rs = restoreFleet(G);
+          if (rs) return rs.then(function (x) { toast(x.rg.name + ': tracks back for ' + x.n + ' race' + (x.n === 1 ? '' : 's')); render(); });
+          return importRegatta(fleetFiles(G, null)).catch(function () { throw new Error('No regatta here for these tracks. Import the full race files (with marks) first.'); });
+        }
         var fleet = all.some(function (x) { if (/^\s*[{\[]/.test(x.t) || /<gpx/i.test(x.t.slice(0, 500))) return false; var D = window.Regatta.parseFleetCsv(x.t); return D && Object.keys(D).filter(function (k) { return D[k].length > 30; }).length >= 3; });
         if (fleet) return importRegatta(files).catch(function (err) { toast(err.message + ' – importing as single tracks', null, null, 4000); return seq(files, importFile); });
         return seq(files.filter(function (f) { return !/\.(txt|json|html?|tsv)$/i.test(f.name); }), importFile);
