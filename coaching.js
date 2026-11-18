@@ -81,7 +81,10 @@
     var e = entries().filter(function (x) { return x.id === eid; })[0]; if (!e) { cur = null; renderList(); return; }
     title(e.title, renEntry(eid)); $('coBody').innerHTML = '<p class="small">Analysing the track…</p>';
     soloOf(e).then(function (SO) { if (cur !== 'rs:' + eid) return; renderRace(SO.rg.id, 1, SO); })
-      .catch(function (err) { $('coBody').innerHTML = '<p class="small">' + esc(err.message) + '. Open it in Tracking instead.</p><div class="row"><button class="btn" id="coOpenTrk">Open track replay</button></div>'; });
+      .catch(function (err) {
+        var gone = /not found/i.test(err.message);
+        $('coBody').innerHTML = '<p class="small">' + (gone ? 'The track of this session was deleted from Tracking, so there is nothing to replay.' : esc(err.message) + '. Open it in Tracking instead.') + '</p><div class="row">' + (gone ? '' : '<button class="btn" id="coOpenTrk">Open track replay</button>') + '<button class="btn danger" id="coDel" data-eid="' + esc(eid) + '">Delete session</button></div>';
+      });
   }
   // posle izmene polja: osveži samo deo SETUP (bez ponovnog crtanja replay-a)
   function reSetup() {
@@ -755,7 +758,21 @@
     if (b.id === 'coSetPrev') { var pq = cur.split(':'), Hp = raceHost(pq[1], +pq[2] - 1), Hc = raceHost(pq[1], +pq[2]); if (Hp && Hc) { Object.keys(Hp.vals).forEach(function (k) { if (Hp.vals[k]) Hc.set(k, Hp.vals[k]); }); toast('Setup copied from race ' + (+pq[2] - 1)); reSetup(); } return; }
     if (b.id === 'coMeChg') { var pk = $('coMePick'); if (pk) pk.hidden = !pk.hidden; return; }
     if (b.id === 'coResGo') { var tx = ($('coResTxt') || {}).value || ''; resultsInto(cur.slice(3), tx); return; }
-    if (b.id === 'coRgDel') { var rid = cur.slice(3); toast('Delete this regatta? Your race entries stay.', 'Delete', function () { saveRegattas(regattas().filter(function (x) { return x.id !== rid; })); cur = null; renderList(); }, 4000); return; }
+    if (b.id === 'coRgDel') {
+      // regata se briše cela: plovovi u Debriefu, tragovi flote i tragovi napravljeni uvozom (tvoji snimljeni tragovi u Trackingu ostaju)
+      var rid = cur.slice(3), rgd = regattas().filter(function (x) { return x.id === rid; })[0]; if (!rgd) return;
+      toast('Delete ' + rgd.name + ' with its ' + rgd.races.length + ' races?', 'Delete', function () {
+        var mine = entries().filter(function (e) { return e.regatta === rid; });
+        saveEntries(entries().filter(function (e) { return e.regatta !== rid; }));
+        saveRegattas(regattas().filter(function (x) { return x.id !== rid; }));
+        cur = null; renderList(); toast(rgd.name + ' deleted');
+        if (!window.Track) return;
+        var p = Promise.resolve();
+        rgd.races.forEach(function (r) { p = p.then(function () { return window.Track.del('f' + rid + '_' + r.n); }).catch(function () {}); });
+        mine.forEach(function (e) { if (e.trackId) p = p.then(function () { return window.Track.get(e.trackId); }).then(function (t) { if (t && t.imported) return window.Track.del(t.id); }).catch(function () {}); });
+      }, 5000);
+      return;
+    }
     if (b.id === 'coFlip') {
       var ef = entries().filter(function (x) { return x.id === eidCur(); })[0]; if (!ef) return;
       window.Track.get(ef.trackId).then(function (t) { if (!t) return; t.flip = !t.flip; return window.Track.put(t).then(function () { update(ef.id, { m: measure(t.points, t) }); toast('Wind side flipped'); }); });
