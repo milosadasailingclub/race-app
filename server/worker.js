@@ -7,7 +7,12 @@
      ANTHROPIC_API_KEY  (Secret)  - your Anthropic API key, never in the app
      MODEL              (Text, optional) - Claude model id, e.g. from console.anthropic.com
      MAX_INPUT_TOKENS   (Text, optional) - limit po obradi, podrazumevano 80000 (oko $0.25)
+     LIMITS             (KV namespace binding) - brojači za ograničenje poziva (preporučeno; bez njega brojači su samo u memoriji)
+     LIMIT_IP_HOUR / LIMIT_IP_DAY / LIMIT_DAY (Text, optional) - podrazumevano 6 / 20 / 150 AI obrada
    Zaštita troška: pre obrade server besplatno prebroji tokene (count_tokens) i odbije preveliku obradu.
+   Ograničenje poziva: po IP adresi (na sat i na dan) i ukupno na dan za ceo server, pre bilo kakvog poziva Anthropic-u.
+   Provera Origin-a štiti samo od tuđih sajtova; skripta van browsera je zaobilazi, zato su ovi limiti glavna zaštita
+   dok ne dođe prijava korisnika i serverska provera kredita.
 */
 const ALLOWED = ['https://milosadasailingclub.github.io', 'http://localhost:8765'];
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -100,6 +105,27 @@ async function pickModel(env, force) {
   return cachedModel;
 }
 
+// ---- ograničenje poziva (KV ako postoji, inače memorija ove instance) ----
+const MEM = new Map();
+async function ipKey(ip) {
+  const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('race-app|' + ip));   // IP se ne čuva u čitljivom obliku
+  return [...new Uint8Array(h)].slice(0, 8).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function getN(env, k) { if (env.LIMITS) return +(await env.LIMITS.get(k)) || 0; const v = MEM.get(k); return v && v.exp > Date.now() ? v.n : 0; }
+async function setN(env, k, n, ttl) { if (env.LIMITS) return env.LIMITS.put(k, String(n), { expirationTtl: ttl }); MEM.set(k, { n, exp: Date.now() + ttl * 1000 }); }
+async function takeQuota(env, ip) {
+  const d = new Date(), day = d.toISOString().slice(0, 10), hour = d.toISOString().slice(0, 13), id = await ipKey(ip || 'unknown');
+  const L = [
+    { k: 'h:' + id + ':' + hour, max: +(env.LIMIT_IP_HOUR || 6), ttl: 7200, msg: 'Too many AI requests from this connection. Try again in an hour.' },
+    { k: 'd:' + id + ':' + day, max: +(env.LIMIT_IP_DAY || 20), ttl: 172800, msg: 'Daily AI limit for this connection reached. Try again tomorrow.' },
+    { k: 'all:' + day, max: +(env.LIMIT_DAY || 150), ttl: 172800, msg: 'The AI server reached its daily limit. Try again tomorrow.' }
+  ];
+  const n = await Promise.all(L.map(x => getN(env, x.k)));
+  for (let i = 0; i < L.length; i++) if (n[i] >= L[i].max) return L[i].msg;
+  await Promise.all(L.map((x, i) => setN(env, x.k, n[i] + 1, x.ttl)));
+  return null;
+}
+
 function cors(origin) {
   const ok = ALLOWED.includes(origin);
   return { 'Access-Control-Allow-Origin': ok ? origin : ALLOWED[0], 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type', 'Vary': 'Origin' };
@@ -111,7 +137,7 @@ export default {
     const origin = req.headers.get('Origin') || '';
     if (req.method === 'OPTIONS') return new Response(null, { headers: cors(origin) });
     const url = new URL(req.url);
-    if (req.method === 'GET' && url.pathname === '/') return json({ ok: true, service: 'race-app-ai', model: env.ANTHROPIC_API_KEY ? await pickModel(env) : 'no key' }, 200, origin);
+    if (req.method === 'GET' && url.pathname === '/') return json({ ok: true, service: 'race-app-ai', key: !!env.ANTHROPIC_API_KEY, limits: env.LIMITS ? 'kv' : 'memory' }, 200, origin);
     const isCourse = url.pathname === '/course';
     if (req.method !== 'POST' || (url.pathname !== '/summarize' && !isCourse)) return json({ error: 'Not found' }, 404, origin);
     if (!ALLOWED.includes(origin)) return json({ error: 'Origin not allowed' }, 403, origin);
@@ -129,6 +155,9 @@ export default {
       else if (t === 'text/plain') content.push({ type: 'text', text: '===== ' + (d.name || 'document') + ' =====\n' + String(d.data).slice(0, 200000) });
     }
     if (!content.length) return json({ error: 'Unsupported file type (use PDF or a photo)' }, 400, origin);
+    // limit poziva: pre brojanja tokena i pre prave obrade (zahtev se broji i ako kasnije ne uspe)
+    const over = await takeQuota(env, req.headers.get('CF-Connecting-IP'));
+    if (over) return new Response(JSON.stringify({ error: over, code: 'rate_limited' }), { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': '3600', ...cors(origin) } });
     const dn = docs.map(d => String(d.name || 'document'));
     if (isCourse) content.push({ type: 'text', text: COURSE_PROMPT.split('{{NAME}}').join(name).split('{{DOCS}}').join(dn.join(' | ')).split('{{CLS}}').join(String(body.cls || 'not given').slice(0, 80)).split('{{SCHEMA}}').join(COURSE_SCHEMA) });
     else content.push({ type: 'text', text: await livePrompt(name, dn) });
